@@ -51,14 +51,14 @@ export const Sidebar: React.FC = () => {
         {
           id: 'recent',
           label: 'Recent',
-          icon: <Clock className="w-4 h-4 shrink-0" />,
-          isComingSoon: true
+          path: '/recent',
+          icon: <Clock className="w-4 h-4 shrink-0" />
         },
         {
           id: 'starred',
           label: 'Starred',
-          icon: <Star className="w-4 h-4 shrink-0" />,
-          isComingSoon: true
+          path: '/starred',
+          icon: <Star className="w-4 h-4 shrink-0" />
         }
       ]
     },
@@ -68,14 +68,14 @@ export const Sidebar: React.FC = () => {
         {
           id: 'my-workbooks',
           label: 'My Workbooks',
-          path: '/',
+          path: '/files',
           icon: <FileSpreadsheet className="w-4 h-4 shrink-0" />
         },
         {
           id: 'folders',
           label: 'Folders',
-          icon: <Folder className="w-4 h-4 shrink-0" />,
-          isComingSoon: true
+          path: '/folders',
+          icon: <Folder className="w-4 h-4 shrink-0" />
         }
       ]
     },

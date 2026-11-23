@@ -52,6 +52,8 @@ export const SpreadsheetEditorPlaceholder: React.FC = () => {
             name: `Workbook (${workbookId})`,
             createdAt: Date.now(),
             updatedAt: Date.now(),
+            lastOpenedAt: Date.now(),
+            isStarred: false,
             sheetIds: [sheetId],
             activeSheetId: sheetId,
             folderId: null
@@ -69,6 +71,9 @@ export const SpreadsheetEditorPlaceholder: React.FC = () => {
 
           await workbookRepository.save(wb);
           await sheetRepository.save(initialSheet);
+        } else {
+          await workbookRepository.updateLastOpened(workbookId);
+          wb = (await workbookRepository.getById(workbookId)) || wb;
         }
 
         setCurrentWorkbook(wb);

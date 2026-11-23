@@ -18,6 +18,8 @@ export interface Workbook {
   name: string;
   createdAt: number;
   updatedAt: number;
+  lastOpenedAt?: number;
+  isStarred?: boolean;
   sheetIds: string[];
   activeSheetId: string;
   folderId?: string | null;
@@ -32,6 +34,8 @@ export interface WorkbookSummary {
   name: string;
   createdAt: number;
   updatedAt: number;
+  lastOpenedAt?: number;
+  isStarred?: boolean;
   sheetCount: number;
   activeSheetId: string;
   folderId?: string | null;

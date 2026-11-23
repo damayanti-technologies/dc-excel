@@ -10,10 +10,13 @@ import {
   WifiOff,
   Settings,
   Menu,
-  Database
+  Database,
+  Plus
 } from 'lucide-react';
 import { useUIPreferencesStore } from '@/stores/ui-preferences-store';
 import { useAppStore } from '@/stores/app-store';
+import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useWorkbookStore } from '@/stores/workbook-store';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APP_CONFIG } from '@/app/config/constants';
@@ -27,19 +30,51 @@ export const Header: React.FC = () => {
   const isOnline = useNetworkStatus();
   const { isInstallable, triggerInstall } = usePWAInstall();
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu);
+  const openCreateWorkbook = useWorkspaceStore((state) => state.openCreateWorkbook);
+  const folders = useWorkspaceStore((state) => state.folders);
+  const currentWorkbook = useWorkbookStore((state) => state.currentWorkbook);
 
   // Compute breadcrumbs based on current pathname
   const getBreadcrumbs = (): BreadcrumbItem[] => {
-    if (location.pathname.startsWith('/workbook/')) {
-      const id = location.pathname.split('/')[2] || 'untitled';
+    const path = location.pathname;
+
+    if (path.startsWith('/workbook/')) {
+      const id = path.split('/')[2] || 'untitled';
       return [
-        { label: 'Workbooks', href: '/' },
-        { label: id }
+        { label: 'Workbooks', href: '/files' },
+        { label: currentWorkbook?.name || id }
       ];
     }
-    if (location.pathname === '/settings') {
+
+    if (path.startsWith('/folders/')) {
+      const folderId = path.split('/')[2];
+      const folder = folders.find((f) => f.id === folderId);
+      return [
+        { label: 'Folders', href: '/folders' },
+        { label: folder?.name || 'Folder' }
+      ];
+    }
+
+    if (path === '/recent') {
+      return [{ label: 'Recent' }];
+    }
+
+    if (path === '/starred') {
+      return [{ label: 'Starred' }];
+    }
+
+    if (path === '/files') {
+      return [{ label: 'My Workbooks' }];
+    }
+
+    if (path === '/folders') {
+      return [{ label: 'Folders' }];
+    }
+
+    if (path === '/settings') {
       return [{ label: 'Settings' }];
     }
+
     return [{ label: 'Home' }];
   };
 
@@ -113,6 +148,17 @@ export const Header: React.FC = () => {
 
       {/* Right: Status, Controls, Theme, Install, Settings */}
       <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* "New Workbook" Action Button */}
+        <button
+          type="button"
+          onClick={() => openCreateWorkbook()}
+          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors shadow-xs cursor-pointer"
+          title="Create a new spreadsheet workbook"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">New Workbook</span>
+        </button>
+
         {/* Network Status Pill */}
         <div
           className={`flex items-center gap-1.5 text-xs px-2 sm:px-2.5 py-1 rounded-full font-medium transition-colors select-none ${
@@ -142,7 +188,7 @@ export const Header: React.FC = () => {
           <button
             type="button"
             onClick={() => void triggerInstall()}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors shadow-xs"
+            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-surface-secondary border border-border text-foreground hover:bg-surface-elevated transition-colors shadow-xs"
             title="Install OmniSheet as desktop or mobile PWA"
           >
             <Download className="w-3.5 h-3.5" />

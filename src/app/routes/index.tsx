@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { DashboardPlaceholder } from '@/features/dashboard/DashboardPlaceholder';
+import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { SpreadsheetEditorPlaceholder } from '@/features/spreadsheet/SpreadsheetEditorPlaceholder';
 import { SettingsPlaceholder } from '@/features/settings/SettingsPlaceholder';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
@@ -13,7 +13,27 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <DashboardPlaceholder />
+        element: <DashboardPage />
+      },
+      {
+        path: 'recent',
+        element: <DashboardPage viewModeOverride="recent" />
+      },
+      {
+        path: 'starred',
+        element: <DashboardPage viewModeOverride="starred" />
+      },
+      {
+        path: 'files',
+        element: <DashboardPage viewModeOverride="all" />
+      },
+      {
+        path: 'folders',
+        element: <DashboardPage viewModeOverride="folders" />
+      },
+      {
+        path: 'folders/:folderId',
+        element: <DashboardPage viewModeOverride="folder_detail" />
       },
       {
         path: 'workbook/:workbookId',

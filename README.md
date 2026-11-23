@@ -7,7 +7,8 @@
 ## 1. Architectural Highlights
 
 - **Local-First & Offline-First:** Persists all workbooks, worksheets, folders, and preferences in browser IndexedDB. Runs standalone without an internet connection.
-- **Design System & Theme Engine:** Features an Excel-inspired Deep Navy (`#0f172a`) and Professional Blue (`#2563eb` / `#3b82f6`) palette with immediate, flicker-free switching between **Light**, **Dark**, and **System** themes.
+- **Home Dashboard & Workspace (`Stage 3`):** Full workbook management suite including creating, opening, renaming, duplicate cloning (deep copy), deleting with sheet cascades, favoriting/starring, folder organization with dynamic workbook counts, instant search, and sorting.
+- **Design System & Theme Engine (`Stage 2`):** Features an Excel-inspired Deep Navy (`#0f172a`) and Professional Blue (`#2563eb` / `#3b82f6`) palette with immediate, flicker-free switching between **Light**, **Dark**, and **System** themes.
 - **Reusable Component Library:** Built with 21 accessible, keyboard-friendly UI components (Button, IconButton, Input, SearchInput, Dropdown, Tooltip, Modal, ConfirmationDialog, ContextMenu, Badge, Tabs, Toggle, Checkbox, Radio, Select, Toast, LoadingState, EmptyState, ErrorState, Divider, Breadcrumb).
 - **Responsive Application Shell:** Complete top header with breadcrumbs, collapsible desktop sidebar (224px / 64px with tooltips), and off-canvas mobile drawer navigation.
 - **Installable PWA:** Equipped with a service worker and web app manifest for native desktop and mobile app installation.
@@ -43,7 +44,7 @@ npm install
 | `npm run dev` | Launches the Vite local development server with hot module replacement (HMR) at `http://localhost:5173`. |
 | `npm run build` | Executes TypeScript typecheck and builds the optimized production bundle with PWA service worker into `/dist`. |
 | `npm run preview` | Serves the production build locally to test offline service worker caching and PWA installation. |
-| `npm run test` | Executes the Vitest unit and integration test suite (37 tests across 7 test files). |
+| `npm run test` | Executes the Vitest unit and integration test suite (56 tests across 10 test files). |
 | `npm run test:watch` | Runs Vitest in interactive watch mode. |
 | `npm run test:e2e` | Runs Playwright end-to-end tests across desktop and mobile layouts. |
 | `npm run typecheck` | Runs the TypeScript compiler in strict mode without emitting output (`tsc --noEmit`). |
@@ -52,7 +53,22 @@ npm install
 
 ---
 
-## 5. Project Directory Structure
+## 5. Navigation & Routes
+
+| Path | View | Purpose |
+| :--- | :--- | :--- |
+| `/` | **Home Dashboard** | Welcome banner, quick actions, recent workbooks, and all workbooks list/grid. |
+| `/recent` | **Recent Workbooks** | Spreadsheets sorted by last opened/modified timestamp. |
+| `/starred` | **Starred Workbooks** | Favorited spreadsheets flagged for quick access. |
+| `/files` | **My Workbooks** | Complete workspace directory with search and sorting. |
+| `/folders` | **My Folders** | Folder manager with workbook counts, color tags, and folder CRUD. |
+| `/folders/:folderId` | **Folder Detail** | Filtered view of workbooks inside a specific folder with "New in Folder" action. |
+| `/workbook/:workbookId` | **Spreadsheet Editor** | Spreadsheet editor workspace shell with ribbon, formula bar, and coordinate grid. |
+| `/settings` | **Settings** | Theme switching, IndexedDB storage quota meter, and database wipe tools. |
+
+---
+
+## 6. Project Directory Structure
 
 ```
 spreadsheet-app/
@@ -73,7 +89,7 @@ spreadsheet-app/
 │   │   └── ui/                 # 21 Reusable Design System components (Button, Modal, Toast, Tabs, etc.)
 │   │
 │   ├── features/
-│   │   ├── dashboard/          # Workspace Dashboard shell & Stage 2 verification playground
+│   │   ├── dashboard/          # Home Dashboard, Quick Actions, Grids/Lists, Modals, Folder Management
 │   │   ├── spreadsheet/        # Spreadsheet Editor shell with ribbon toolbar and formula bar
 │   │   ├── workbooks/          # Workbook domain contracts
 │   │   ├── formulas/           # Formula definitions and category contracts
@@ -90,21 +106,21 @@ spreadsheet-app/
 │   │   └── adapters/           # Decoupled engine adapter interface & stubs
 │   │
 │   ├── storage/
-│   │   ├── indexeddb/          # IndexedDB connection and quota handlers
-│   │   ├── migrations/         # Database migration manager (v1 schema)
+│   │   ├── indexeddb/          # IndexedDB connection, schema v2, and quota handlers
+│   │   ├── migrations/         # Database migration manager (v1 & v2 schema)
 │   │   └── repositories/       # Repositories (Workbook, Sheet, Folder, Preferences)
 │   │
-│   ├── stores/                 # Zustand stores (app, workbook, sheet, selection, prefs, toast)
+│   ├── stores/                 # Zustand stores (app, workspace, workbook, sheet, selection, prefs, toast)
 │   ├── hooks/                  # Network status, PWA install prompts
-│   ├── services/               # WorkbookService domain workflows
+│   ├── services/               # WorkbookService & FolderService domain workflows
 │   ├── types/                  # TypeScript domain models and interfaces
-│   ├── utils/                  # Coordinate math, logger, errors, cn
+│   ├── utils/                  # Coordinate math, logger, errors, date, id, cn
 │   ├── styles/index.css        # Tailwind CSS & centralized design tokens
 │   ├── App.tsx                 # Root application component
 │   └── main.tsx                # Client entrypoint
 │
 ├── tests/
-│   ├── unit/                   # Unit tests (models, storage, manifest, shell, theme, UI components)
+│   ├── unit/                   # Unit tests (models, storage, manifest, shell, theme, UI, workbook/folder services, workspace store)
 │   ├── integration/            # Route navigation integration tests
 │   ├── e2e/                    # Playwright end-to-end tests (desktop & mobile)
 │   └── setup.ts                # Test setup (fake-indexeddb, matchMedia, storage quota mocks)
@@ -116,7 +132,7 @@ spreadsheet-app/
 │   ├── ENGINE_EVALUATION.md    # Comprehensive spreadsheet engine comparison
 │   └── STORAGE_DESIGN.md       # IndexedDB schema, sparse cells, and migrations
 │
-├── PROJECT_STATUS.md           # Stage 2 milestone tracking and roadmap
+├── PROJECT_STATUS.md           # Stage 3 milestone tracking and roadmap
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
@@ -124,7 +140,7 @@ spreadsheet-app/
 
 ---
 
-## 6. Documentation Index
+## 7. Documentation Index
 
 - Design system & UI catalog: [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
 - Detailed system design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

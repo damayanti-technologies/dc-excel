@@ -1,13 +1,19 @@
-import { IDBPDatabase } from 'idb';
+import { IDBPDatabase, IDBPTransaction } from 'idb';
 import { Logger } from '@/utils/logger';
 
-export type MigrationStep = (db: IDBPDatabase<unknown>, oldVersion: number, newVersion: number) => void;
+export type MigrationStep = (
+  db: IDBPDatabase<unknown>,
+  oldVersion: number,
+  newVersion: number,
+  transaction?: IDBPTransaction<unknown, string[], 'versionchange'>
+) => void;
 
 export class DatabaseMigrationManager {
   private migrations: Map<number, MigrationStep> = new Map();
 
   constructor() {
     this.registerV1Migration();
+    this.registerV2Migration();
   }
 
   /**
@@ -23,6 +29,8 @@ export class DatabaseMigrationManager {
         workbookStore.createIndex('folderId', 'folderId', { unique: false });
         workbookStore.createIndex('updatedAt', 'updatedAt', { unique: false });
         workbookStore.createIndex('name', 'name', { unique: false });
+        workbookStore.createIndex('lastOpenedAt', 'lastOpenedAt', { unique: false });
+        workbookStore.createIndex('isStarred', 'isStarred', { unique: false });
       }
 
       // Sheets Object Store
@@ -54,16 +62,40 @@ export class DatabaseMigrationManager {
   }
 
   /**
+   * Version 2: Stage 3 Workbook indices (lastOpenedAt and isStarred).
+   */
+  private registerV2Migration(): void {
+    this.migrations.set(2, (db, _oldV, _newV, transaction) => {
+      Logger.info('Storage', 'Executing database migration to Version 2 (Indices for Stage 3)');
+
+      if (db.objectStoreNames.contains('workbooks') && transaction) {
+        const workbookStore = transaction.objectStore('workbooks');
+        if (!workbookStore.indexNames.contains('lastOpenedAt')) {
+          workbookStore.createIndex('lastOpenedAt', 'lastOpenedAt', { unique: false });
+        }
+        if (!workbookStore.indexNames.contains('isStarred')) {
+          workbookStore.createIndex('isStarred', 'isStarred', { unique: false });
+        }
+      }
+    });
+  }
+
+  /**
    * Execute necessary migrations between oldVersion and newVersion.
    */
-  public executeMigrations(db: IDBPDatabase<unknown>, oldVersion: number, newVersion: number): void {
+  public executeMigrations(
+    db: IDBPDatabase<unknown>,
+    oldVersion: number,
+    newVersion: number,
+    transaction?: IDBPTransaction<unknown, string[], 'versionchange'>
+  ): void {
     Logger.info('Storage', `Checking schema upgrade: v${oldVersion} -> v${newVersion}`);
 
     for (let v = oldVersion + 1; v <= newVersion; v++) {
       const migration = this.migrations.get(v);
       if (migration) {
         Logger.info('Storage', `Applying migration v${v}`);
-        migration(db, oldVersion, newVersion);
+        migration(db, oldVersion, newVersion, transaction);
       }
     }
   }

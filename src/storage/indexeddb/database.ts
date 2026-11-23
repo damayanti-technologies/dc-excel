@@ -1,11 +1,11 @@
-import { openDB, IDBPDatabase } from 'idb';
+import { openDB, deleteDB, IDBPDatabase } from 'idb';
 import { DatabaseMigrationManager } from '../migrations/migration-manager';
 import { StorageError, QuotaExceededError } from '@/utils/errors';
 import { StorageQuotaInfo } from '@/types/storage';
 import { Logger } from '@/utils/logger';
 
 export const DB_NAME = 'omnisheet_db';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 let dbInstance: IDBPDatabase<unknown> | null = null;
 const migrationManager = new DatabaseMigrationManager();
@@ -20,8 +20,8 @@ export async function getDatabase(): Promise<IDBPDatabase<unknown>> {
 
   try {
     dbInstance = await openDB(DB_NAME, DB_VERSION, {
-      upgrade(db, oldVersion, newVersion) {
-        migrationManager.executeMigrations(db, oldVersion, newVersion ?? DB_VERSION);
+      upgrade(db, oldVersion, newVersion, transaction) {
+        migrationManager.executeMigrations(db, oldVersion, newVersion ?? DB_VERSION, transaction);
       },
       blocked() {
         Logger.warn('Storage', 'Database upgrade was blocked by another open tab/connection.');
@@ -57,6 +57,30 @@ export function closeDatabase(): void {
     dbInstance = null;
     Logger.info('Storage', 'Database connection closed.');
   }
+}
+
+/**
+ * Permanently deletes the IndexedDB database. Useful for tests and full resets.
+ */
+export async function deleteDatabase(): Promise<void> {
+  closeDatabase();
+  await deleteDB(DB_NAME);
+  Logger.info('Storage', `IndexedDB "${DB_NAME}" deleted.`);
+}
+
+/**
+ * Clears all records from all object stores without dropping the database schema.
+ * Ideal for resetting state between unit and integration test runs.
+ */
+export async function clearAllStores(): Promise<void> {
+  const db = await getDatabase();
+  const storeNames = ['workbooks', 'sheets', 'folders', 'preferences', 'backups'];
+  const tx = db.transaction(storeNames, 'readwrite');
+  for (const name of storeNames) {
+    await tx.objectStore(name).clear();
+  }
+  await tx.done;
+  Logger.debug('Storage', 'All database stores cleared.');
 }
 
 /**
