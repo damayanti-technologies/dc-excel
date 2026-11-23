@@ -7,6 +7,7 @@
 ## 1. Architectural Highlights
 
 - **Local-First & Offline-First:** Persists all workbooks, worksheets, folders, and preferences in browser IndexedDB. Runs standalone without an internet connection.
+- **Cell Editing & Formula Engine (`Stage 5`):** Pure AST-based spreadsheet calculation engine with lexical tokenizer, recursive descent parser adhering to Excel operator precedence, extensible function registry (`SUM`, `AVERAGE`, `COUNT`, `MIN`, `MAX`, `IF` with short-circuiting and nested evaluation), tree-walking evaluator without `eval()`, directed dependency graph (DAG) with Kahn's topological sort recalculation, circular reference detection (`#CYCLE!`), standard error codes (`#DIV/0!`, `#VALUE!`, `#REF!`, `#NAME?`, `#NUM!`, `#N/A`), interactive in-cell `<input>` editing, synchronized formula bar, and IndexedDB persistence.
 - **Spreadsheet Grid Engine (`Stage 4`):** High-performance 2D virtualized grid capable of smooth scrolling over 1,000,000 rows and 16,384 columns with prefix-sum $O(\log N)$ binary search indexing. Features multi-cell range selection, header highlighting, keyboard navigation (Arrows, Shift-expansion, Tab, Enter, Home/End, PageUp/Down), Excel-compatible TSV clipboard copy/cut/paste, row/column insertion and deletion, interactive drag-resizing, and 400ms debounced persistence to IndexedDB.
 - **Home Dashboard & Workspace (`Stage 3`):** Full workbook management suite including creating, opening, renaming, duplicate cloning (deep copy), deleting with sheet cascades, favoriting/starring, folder organization with dynamic workbook counts, instant search, and sorting.
 - **Design System & Theme Engine (`Stage 2`):** Features an Excel-inspired Deep Navy (`#0f172a`) and Professional Blue (`#2563eb` / `#3b82f6`) palette with immediate, flicker-free switching between **Light**, **Dark**, and **System** themes.
@@ -45,7 +46,7 @@ npm install
 | `npm run dev` | Launches the Vite local development server with hot module replacement (HMR) at `http://localhost:5173`. |
 | `npm run build` | Executes TypeScript typecheck and builds the optimized production bundle with PWA service worker into `/dist`. |
 | `npm run preview` | Serves the production build locally to test offline service worker caching and PWA installation. |
-| `npm run test` | Executes the Vitest unit and integration test suite (101 tests across 17 test files). |
+| `npm run test` | Executes the Vitest unit and integration test suite (133 tests across 23 test files). |
 | `npm run test:watch` | Runs Vitest in interactive watch mode. |
 | `npm run test:e2e` | Runs Playwright end-to-end tests across desktop and mobile layouts. |
 | `npm run typecheck` | Runs the TypeScript compiler in strict mode without emitting output (`tsc --noEmit`). |

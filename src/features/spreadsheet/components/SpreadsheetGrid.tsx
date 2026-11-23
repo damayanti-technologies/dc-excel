@@ -7,6 +7,7 @@ import { isHeaderHighlighted, isSingleCell } from '@/engine/grid/selection';
 import { handleGridKeyboardNavigation } from '@/engine/grid/keyboard';
 import { DEFAULT_GRID_CONFIG } from '@/engine/grid/constants';
 import { ResizeTarget } from '@/engine/grid/types';
+import { isFormulaError } from '@/engine/calculation/errors';
 import { cn } from '@/utils/cn';
 
 interface SpreadsheetGridProps {
@@ -15,6 +16,8 @@ interface SpreadsheetGridProps {
   selectedRange: CellRange | null;
   anchorCell: CellCoordinates | null;
   zoom: number;
+  editingCell: CellCoordinates | null;
+  editingValue: string;
   onSelectCell: (coord: CellCoordinates, isShift: boolean) => void;
   onDragSelect: (coord: CellCoordinates) => void;
   onSelectEntireRow: (row: number) => void;
@@ -22,6 +25,11 @@ interface SpreadsheetGridProps {
   onSelectAll: () => void;
   onResizeRow: (row: number, newHeight: number) => void;
   onResizeColumn: (col: number, newWidth: number) => void;
+  onStartEditing: (coord: CellCoordinates, initialValue?: string) => void;
+  onEditingChange: (value: string) => void;
+  onCommitEditing: (moveTo?: 'down' | 'up' | 'right' | 'left' | 'none') => void;
+  onCancelEditing: () => void;
+  onClearCell: (coord: CellCoordinates) => void;
   onKeyDownNav?: (result: { nextActive: CellCoordinates; nextRange: CellRange }) => void;
 }
 
@@ -31,15 +39,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   selectedRange,
   anchorCell,
   zoom,
+  editingCell,
+  editingValue,
   onSelectCell,
   onDragSelect,
   onSelectEntireRow,
   onSelectEntireColumn,
   onSelectAll,
   onResizeRow,
-  onResizeColumn
+  onResizeColumn,
+  onStartEditing,
+  onEditingChange,
+  onCommitEditing,
+  onCancelEditing,
+  onClearCell
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const cellInputRef = useRef<HTMLInputElement>(null);
   const [viewportWidth, setViewportWidth] = useState(1000);
   const [viewportHeight, setViewportHeight] = useState(600);
   const [scrollState, setScrollState] = useState({ top: 0, left: 0 });
@@ -56,6 +72,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       sheet.columnWidths
     );
   }, [sheet.rowCount, sheet.columnCount, sheet.rowHeights, sheet.columnWidths]);
+
+  // Focus editing input when edit mode starts
+  useEffect(() => {
+    if (editingCell && cellInputRef.current) {
+      cellInputRef.current.focus();
+      const len = cellInputRef.current.value.length;
+      cellInputRef.current.setSelectionRange(len, len);
+    }
+  }, [editingCell]);
 
   // Measure container dimensions
   useEffect(() => {
@@ -101,15 +126,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     );
   }, [virtualizer, scrollState.top, scrollState.left, viewportWidth, viewportHeight, zoom]);
 
-  // Auto-scroll to keep active cell in view when it changes
+  // Auto-scroll target cell into view
   const scrollToCell = useCallback((coord: CellCoordinates) => {
     const el = scrollContainerRef.current;
     if (!el) return;
 
-    const cellRect = virtualizer.getCellRect(coord.row, coord.col, zoom);
     const cornerW = Math.round(DEFAULT_GRID_CONFIG.rowHeaderWidth * zoom);
     const cornerH = Math.round(DEFAULT_GRID_CONFIG.colHeaderHeight * zoom);
 
+    const cellRect = virtualizer.getCellRect(coord.row, coord.col, zoom);
     const visibleLeft = el.scrollLeft + cornerW;
     const visibleRight = el.scrollLeft + el.clientWidth;
     const visibleTop = el.scrollTop + cornerH;
@@ -137,9 +162,12 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   }, [activeCell, scrollToCell]);
 
-  // Keyboard navigation handler
+  // Keyboard navigation & editing trigger handler
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!activeCell) return;
+
+    // Do not intercept if editing cell is already open
+    if (editingCell) return;
 
     // Check if target is an editable input outside the grid
     const targetTag = (e.target as HTMLElement).tagName.toLowerCase();
@@ -147,6 +175,46 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       return;
     }
 
+    const key = coordToKey(activeCell.row, activeCell.col);
+    const cell = sheet.cells[key];
+    const cellText = cell?.formula ?? (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
+
+    // 1. F2: Enter edit mode preserving existing content
+    if (e.key === 'F2') {
+      e.preventDefault();
+      onStartEditing(activeCell, cellText);
+      return;
+    }
+
+    // 2. Delete / Backspace: Clear cell contents
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      onClearCell(activeCell);
+      return;
+    }
+
+    // 3. Enter: Start editing or move down
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onStartEditing(activeCell, cellText);
+      return;
+    }
+
+    // 4. Printable characters (letters, numbers, '=', symbols): Enter edit mode replacing content
+    if (
+      e.key.length === 1 &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      !e.altKey &&
+      e.key !== 'Escape' &&
+      e.key !== 'Tab'
+    ) {
+      e.preventDefault();
+      onStartEditing(activeCell, e.key);
+      return;
+    }
+
+    // 5. Standard Grid Keyboard Navigation
     const currentAnchor = anchorCell || activeCell;
     const currentRange = selectedRange || {
       startRow: activeCell.row,
@@ -177,22 +245,61 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   };
 
+  // Cell editor input key events
+  const handleCellInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onCommitEditing(e.shiftKey ? 'up' : 'down');
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      onCommitEditing(e.shiftKey ? 'left' : 'right');
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancelEditing();
+    } else if (e.key.startsWith('Arrow')) {
+      // Allow natural cursor navigation inside the input text
+      e.stopPropagation();
+    }
+  };
+
+  const handleCellInputBlur = (e: React.FocusEvent) => {
+    if (e.relatedTarget && (e.relatedTarget as HTMLElement).getAttribute('aria-label') === 'Formula Bar') {
+      return;
+    }
+    onCommitEditing('none');
+  };
+
   // Mouse drag selection handling
   const handleCellMouseDown = (row: number, col: number, e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only primary button
     e.preventDefault();
+
+    // If currently editing another cell, commit it first
+    if (editingCell && (editingCell.row !== row || editingCell.col !== col)) {
+      onCommitEditing('none');
+    }
+
     onSelectCell({ row, col }, e.shiftKey);
     setIsMouseDown(true);
     scrollContainerRef.current?.focus();
   };
 
+  // Double-click to start direct cell editing
+  const handleCellDoubleClick = (row: number, col: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const key = coordToKey(row, col);
+    const cell = sheet.cells[key];
+    const initialText = cell?.formula ?? (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
+    onStartEditing({ row, col }, initialText);
+  };
+
   const handleCellMouseEnter = (row: number, col: number) => {
-    if (isMouseDown) {
+    if (isMouseDown && !editingCell) {
       onDragSelect({ row, col });
     }
   };
 
-  // Global mouse up for selection and resizing
+  // Global mouse up to end selection or resizing
   useEffect(() => {
     const handleGlobalMouseUp = () => {
       setIsMouseDown(false);
@@ -444,15 +551,19 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             let alignmentClass = 'text-left';
 
             if (cell) {
-              if (cell.formula) {
-                cellContent = cell.formula;
-              } else if (cell.value !== null && cell.value !== undefined) {
+              if (cell.dataType === 'error' || isFormulaError(cell.value)) {
                 cellContent = String(cell.value);
-              }
-              if (cell.dataType === 'number') {
-                alignmentClass = 'text-right font-mono';
-              } else if (cell.dataType === 'boolean') {
-                alignmentClass = 'text-center font-semibold text-accent';
+                alignmentClass = 'text-center font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10';
+              } else if (cell.value !== null && cell.value !== undefined) {
+                if (typeof cell.value === 'boolean') {
+                  cellContent = cell.value ? 'TRUE' : 'FALSE';
+                  alignmentClass = 'text-center font-semibold text-accent';
+                } else {
+                  cellContent = String(cell.value);
+                  if (cell.dataType === 'number' || typeof cell.value === 'number') {
+                    alignmentClass = 'text-right font-mono';
+                  }
+                }
               }
             }
 
@@ -460,6 +571,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               <div
                 key={key}
                 onMouseDown={(e) => handleCellMouseDown(row, col, e)}
+                onDoubleClick={(e) => handleCellDoubleClick(row, col, e)}
                 onMouseEnter={() => handleCellMouseEnter(row, col)}
                 style={{
                   position: 'absolute',
@@ -484,8 +596,31 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           })
         )}
 
-        {/* 5. Selection Box Bounding Overlay */}
-        {selectionBox && (
+        {/* 5. Direct In-Cell Editing Input Overlay */}
+        {editingCell && (
+          <input
+            ref={cellInputRef}
+            type="text"
+            value={editingValue}
+            onChange={(e) => onEditingChange(e.target.value)}
+            onKeyDown={handleCellInputKeyDown}
+            onBlur={handleCellInputBlur}
+            style={{
+              position: 'absolute',
+              left: virtualizer.getColOffset(editingCell.col, zoom),
+              top: virtualizer.getRowOffset(editingCell.row, zoom),
+              width: Math.max(virtualizer.getColWidth(editingCell.col, zoom), 120),
+              height: virtualizer.getRowHeight(editingCell.row, zoom),
+              fontSize: `${Math.round(12 * zoom)}px`,
+              zIndex: 25
+            }}
+            className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
+            aria-label="Direct Cell Editor"
+          />
+        )}
+
+        {/* 6. Selection Box Bounding Overlay */}
+        {selectionBox && !editingCell && (
           <div
             style={{
               position: 'absolute',
@@ -498,8 +633,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           />
         )}
 
-        {/* 6. Active Cell Outline Highlight (Distinct from range) */}
-        {activeCellBox && !isSingleCell(selectedRange) && (
+        {/* 7. Active Cell Outline Highlight (Distinct from range) */}
+        {activeCellBox && !editingCell && !isSingleCell(selectedRange) && (
           <div
             style={{
               position: 'absolute',
@@ -512,7 +647,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           />
         )}
 
-        {/* 7. Live Drag Resize Guide Line */}
+        {/* 8. Live Drag Resize Guide Line */}
         {resizeState && resizeState.type === 'col' && (
           <div
             style={{

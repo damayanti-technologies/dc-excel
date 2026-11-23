@@ -8,6 +8,7 @@ interface SelectionState {
   selectedRange: CellRange | null;
   isSelecting: boolean;
   editingCell: CellCoordinates | null;
+  editingValue: string;
 
   setActiveCell: (coord: CellCoordinates | null) => void;
   setAnchorCell: (coord: CellCoordinates | null) => void;
@@ -18,6 +19,9 @@ interface SelectionState {
   selectAll: (rowCount: number, colCount: number) => void;
   setIsSelecting: (isSelecting: boolean) => void;
   setEditingCell: (coord: CellCoordinates | null) => void;
+  startEditing: (coord: CellCoordinates, initialValue?: string) => void;
+  setEditingValue: (value: string) => void;
+  stopEditing: () => void;
   clearSelection: () => void;
 }
 
@@ -27,11 +31,14 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
   selectedRange: { startRow: 0, startCol: 0, endRow: 0, endCol: 0 },
   isSelecting: false,
   editingCell: null,
+  editingValue: '',
 
   setActiveCell: (activeCell) =>
     set({
       activeCell,
       anchorCell: activeCell,
+      editingCell: null,
+      editingValue: '',
       selectedRange: activeCell
         ? {
             startRow: activeCell.row,
@@ -67,7 +74,9 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
     set({
       activeCell: { row, col: 0 },
       anchorCell: { row, col: 0 },
-      selectedRange: range
+      selectedRange: range,
+      editingCell: null,
+      editingValue: ''
     });
   },
 
@@ -81,7 +90,9 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
     set({
       activeCell: { row: 0, col },
       anchorCell: { row: 0, col },
-      selectedRange: range
+      selectedRange: range,
+      editingCell: null,
+      editingValue: ''
     });
   },
 
@@ -95,18 +106,41 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
     set({
       activeCell: { row: 0, col: 0 },
       anchorCell: { row: 0, col: 0 },
-      selectedRange: range
+      selectedRange: range,
+      editingCell: null,
+      editingValue: ''
     });
   },
 
   setIsSelecting: (isSelecting) => set({ isSelecting }),
-  setEditingCell: (editingCell) => set({ editingCell }),
+
+  setEditingCell: (editingCell) =>
+    set({
+      editingCell,
+      editingValue: editingCell ? get().editingValue : ''
+    }),
+
+  startEditing: (coord, initialValue = '') =>
+    set({
+      editingCell: coord,
+      editingValue: initialValue
+    }),
+
+  setEditingValue: (editingValue) => set({ editingValue }),
+
+  stopEditing: () =>
+    set({
+      editingCell: null,
+      editingValue: ''
+    }),
+
   clearSelection: () =>
     set({
       activeCell: null,
       anchorCell: null,
       selectedRange: null,
       isSelecting: false,
-      editingCell: null
+      editingCell: null,
+      editingValue: ''
     })
 }));

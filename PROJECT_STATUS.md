@@ -1,111 +1,91 @@
 # Project Status: OmniSheet
 
-**Current Stage:** **Stage 4: Spreadsheet Grid Engine**  
+**Current Stage:** **Stage 5: Cell Editing & Formula Calculation Engine**  
 **Status:** **Completed & Verified**  
-**Version:** `0.4.0`  
+**Version:** `0.5.0`  
 **Date:** November 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Stage 4 marks the realization of OmniSheet's core spreadsheet grid engine. The application now features a fully functional, high-performance 2D virtualized spreadsheet grid capable of smoothly rendering millions of rows and tens of thousands of columns with sub-millisecond cell lookups, complete keyboard navigation, multi-cell range selection, Excel-compatible clipboard operations, row/column management with interactive drag-resizing, multi-sheet tabs, and automatic debounced persistence to IndexedDB.
+Stage 5 transforms OmniSheet from a spreadsheet grid viewer into a fully interactive, reactive spreadsheet computational engine. Users can now directly edit cells in-place with double-click, F2, or natural alphanumeric typing, compose formulas via an interactive formula bar, and evaluate mathematical expressions, nested logic, and spreadsheet aggregation functions (`SUM`, `AVERAGE`, `COUNT`, `MIN`, `MAX`, `IF`) backed by a pure AST parser, recursive descent evaluator, and a directed dependency graph with topological recalculation and circular reference detection.
 
-All spreadsheet operations operate strictly client-side with zero cloud dependencies, maintaining 100% data privacy and offline capability.
+All calculations execute strictly client-side without relying on JavaScript `eval()` or `new Function()`, preserving 100% data privacy and offline capability with seamless IndexedDB persistence.
 
 ---
 
-## 2. Completed Features in Stage 4
+## 2. Completed Features in Stage 5
 
-### 2.1 2D Viewport Virtualization Engine (`src/engine/grid/virtualizer.ts`)
-- [x] **Prefix-Sum Height & Width Indexing**:
-  - Precomputes cumulative row and column coordinate offsets for $O(\log N)$ binary search lookups.
-  - Gracefully accounts for custom row heights and custom column widths.
-- [x] **2D Window Calculation (`computeVisibleRange`)**:
-  - Calculates visible slice `[startRow, endRow]` and `[startCol, endCol]` from `scrollTop`, `scrollLeft`, `viewportWidth`, and `viewportHeight`.
-  - Configurable overscan (default 3 rows, 2 columns) preventing blank edges during rapid inertial scrolling.
-- [x] **Coordinate & Pixel Math**:
-  - Precise cell bounding rectangles (`getCellRect`, `getRangeRect`) for positioning selection boxes, active cell indicators, and resize guides.
+### 2.1 Formula Engine Lexer & Tokenizer (`src/engine/calculation/tokenizer.ts`)
+- [x] **Pure Lexical Analysis**:
+  - Scans formula strings starting with `=` into structured token streams.
+  - Recognizes numbers (integers, decimals, scientific notation), string literals (with `""` quote escaping), boolean literals (`TRUE`, `FALSE`), cell references (`A1`, `BC99`), range references (`A1:B10`), operators (`+`, `-`, `*`, `/`, `^`, `&`, `%`), comparison operators (`=`, `<>`, `<`, `<=`, `>`, `>=`), and punctuation (`(`, `)`, `,`).
+- [x] **Case-Insensitive Normalization**:
+  - Automatically standardizes cell references (e.g. `a1` -> `A1`) and function identifiers (e.g. `sum` -> `SUM`).
 
-### 2.2 Range Selection & Highlight Engine (`src/engine/grid/selection.ts`)
-- [x] **Range Creation & Direction Normalization**:
-  - Supports dragging in any direction (top-left, bottom-right, diagonal) with automatic coordinate normalization (`startRow <= endRow`, `startCol <= endCol`).
-- [x] **Anchor vs Active Cell Tracking**:
-  - Distinguishes the anchor origin from the current extension cell.
-- [x] **Header Highlight Computation**:
-  - Highlights corresponding column headers (A, B, C...) and row headers (1, 2, 3...) when cells within their span are selected.
-- [x] **Range Dimension & Label Formatting**:
-  - Produces formatted labels: `"A1"` for single cells, `"A1:C10"` for ranges, and `"10R × 3C"` dimension indicators for toolbars.
-- [x] **Bulk Selection**:
-  - Select Entire Row (clicking row header).
-  - Select Entire Column (clicking column header).
-  - Select All (clicking top-left corner header or Ctrl+A).
+### 2.2 Recursive Descent AST Parser (`src/engine/calculation/parser.ts`)
+- [x] **Standard Spreadsheet Operator Precedence**:
+  1. Primary expressions (literals, cell/range references, function calls, parenthesized expressions).
+  2. Postfix `%` (percentage division by 100).
+  3. Unary prefix `+` and `-`.
+  4. Exponentiation `^` (right-associative).
+  5. Multiplication `*` and Division `/` (left-associative).
+  6. Addition `+`, Subtraction `-`, and String Concatenation `&` (left-associative).
+  7. Comparison operators (`=`, `<>`, `<`, `<=`, `>`, `>=`).
+- [x] **Syntax Error Resilience**:
+  - Detects unmatched parentheses, trailing operators, missing operands, and invalid function syntax, returning clean `#VALUE!` or `#NAME?` error representations.
 
-### 2.3 Keyboard Navigation System (`src/engine/grid/keyboard.ts`)
-- [x] **Arrow Navigation**: Arrow Up, Down, Left, and Right.
-- [x] **Shift-Expansion**: Shift + Arrows to expand or contract the selection range from anchor.
-- [x] **Tab & Enter Flows**:
-  - Tab: moves right; Shift + Tab: moves left.
-  - Enter: moves down; Shift + Enter: moves up.
-- [x] **Home & End**:
-  - Home: moves to column A; End: moves to the last column with data.
-  - Ctrl + Home: jumps directly to cell `A1`.
-  - Ctrl + End: jumps to the bottom-rightmost populated cell.
-- [x] **Page Navigation**: Page Up and Page Down for full-screen row jumping.
+### 2.3 Extensible Built-in Functions (`src/engine/calculation/functions.ts`)
+- [x] **Mathematical & Aggregation Functions**:
+  - `SUM(...)`: Flattens numbers across scalar values and 2D cell ranges; ignores non-numeric strings.
+  - `AVERAGE(...)`: Computes arithmetic mean across numbers in scalars/ranges; returns `#DIV/0!` if no numbers exist.
+  - `COUNT(...)`: Counts numeric cells and arguments.
+  - `MIN(...)`: Finds minimum numeric value across scalars and ranges.
+  - `MAX(...)`: Finds maximum numeric value across scalars and ranges.
+- [x] **Logical Branching**:
+  - `IF(condition, value_if_true, [value_if_false])`: Short-circuit evaluation; supports arbitrary levels of nested `IF` calls.
 
-### 2.4 Clipboard Operations (`src/engine/grid/clipboard.ts`)
-- [x] **Standard TSV Serialization & Parsing**:
-  - Generates standard Tab-Separated Values (TSV) with CRLF/LF line breaks for 100% fidelity copying to/from Microsoft Excel, Google Sheets, and LibreOffice.
-- [x] **Dual Clipboard Engine**:
-  - Uses modern asynchronous `navigator.clipboard` API with an internal memory buffer fallback for restricted contexts.
-- [x] **Type Ingestion**:
-  - Automatically parses pasted values into numbers, booleans, or strings, storing them cleanly into the sparse cell structure.
-- [x] **Cut Operations**:
-  - Copies values to clipboard and atomically clears source cell contents.
+### 2.4 AST Tree-Walk Evaluator (`src/engine/calculation/evaluator.ts`)
+- [x] **Safe Evaluation**:
+  - 100% pure TypeScript tree-walking evaluator. Zero usage of `eval()` or dynamic code generation.
+- [x] **Type Coercion & Strict Error Handling**:
+  - String concatenation via `&` (e.g. `="Total: " & 100` -> `"Total: 100"`).
+  - Division by zero returns `#DIV/0!`.
+  - Non-coercible mathematical operands return `#VALUE!`.
+  - Case-insensitive string comparisons.
 
-### 2.5 Row & Column Management & Resizing (`src/engine/grid/operations.ts`)
-- [x] **Immutable Row/Column Operations**:
-  - Insert Row / Insert Column with clean coordinate translation for all downstream cells.
-  - Delete Row / Delete Column with boundary pruning and coordinate contraction.
-- [x] **Interactive Drag-Resize**:
-  - Drag handles positioned on column and row header boundaries.
-  - Live visual guide line rendering during drag.
-  - Minimum constraint enforcement (minimum 40px column width, 20px row height).
-  - Custom dimensions stored per-sheet and persisted to IndexedDB.
+### 2.5 Directed Dependency Graph & Topological Recalculation (`src/engine/calculation/dependency-graph.ts`)
+- [x] **Reference Extraction**:
+  - Extracts direct cell precedents and 2D range spans (`A1:B2` maps to `A1`, `A2`, `B1`, `B2`).
+- [x] **Circular Reference Detection (`#CYCLE!`)**:
+  - Depth-First Search (DFS) cycle detection instantly flags mutual and circular references (e.g. `A1 = B1 + 1` and `B1 = A1 + 1`).
+- [x] **Topological Ordering (Kahn's Algorithm)**:
+  - Downstream cascading recalculation order ensures precedent cells evaluate strictly before their dependent cells.
+  - Full topological ordering for initial workbook loads and sheet switches.
 
-### 2.6 Spreadsheet Workspace UI (`src/features/spreadsheet/`)
-- [x] **Full-Viewport Workspace Layout**: Dedicated layout removing general dashboard framing to maximize grid screen real estate.
-- [x] **Workbook Header (`WorkbookHeader.tsx`)**:
-  - OmniSheet brand icon with return-to-dashboard navigation.
-  - Editable workbook title modal dialog.
-  - Real-time local save status indicator (*Saved locally*, *Saving...*, *Save failed*).
-  - Visual Undo/Redo buttons (staged for Stage 7 implementation).
-  - Theme toggle (Light/Dark/System) and quick settings link.
-- [x] **Spreadsheet Toolbar (`SpreadsheetToolbar.tsx`)**:
-  - Active range / dimension indicator badge.
-  - Select All shortcut button.
-  - Clipboard group: Cut, Copy, Paste.
-  - Structure group: Insert Row, Delete Row, Insert Column, Delete Column.
-  - Zoom group: Percentage dropdown (50% to 200%) and Zoom +/- step buttons.
-- [x] **Formula Bar (`FormulaBar.tsx`)**:
-  - Active cell coordinate display (Name box).
-  - Formula indicator symbol (`fx`).
-  - Read-only formula / raw value content display.
-- [x] **Spreadsheet Grid (`SpreadsheetGrid.tsx`)**:
-  - 2D virtualized scrolling container with sticky corner, column, and row headers.
-  - Active cell outline ring with coordinate focus.
-  - Selection bounding rectangle with semi-transparent fill and solid border.
-  - Header active highlights matching the selected column/row spans.
-  - Drag-resize handles with live measurement guides.
-- [x] **Sheet Tabs Bar (`SheetTabsBar.tsx`)**:
-  - Bottom tab strip with active sheet indicators.
-  - Add Sheet (+) button creating new worksheets on the fly.
-  - Sheet count indicators.
+### 2.6 Full Calculation Engine Adapter (`src/engine/calculation/engine.ts`)
+- [x] **Singleton Engine Lifecycle**:
+  - `updateCellInput(key, rawInput)`: Parses raw inputs (literals vs formulas starting with `=`), updates graph, and returns affected cells in topological order.
+  - `recalculateSheet(cells)`: Full sheet recalculation on mount and tab switch.
+  - `parseRawCellValue(text)`: Coerces raw literal inputs into numbers, booleans, or strings.
 
-### 2.7 Persistence & Store Architecture
-- [x] **Debounced Auto-Save**: 400ms debounced persistence flushing cell modifications, custom row heights, column widths, and zoom settings to IndexedDB.
-- [x] **Unified Sheet Store (`sheet-store.ts`)**: Manages active sheet data, zoom, cell mutations, structural insertions/deletions, and dimensional overrides.
-- [x] **Selection Store (`selection-store.ts`)**: Manages active cell, selection range, anchor coordinates, and header highlights.
+### 2.7 Interactive Cell Editing & Formula Bar UI (`src/features/spreadsheet/`)
+- [x] **Direct In-Cell Editing (`SpreadsheetGrid.tsx`)**:
+  - Double-click on any cell triggers in-cell `<input>` editor.
+  - Pressing `F2` enters edit mode preserving existing text.
+  - Direct alphanumeric typing begins editing with typed character.
+  - `Enter` commits and moves selection down; `Tab` commits and moves right; `Escape` cancels edits.
+  - `Delete` and `Backspace` clear cell contents and trigger dependent recalculations.
+- [x] **Synchronized Formula Bar (`FormulaBar.tsx`)**:
+  - Interactive formula input bar synchronized with cell editing state.
+  - Displays raw formula (e.g. `=SUM(A1:A2)`) while grid cell displays computed result (`300`).
+  - Editing in formula bar updates cell in real time on `Enter`/`Tab`.
+- [x] **Error Cell Styling**:
+  - Formula errors (`#DIV/0!`, `#CYCLE!`, `#VALUE!`, etc.) render with distinct red/warning font styling and tooltip descriptions.
+
+### 2.8 Comprehensive Documentation (`docs/FORMULA_ENGINE.md`)
+- [x] Complete architecture document detailing grammar, operator precedence, AST node definitions, function registry, dependency graph design, cycle handling, and error codes.
 
 ---
 
@@ -115,18 +95,19 @@ All spreadsheet operations operate strictly client-side with zero cloud dependen
 | :--- | :--- | :---: | :--- |
 | **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
 | **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors or warnings. |
-| **Vitest Test Suite** | `vitest run` | **PASS** | **17 test files, 101/101 tests passed (100%).** |
-| **Production Build** | `vite build` | **PASS** | Clean build with PWA service worker and optimized chunks in 2.38s. |
-| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Verified grid rendering, selection, theme switching, and resizing. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **23 test files, 133/133 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean build with PWA service worker and optimized chunks in 2.20s (460.82 KiB). |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Verified in-cell editing, formula bar, SUM, IF, `#DIV/0!`, `#CYCLE!`, dark theme, and IndexedDB reload. |
 
 ---
 
-## 4. Architectural Boundaries for Stage 4
+## 4. Architectural Boundaries for Stage 5
 
-As strictly mandated by the project architecture:
-- In-cell double-click text editing and blinking cursor: **Deferred to Stage 5**.
-- Formula tokenization, AST parser, and calculation engine: **Deferred to Stage 5**.
-- Cell styling, fonts, fills, borders, number formatters, cell merges: **Deferred to Stage 6**.
-- Undo/Redo stack history: **Deferred to Stage 7**.
-- Charts, Sorting, Filtering, Data Validation: **Deferred to Stage 8-10**.
+As strictly mandated by the project roadmap:
+- Cell formatting, font styles, colors, fills, borders, number formatters, cell merges: **Deferred to Stage 6**.
+- Undo/Redo transaction history: **Deferred to Stage 7**.
+- Advanced lookup functions (`VLOOKUP`, `XLOOKUP`, `INDEX`, `MATCH`): **Deferred to Stage 11**.
+- Formula autocomplete / intellisense popup: **Deferred to Stage 11**.
+- Cross-sheet references and named ranges: **Deferred to Stage 11**.
+- Charts, Sorting, Filtering, Data Validation: **Deferred to Stages 8-10**.
 - XLSX / CSV binary import and export: **Deferred to Stage 12**.

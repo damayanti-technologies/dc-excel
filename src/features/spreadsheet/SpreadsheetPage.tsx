@@ -12,6 +12,7 @@ import { toast } from '@/stores/toast-store';
 import { coordToKey } from '@/utils/coordinates';
 import { formatRangeLabel } from '@/engine/grid/selection';
 import { copyRange, applyPasteData, getClipboardText } from '@/engine/grid/clipboard';
+import { calculationEngine } from '@/engine/calculation';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import {
@@ -41,11 +42,16 @@ export const SpreadsheetPage: React.FC = () => {
   const activeCell = useSelectionStore((state) => state.activeCell);
   const anchorCell = useSelectionStore((state) => state.anchorCell);
   const selectedRange = useSelectionStore((state) => state.selectedRange);
+  const editingCell = useSelectionStore((state) => state.editingCell);
+  const editingValue = useSelectionStore((state) => state.editingValue);
   const setActiveCell = useSelectionStore((state) => state.setActiveCell);
   const selectRangeFromAnchor = useSelectionStore((state) => state.selectRangeFromAnchor);
   const selectEntireRow = useSelectionStore((state) => state.selectEntireRow);
   const selectEntireColumn = useSelectionStore((state) => state.selectEntireColumn);
   const selectAll = useSelectionStore((state) => state.selectAll);
+  const startEditing = useSelectionStore((state) => state.startEditing);
+  const setEditingValue = useSelectionStore((state) => state.setEditingValue);
+  const stopEditing = useSelectionStore((state) => state.stopEditing);
 
   const setCurrentWorkbook = useWorkbookStore((state) => state.setCurrentWorkbook);
 
@@ -81,8 +87,16 @@ export const SpreadsheetPage: React.FC = () => {
       const loadedSheets = await workbookService.getSheetsForWorkbook(wb.id);
       setSheets(loadedSheets);
 
-      const targetSheet =
+      let targetSheet =
         loadedSheets.find((s) => s.id === wb?.activeSheetId) || loadedSheets[0] || null;
+
+      if (targetSheet) {
+        const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+        targetSheet = {
+          ...targetSheet,
+          cells: updatedCells
+        };
+      }
 
       setActiveSheet(targetSheet);
       setActiveCell({ row: 0, col: 0 });
@@ -143,7 +157,6 @@ export const SpreadsheetPage: React.FC = () => {
   const handleAddSheet = async () => {
     if (!workbook) return;
     try {
-      // Save current sheet first
       if (activeSheet) {
         await workbookService.saveSheet(activeSheet);
       }
@@ -167,8 +180,10 @@ export const SpreadsheetPage: React.FC = () => {
         await workbookService.saveSheet(activeSheet);
       }
 
-      const target = sheets.find((s) => s.id === sheetId);
+      let target = sheets.find((s) => s.id === sheetId);
       if (target) {
+        const { updatedCells } = calculationEngine.recalculateSheet(target);
+        target = { ...target, cells: updatedCells };
         setActiveSheet(target);
         setActiveCell({ row: 0, col: 0 });
       }
@@ -177,7 +192,61 @@ export const SpreadsheetPage: React.FC = () => {
     }
   };
 
-  // 6. Clipboard: Copy
+  // 6. Cell Editing Commit & Recalculation Handler
+  const handleCommitEditing = useCallback(
+    (moveTo: 'down' | 'up' | 'right' | 'left' | 'none' = 'none') => {
+      if (!activeSheet || !editingCell) return;
+
+      const targetCoord = { ...editingCell };
+      const { updatedCells } = calculationEngine.updateCellInput(
+        activeSheet.cells,
+        targetCoord,
+        editingValue
+      );
+
+      setBatchCells(updatedCells);
+      stopEditing();
+
+      if (moveTo === 'down') {
+        setActiveCell({
+          row: Math.min(activeSheet.rowCount - 1, targetCoord.row + 1),
+          col: targetCoord.col
+        });
+      } else if (moveTo === 'up') {
+        setActiveCell({
+          row: Math.max(0, targetCoord.row - 1),
+          col: targetCoord.col
+        });
+      } else if (moveTo === 'right') {
+        setActiveCell({
+          row: targetCoord.row,
+          col: Math.min(activeSheet.columnCount - 1, targetCoord.col + 1)
+        });
+      } else if (moveTo === 'left') {
+        setActiveCell({
+          row: targetCoord.row,
+          col: Math.max(0, targetCoord.col - 1)
+        });
+      }
+    },
+    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell]
+  );
+
+  // 7. Clear Cell Contents (Delete / Backspace)
+  const handleClearCell = useCallback(
+    (coord: CellCoordinates) => {
+      if (!activeSheet) return;
+      const { updatedCells } = calculationEngine.updateCellInput(
+        activeSheet.cells,
+        coord,
+        ''
+      );
+      setBatchCells(updatedCells);
+    },
+    [activeSheet, setBatchCells]
+  );
+
+  // 8. Clipboard: Copy
   const handleCopy = useCallback(async () => {
     if (!activeSheet || !selectedRange) return;
     try {
@@ -188,7 +257,7 @@ export const SpreadsheetPage: React.FC = () => {
     }
   }, [activeSheet, selectedRange]);
 
-  // 7. Clipboard: Cut
+  // 9. Clipboard: Cut
   const handleCut = useCallback(async () => {
     if (!activeSheet || !selectedRange) return;
     try {
@@ -199,7 +268,7 @@ export const SpreadsheetPage: React.FC = () => {
     }
   }, [activeSheet, selectedRange]);
 
-  // 8. Clipboard: Paste
+  // 10. Clipboard: Paste
   const handlePaste = useCallback(async () => {
     if (!activeSheet || !activeCell) return;
     try {
@@ -210,14 +279,24 @@ export const SpreadsheetPage: React.FC = () => {
       }
 
       const result = applyPasteData(activeCell, text, activeSheet);
-      setBatchCells(result.updatedCells, result.newRowCount, result.newColCount);
+      const tempSheet: Sheet = {
+        ...activeSheet,
+        rowCount: result.newRowCount ? Math.max(activeSheet.rowCount, result.newRowCount) : activeSheet.rowCount,
+        columnCount: result.newColCount ? Math.max(activeSheet.columnCount, result.newColCount) : activeSheet.columnCount,
+        cells: {
+          ...activeSheet.cells,
+          ...result.updatedCells
+        }
+      };
+      const { updatedCells } = calculationEngine.recalculateSheet(tempSheet);
+      setBatchCells(updatedCells, result.newRowCount, result.newColCount);
       toast.success('Pasted', 'Pasted content from clipboard.');
     } catch {
       toast.error('Paste Failed', 'Could not paste from clipboard.');
     }
   }, [activeSheet, activeCell, setBatchCells]);
 
-  // 9. Row & Column actions
+  // 11. Row & Column actions
   const handleInsertRowAbove = () => {
     if (!activeCell) return;
     insertRow(activeCell.row, 'above');
@@ -262,7 +341,7 @@ export const SpreadsheetPage: React.FC = () => {
     toast.info('Column Deleted', 'Deleted active column.');
   };
 
-  // 10. Selection actions
+  // 12. Selection actions
   const handleSelectCell = (coord: CellCoordinates, isShift: boolean) => {
     if (isShift) {
       selectRangeFromAnchor(coord);
@@ -286,7 +365,7 @@ export const SpreadsheetPage: React.FC = () => {
     selectEntireColumn(col, activeSheet.rowCount);
   };
 
-  // 11. Global Keyboard Shortcuts (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A)
+  // 13. Global Keyboard Shortcuts (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       const isCtrl = e.ctrlKey || e.metaKey;
@@ -365,6 +444,12 @@ export const SpreadsheetPage: React.FC = () => {
       <FormulaBar
         activeCell={activeCell}
         cell={currentCellData}
+        isEditing={!!editingCell}
+        editingValue={editingValue}
+        onStartEditing={(initVal) => activeCell && startEditing(activeCell, initVal)}
+        onEditingChange={setEditingValue}
+        onCommitEditing={handleCommitEditing}
+        onCancelEditing={stopEditing}
       />
 
       {/* 4. Virtualized Spreadsheet Grid Viewport */}
@@ -375,6 +460,8 @@ export const SpreadsheetPage: React.FC = () => {
           selectedRange={selectedRange}
           anchorCell={anchorCell}
           zoom={zoom}
+          editingCell={editingCell}
+          editingValue={editingValue}
           onSelectCell={handleSelectCell}
           onDragSelect={selectRangeFromAnchor}
           onSelectEntireRow={handleSelectEntireRow}
@@ -382,6 +469,11 @@ export const SpreadsheetPage: React.FC = () => {
           onSelectAll={handleSelectAll}
           onResizeRow={setRowHeight}
           onResizeColumn={setColumnWidth}
+          onStartEditing={startEditing}
+          onEditingChange={setEditingValue}
+          onCommitEditing={handleCommitEditing}
+          onCancelEditing={stopEditing}
+          onClearCell={handleClearCell}
         />
       </div>
 
