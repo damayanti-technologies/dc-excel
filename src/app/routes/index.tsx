@@ -1,7 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
-import { SpreadsheetEditorPlaceholder } from '@/features/spreadsheet/SpreadsheetEditorPlaceholder';
+import { SpreadsheetPage } from '@/features/spreadsheet/SpreadsheetPage';
 import { SettingsPlaceholder } from '@/features/settings/SettingsPlaceholder';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 
@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'workbook/:workbookId',
-        element: <SpreadsheetEditorPlaceholder />
+        element: <SpreadsheetPage />
       },
       {
         path: 'settings',

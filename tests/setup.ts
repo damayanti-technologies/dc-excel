@@ -16,7 +16,16 @@ Object.defineProperty(window, 'matchMedia', {
   })
 });
 
-// Mock navigator.storage.estimate
+// Mock ResizeObserver
+if (typeof window !== 'undefined') {
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  window.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+  (global as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverMock;
+}
 if (typeof navigator !== 'undefined') {
   Object.defineProperty(navigator, 'storage', {
     writable: true,

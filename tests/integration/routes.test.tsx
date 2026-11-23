@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
-import { SpreadsheetEditorPlaceholder } from '@/features/spreadsheet/SpreadsheetEditorPlaceholder';
+import { SpreadsheetPage } from '@/features/spreadsheet/SpreadsheetPage';
 import { SettingsPlaceholder } from '@/features/settings/SettingsPlaceholder';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { clearAllStores } from '@/storage/indexeddb/database';
@@ -40,7 +40,7 @@ const testRoutes = [
       },
       {
         path: 'workbook/:workbookId',
-        element: <SpreadsheetEditorPlaceholder />
+        element: <SpreadsheetPage />
       },
       {
         path: 'settings',
@@ -140,10 +140,10 @@ describe('Route Navigation Integration', () => {
     render(<RouterProvider router={memoryRouter} />);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/wb-unit-test/)[0]).toBeInTheDocument();
-      expect(screen.getByText('Spreadsheet Shell Prepared')).toBeInTheDocument();
-      expect(screen.getByText('Active Cell')).toBeInTheDocument();
+      expect(screen.getByText(/wb-unit-test/)).toBeInTheDocument();
+      expect(screen.getByRole('grid', { name: 'Spreadsheet grid' })).toBeInTheDocument();
       expect(screen.getByLabelText('Formula Bar')).toBeInTheDocument();
+      expect(screen.getByText('Saved locally')).toBeInTheDocument();
     });
   });
 

@@ -68,6 +68,66 @@ export class WorkbookService {
   }
 
   /**
+   * Adds a new sheet to an existing workbook.
+   */
+  public async addSheet(workbookId: string, sheetName?: string): Promise<Sheet> {
+    const workbook = await workbookRepository.getById(workbookId);
+    if (!workbook) {
+      throw new Error(`Cannot add sheet to non-existent workbook ${workbookId}`);
+    }
+
+    const existingSheets = await sheetRepository.getByWorkbookId(workbookId);
+    const newSheetIndex = existingSheets.length;
+    const name = sheetName || `Sheet${newSheetIndex + 1}`;
+    const sheetId = generateId('sheet');
+
+    const newSheet: Sheet = {
+      id: sheetId,
+      workbookId,
+      name,
+      index: newSheetIndex,
+      rowCount: DEFAULT_USER_PREFERENCES.defaultWorkbookSettings.defaultRowCount,
+      columnCount: DEFAULT_USER_PREFERENCES.defaultWorkbookSettings.defaultColumnCount,
+      cells: {}
+    };
+
+    const updatedSheetIds = [...workbook.sheetIds, sheetId];
+    const updatedWb: Workbook = {
+      ...workbook,
+      sheetIds: updatedSheetIds,
+      activeSheetId: sheetId,
+      updatedAt: Date.now()
+    };
+
+    await sheetRepository.save(newSheet);
+    await workbookRepository.save(updatedWb);
+
+    Logger.info('WorkbookService', `Added sheet "${name}" (${sheetId}) to workbook ${workbookId}`);
+    return newSheet;
+  }
+
+  /**
+   * Saves sheet data (cells, rowHeights, columnWidths, dimensions) to IndexedDB.
+   */
+  public async saveSheet(sheet: Sheet): Promise<void> {
+    await sheetRepository.save(sheet);
+  }
+
+  /**
+   * Retrieves a sheet by its ID.
+   */
+  public async getSheet(sheetId: string): Promise<Sheet | null> {
+    return sheetRepository.getById(sheetId);
+  }
+
+  /**
+   * Retrieves all sheets for a given workbook.
+   */
+  public async getSheetsForWorkbook(workbookId: string): Promise<Sheet[]> {
+    return sheetRepository.getByWorkbookId(workbookId);
+  }
+
+  /**
    * Renames an existing workbook.
    */
   public async renameWorkbook(workbookId: string, newName: string): Promise<Workbook> {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { ToastContainer } from '@/components/ui/Toast';
@@ -8,6 +8,22 @@ import { Database, ShieldCheck } from 'lucide-react';
 import { APP_CONFIG } from '@/app/config/constants';
 
 export const AppLayout: React.FC = () => {
+  const location = useLocation();
+  const isWorkbookRoute = location.pathname.startsWith('/workbook/');
+
+  // Dedicated full-viewport layout for the spreadsheet editor workspace
+  if (isWorkbookRoute) {
+    return (
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground transition-colors">
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0 bg-background relative focus:outline-none">
+          <Outlet />
+        </main>
+        <CreateWorkbookDialog />
+        <ToastContainer />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground transition-colors">
       {/* Top Application Header */}
@@ -40,7 +56,7 @@ export const AppLayout: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 font-mono text-[10px] text-foreground-subtle">
           <span>{APP_CONFIG.name} v{APP_CONFIG.version}</span>
-          <span className="hidden md:inline">• Stage 3 Workspace Ready</span>
+          <span className="hidden md:inline">• Stage 4 Grid Engine</span>
         </div>
       </footer>
     </div>
