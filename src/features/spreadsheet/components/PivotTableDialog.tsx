@@ -172,7 +172,12 @@ export const PivotTableDialog: React.FC<PivotTableDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pivot-table-title"
+        className="bg-surface rounded-xl border border-border shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-secondary/40">
           <div className="flex items-center gap-2">
@@ -180,7 +185,7 @@ export const PivotTableDialog: React.FC<PivotTableDialogProps> = ({
               <Table className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-foreground">Create Pivot Table</h2>
+              <h2 id="pivot-table-title" className="text-base font-semibold text-foreground">Create Pivot Table</h2>
               <p className="text-xs text-foreground-muted">
                 Summarize, analyze, and explore multidimensional spreadsheet data
               </p>

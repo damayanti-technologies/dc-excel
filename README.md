@@ -7,6 +7,11 @@
 ## 1. Architectural Highlights
 
 - **Local-First & Offline-First:** Persists all workbooks, worksheets, folders, preferences, cell styles, and merged ranges in browser IndexedDB. Runs standalone without an internet connection.
+- **Productivity & UI Polish (`Stage 14`):** Centralized shortcut registry (22 standard shortcuts), Excel-standard contiguous block jump (`Ctrl + Arrow`), searchable Command Palette (`Ctrl+Shift+P`), full right-click context menus for cells, headers, tabs, and charts, Quick Access Toolbar (QAT), multiline formula expander (`Alt+Enter`), Status Bar with dynamic $O(K)$ selection stats (`Count`, `Nums`, `Sum`, `Avg`, `Min`, `Max`), zoom slider (50%–200%), and print & PDF setup dialog (`Ctrl+P`).
+- **Data Persistence, Autosave & Recovery (`Stage 13`):** IndexedDB Schema v3, debounced save queue (600ms), undo/redo command stack (80 operations), manual/automatic version history checkpoints, session crash recovery, portable `.omni` ZIP archive backup/restore, and multi-tab conflict warnings.
+- **Excel & CSV Import/Export (`Stage 12`):** Microsoft Excel (.xlsx) parsing/generation with styling, merged cells, borders, and freeze panes; RFC 4180 CSV/TSV parser with Telugu Unicode preservation (`రాష్ట్రం, నగరం`) and formula injection neutralization.
+- **Charts & Data Visualization (`Stage 11`):** Interactive Apache ECharts integration supporting Bar, Column, Line, Area, Pie, Donut, and Scatter charts with live data synchronization, draggable overlay, and PNG export.
+- **Advanced Data Analysis (`Stage 10`):** Conditional formatting (highlight rules, top/bottom, custom formulas), data bars, color scales, icon sets, named ranges manager, interactive Pivot Tables, grouping and subtotals, and Goal Seek / Scenario what-if analysis.
 - **Data Management & Data Tools (`Stage 9`):** Comprehensive spreadsheet data manipulation suite. Dedicated **Data** ribbon tab featuring:
   - **Single & Multi-Level Sorting:** Instant A-to-Z / Z-to-A quick sorting and custom multi-level sort modal preserving row record integrity, cell styles, and formulas, with table range auto-detection and blanks always placed at the bottom.
   - **Column Filtering & Visual Row Hiding:** Interactive filter icons on table column headers, distinct value checklist popovers with live counts, condition rules (text contains/starts/ends, numeric greater/less/between, blanks), multi-column AND logic, and non-destructive virtual row hiding persisted to IndexedDB.
@@ -156,9 +161,13 @@ spreadsheet-app/
 
 ## 7. Documentation Index
 
+- Production Deployment Guide: [DEPLOYMENT.md](DEPLOYMENT.md)
+- Testing & Quality Assurance: [TESTING.md](TESTING.md)
+- Known Limitations & Boundaries: [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md)
+- Full Changelog (Stages 1-15): [CHANGELOG.md](CHANGELOG.md)
+- Project Status & Release Audit: [PROJECT_STATUS.md](PROJECT_STATUS.md)
 - Design system & UI catalog: [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
 - Detailed system design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Technology selection & licensing: [docs/TECH_STACK.md](docs/TECH_STACK.md)
 - Spreadsheet engine comparison: [docs/ENGINE_EVALUATION.md](docs/ENGINE_EVALUATION.md)
 - IndexedDB & sparse storage model: [docs/STORAGE_DESIGN.md](docs/STORAGE_DESIGN.md)
-- Current status & stage tracking: [PROJECT_STATUS.md](PROJECT_STATUS.md)

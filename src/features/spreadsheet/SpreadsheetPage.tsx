@@ -181,6 +181,8 @@ export const SpreadsheetPage: React.FC = () => {
   const editingCell = useSelectionStore((state) => state.editingCell);
   const editingValue = useSelectionStore((state) => state.editingValue);
   const setActiveCell = useSelectionStore((state) => state.setActiveCell);
+  const setAnchorCell = useSelectionStore((state) => state.setAnchorCell);
+  const setSelectedRange = useSelectionStore((state) => state.setSelectedRange);
   const selectRangeFromAnchor = useSelectionStore((state) => state.selectRangeFromAnchor);
   const selectEntireRow = useSelectionStore((state) => state.selectEntireRow);
   const selectEntireColumn = useSelectionStore((state) => state.selectEntireColumn);
@@ -1678,10 +1680,11 @@ export const SpreadsheetPage: React.FC = () => {
   // Stage 14: Navigation & Go To Handlers
   const handleNavigateToRange = useCallback(
     (range: CellRange) => {
-      selectRangeFromAnchor({ row: range.endRow, col: range.endCol });
       setActiveCell({ row: range.startRow, col: range.startCol });
+      setAnchorCell({ row: range.startRow, col: range.startCol });
+      setSelectedRange(range);
     },
-    [selectRangeFromAnchor, setActiveCell]
+    [setActiveCell, setAnchorCell, setSelectedRange]
   );
 
   const handleNavigateToNamedRange = useCallback(
