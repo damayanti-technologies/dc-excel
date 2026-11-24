@@ -2,26 +2,42 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
-import { CellCoordinates } from '@/types/cell';
+import { CellCoordinates, CellRange, CellStyle } from '@/types/cell';
+import { BorderPosition, BorderStyleType } from '@/types/formatting';
 import { PersistenceStatus } from '@/types/storage';
 import { workbookService } from '@/services';
 import { useSheetStore } from '@/stores/sheet-store';
 import { useSelectionStore } from '@/stores/selection-store';
 import { useWorkbookStore } from '@/stores/workbook-store';
+import { useFormatPainterStore } from '@/stores/format-painter-store';
 import { toast } from '@/stores/toast-store';
 import { coordToKey } from '@/utils/coordinates';
 import { formatRangeLabel } from '@/engine/grid/selection';
 import { copyRange, applyPasteData, getClipboardText } from '@/engine/grid/clipboard';
 import { calculationEngine } from '@/engine/calculation';
+import {
+  applyStyleToRange,
+  applyBordersToRange,
+  clearFormattingFromRange
+} from '@/engine/formatting/range-formatting';
+import {
+  canMergeRange,
+  checkNonAnchorPopulated,
+  mergeRange,
+  unmergeRange
+} from '@/engine/formatting/merge-cells';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import {
   WorkbookHeader,
   SpreadsheetToolbar,
+  FormattingToolbar,
   FormulaBar,
   SpreadsheetGrid,
   SheetTabsBar,
-  FormulaReferencePanel
+  FormulaReferencePanel,
+  MergeConfirmDialog,
+  MobileFormattingPanel
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -63,6 +79,17 @@ export const SpreadsheetPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isReferenceOpen, setIsReferenceOpen] = useState(false);
+  const [isMergeWarningOpen, setIsMergeWarningOpen] = useState(false);
+  const [pendingMergeMode, setPendingMergeMode] = useState<'all' | 'across' | 'center'>('all');
+  const [pendingMergeRange, setPendingMergeRange] = useState<CellRange | null>(null);
+  const [isMobileFormattingOpen, setIsMobileFormattingOpen] = useState(false);
+
+  // Format painter store
+  const isFormatPainterActive = useFormatPainterStore((state) => state.isActive);
+  const formatPainterStyle = useFormatPainterStore((state) => state.sourceStyle);
+  const isFormatPainterLocked = useFormatPainterStore((state) => state.isLocked);
+  const activateFormatPainter = useFormatPainterStore((state) => state.activate);
+  const deactivateFormatPainter = useFormatPainterStore((state) => state.deactivate);
 
   const handleInsertFunction = useCallback(
     (syntax: string) => {
@@ -72,6 +99,123 @@ export const SpreadsheetPage: React.FC = () => {
     },
     [activeCell, startEditing]
   );
+
+  // Target range for formatting operations
+  const getTargetRange = useCallback((): CellRange | null => {
+    if (selectedRange) return selectedRange;
+    if (activeCell) {
+      return {
+        startRow: activeCell.row,
+        startCol: activeCell.col,
+        endRow: activeCell.row,
+        endCol: activeCell.col
+      };
+    }
+    return null;
+  }, [selectedRange, activeCell]);
+
+  const handleApplyStyle = useCallback(
+    (styleUpdate: Partial<CellStyle>) => {
+      if (!activeSheet) return;
+      const target = getTargetRange();
+      if (!target) return;
+
+      const updatedCells = applyStyleToRange(activeSheet.cells, target, styleUpdate);
+      setBatchCells(updatedCells);
+    },
+    [activeSheet, getTargetRange, setBatchCells]
+  );
+
+  const handleApplyBorders = useCallback(
+    (position: BorderPosition, style: BorderStyleType, color: string) => {
+      if (!activeSheet) return;
+      const target = getTargetRange();
+      if (!target) return;
+
+      const updatedCells = applyBordersToRange(activeSheet.cells, target, position, style, color);
+      setBatchCells(updatedCells);
+    },
+    [activeSheet, getTargetRange, setBatchCells]
+  );
+
+  const handleClearFormatting = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange();
+    if (!target) return;
+
+    const updatedCells = clearFormattingFromRange(activeSheet.cells, target);
+    setBatchCells(updatedCells);
+    toast.info('Formatting Cleared', 'Cell formatting has been reset to default.');
+  }, [activeSheet, getTargetRange, setBatchCells]);
+
+  const handleToggleFormatPainter = useCallback(() => {
+    if (isFormatPainterActive) {
+      deactivateFormatPainter();
+    } else if (activeSheet && activeCell) {
+      const key = coordToKey(activeCell.row, activeCell.col);
+      const cell = activeSheet.cells[key];
+      activateFormatPainter(cell?.style);
+      toast.info('Format Painter Active', 'Click a cell or drag across a range to apply formatting.');
+    }
+  }, [isFormatPainterActive, deactivateFormatPainter, activeSheet, activeCell, activateFormatPainter]);
+
+  const handleApplyFormatPainter = useCallback(() => {
+    if (!activeSheet || !formatPainterStyle) return;
+    const target = getTargetRange();
+    if (!target) return;
+
+    const updatedCells = applyStyleToRange(activeSheet.cells, target, formatPainterStyle);
+    setBatchCells(updatedCells);
+
+    if (!isFormatPainterLocked) {
+      deactivateFormatPainter();
+    }
+  }, [activeSheet, formatPainterStyle, getTargetRange, setBatchCells, isFormatPainterLocked, deactivateFormatPainter]);
+
+  const handleMerge = useCallback(
+    (mode: 'all' | 'across' | 'center') => {
+      if (!activeSheet) return;
+      const target = getTargetRange();
+      if (!target) return;
+
+      const { canMerge, reason } = canMergeRange(activeSheet.mergedRanges, target);
+      if (!canMerge) {
+        toast.warning('Cannot Merge', reason || 'Invalid merge selection.');
+        return;
+      }
+
+      const { hasPopulated } = checkNonAnchorPopulated(activeSheet.cells, target);
+      if (hasPopulated) {
+        setPendingMergeMode(mode);
+        setPendingMergeRange(target);
+        setIsMergeWarningOpen(true);
+      } else {
+        const { updatedSheet } = mergeRange(activeSheet, target, mode);
+        setActiveSheet(updatedSheet);
+      }
+    },
+    [activeSheet, getTargetRange, setActiveSheet]
+  );
+
+  const handleConfirmMerge = useCallback(() => {
+    if (!activeSheet || !pendingMergeRange) return;
+    const { updatedSheet } = mergeRange(activeSheet, pendingMergeRange, pendingMergeMode);
+    setActiveSheet(updatedSheet);
+    setIsMergeWarningOpen(false);
+    setPendingMergeRange(null);
+  }, [activeSheet, pendingMergeRange, pendingMergeMode, setActiveSheet]);
+
+  const handleUnmerge = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange();
+    if (!target) return;
+
+    const { updatedSheet, unmergedCount } = unmergeRange(activeSheet, target);
+    setActiveSheet(updatedSheet);
+    if (unmergedCount > 0) {
+      toast.info('Unmerged Cells', `Unmerged ${unmergedCount} cell range(s).`);
+    }
+  }, [activeSheet, getTargetRange, setActiveSheet]);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -376,7 +520,7 @@ export const SpreadsheetPage: React.FC = () => {
     selectEntireColumn(col, activeSheet.rowCount);
   };
 
-  // 13. Global Keyboard Shortcuts (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A)
+  // 13. Global Keyboard Shortcuts (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A, Ctrl+B, Ctrl+I, Ctrl+U)
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       const isCtrl = e.ctrlKey || e.metaKey;
@@ -397,12 +541,40 @@ export const SpreadsheetPage: React.FC = () => {
       } else if (isCtrl && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         handleSelectAll();
+      } else if (isCtrl && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        const activeCellKey = activeCell ? coordToKey(activeCell.row, activeCell.col) : null;
+        const currentStyle = activeCellKey && activeSheet ? activeSheet.cells[activeCellKey]?.style : undefined;
+        handleApplyStyle({ bold: !currentStyle?.bold });
+      } else if (isCtrl && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        const activeCellKey = activeCell ? coordToKey(activeCell.row, activeCell.col) : null;
+        const currentStyle = activeCellKey && activeSheet ? activeSheet.cells[activeCellKey]?.style : undefined;
+        handleApplyStyle({ italic: !currentStyle?.italic });
+      } else if (isCtrl && e.key.toLowerCase() === 'u') {
+        e.preventDefault();
+        const activeCellKey = activeCell ? coordToKey(activeCell.row, activeCell.col) : null;
+        const currentStyle = activeCellKey && activeSheet ? activeSheet.cells[activeCellKey]?.style : undefined;
+        handleApplyStyle({ underline: !currentStyle?.underline });
+      } else if (e.key === 'Escape' && isFormatPainterActive) {
+        e.preventDefault();
+        deactivateFormatPainter();
       }
     };
 
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [handleCopy, handleCut, handlePaste, handleSelectAll]);
+  }, [
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleSelectAll,
+    handleApplyStyle,
+    activeCell,
+    activeSheet,
+    isFormatPainterActive,
+    deactivateFormatPainter
+  ]);
 
   if (isLoading) {
     return <LoadingState message="Loading spreadsheet grid..." />;
@@ -451,7 +623,20 @@ export const SpreadsheetPage: React.FC = () => {
         onDeleteCol={handleDeleteCol}
       />
 
-      {/* 3. Formula Bar */}
+      {/* 3. Formatting Toolbar */}
+      <FormattingToolbar
+        activeStyle={currentCellData?.style}
+        isFormatPainterActive={isFormatPainterActive}
+        onApplyStyle={handleApplyStyle}
+        onApplyBorders={handleApplyBorders}
+        onClearFormatting={handleClearFormatting}
+        onToggleFormatPainter={handleToggleFormatPainter}
+        onMerge={handleMerge}
+        onUnmerge={handleUnmerge}
+        onOpenMobilePanel={() => setIsMobileFormattingOpen(true)}
+      />
+
+      {/* 4. Formula Bar */}
       <FormulaBar
         activeCell={activeCell}
         cell={currentCellData}
@@ -464,7 +649,7 @@ export const SpreadsheetPage: React.FC = () => {
         onOpenReference={() => setIsReferenceOpen(true)}
       />
 
-      {/* 4. Virtualized Spreadsheet Grid Viewport */}
+      {/* 5. Virtualized Spreadsheet Grid Viewport */}
       <div className="flex-1 relative overflow-hidden flex flex-col min-h-0 min-w-0">
         <SpreadsheetGrid
           sheet={activeSheet}
@@ -474,6 +659,8 @@ export const SpreadsheetPage: React.FC = () => {
           zoom={zoom}
           editingCell={editingCell}
           editingValue={editingValue}
+          isFormatPainterActive={isFormatPainterActive}
+          onApplyFormatPainter={handleApplyFormatPainter}
           onSelectCell={handleSelectCell}
           onDragSelect={selectRangeFromAnchor}
           onSelectEntireRow={handleSelectEntireRow}
@@ -489,7 +676,7 @@ export const SpreadsheetPage: React.FC = () => {
         />
       </div>
 
-      {/* 5. Bottom Sheet Tabs Bar */}
+      {/* 6. Bottom Sheet Tabs Bar */}
       <SheetTabsBar
         sheets={sheets}
         activeSheetId={activeSheet.id}
@@ -497,11 +684,27 @@ export const SpreadsheetPage: React.FC = () => {
         onAddSheet={() => void handleAddSheet()}
       />
 
-      {/* 6. Formula Reference Panel Modal */}
+      {/* 7. Formula Reference Panel Modal */}
       <FormulaReferencePanel
         isOpen={isReferenceOpen}
         onClose={() => setIsReferenceOpen(false)}
         onInsertFunction={handleInsertFunction}
+      />
+
+      {/* 8. Merge Confirmation Warning Dialog */}
+      <MergeConfirmDialog
+        isOpen={isMergeWarningOpen}
+        onConfirm={handleConfirmMerge}
+        onCancel={() => setIsMergeWarningOpen(false)}
+      />
+
+      {/* 9. Mobile Formatting Drawer Panel */}
+      <MobileFormattingPanel
+        isOpen={isMobileFormattingOpen}
+        onClose={() => setIsMobileFormattingOpen(false)}
+        activeStyle={currentCellData?.style}
+        onApplyStyle={handleApplyStyle}
+        onClearFormatting={handleClearFormatting}
       />
     </div>
   );

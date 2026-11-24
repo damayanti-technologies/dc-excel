@@ -56,6 +56,7 @@ export interface CellBorders {
  */
 export interface CellStyle {
   font?: string;
+  fontFamily?: string;
   fontSize?: number;
   bold?: boolean;
   italic?: boolean;
@@ -66,6 +67,8 @@ export interface CellStyle {
   horizontalAlignment?: 'left' | 'center' | 'right' | 'justify';
   verticalAlignment?: 'top' | 'middle' | 'bottom';
   wrapText?: boolean;
+  textOverflow?: 'clip' | 'overflow' | 'wrap';
+  indentation?: number;
   borders?: CellBorders;
   numberFormat?: string; // Standard format pattern, e.g. "General", "$#,##0.00", "0.00%", "YYYY-MM-DD"
 }

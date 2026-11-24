@@ -1,5 +1,7 @@
 import { CellRange, SparseCellMap } from './cell';
 
+export type { CellRange, SparseCellMap };
+
 /**
  * Metadata configuration for a sheet tab.
  */

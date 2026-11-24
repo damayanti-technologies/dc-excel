@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Sheet } from '@/types/sheet';
-import { CellCoordinates, CellRange } from '@/types/cell';
+import { CellCoordinates, CellRange, CellBorder, CellBorders } from '@/types/cell';
 import { GridVirtualizer } from '@/engine/grid/virtualizer';
 import { colIndexToName, coordToKey } from '@/utils/coordinates';
 import { isHeaderHighlighted, isSingleCell } from '@/engine/grid/selection';
@@ -8,10 +8,34 @@ import { handleGridKeyboardNavigation } from '@/engine/grid/keyboard';
 import { DEFAULT_GRID_CONFIG } from '@/engine/grid/constants';
 import { ResizeTarget } from '@/engine/grid/types';
 import { isFormulaError } from '@/engine/calculation/errors';
+import {
+  isCellCoveredByMerge,
+  getMergedRangeForCell,
+  isMergeAnchor
+} from '@/engine/formatting/merge-cells';
+import { numberFormatter } from '@/engine/formatting/number-formatter';
 import { useFormulaInputAssist } from '../hooks/useFormulaInputAssist';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
 import { FormulaArgumentHelp } from './FormulaArgumentHelp';
 import { cn } from '@/utils/cn';
+
+function getBorderCss(borders?: CellBorders): React.CSSProperties {
+  const css: React.CSSProperties = {};
+  if (!borders) return css;
+
+  const mapSide = (side?: CellBorder) => {
+    if (!side || side.style === 'none') return undefined;
+    const w = side.style === 'thin' ? '1px' : side.style === 'medium' ? '2px' : '3px';
+    const s = side.style === 'dashed' ? 'dashed' : side.style === 'double' ? 'double' : 'solid';
+    return `${w} ${s} ${side.color}`;
+  };
+
+  if (borders.top) css.borderTop = mapSide(borders.top);
+  if (borders.bottom) css.borderBottom = mapSide(borders.bottom);
+  if (borders.left) css.borderLeft = mapSide(borders.left);
+  if (borders.right) css.borderRight = mapSide(borders.right);
+  return css;
+}
 
 interface SpreadsheetGridProps {
   sheet: Sheet;
@@ -21,6 +45,8 @@ interface SpreadsheetGridProps {
   zoom: number;
   editingCell: CellCoordinates | null;
   editingValue: string;
+  isFormatPainterActive?: boolean;
+  onApplyFormatPainter?: () => void;
   onSelectCell: (coord: CellCoordinates, isShift: boolean) => void;
   onDragSelect: (coord: CellCoordinates) => void;
   onSelectEntireRow: (row: number) => void;
@@ -44,6 +70,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   zoom,
   editingCell,
   editingValue,
+  isFormatPainterActive = false,
+  onApplyFormatPainter,
   onSelectCell,
   onDragSelect,
   onSelectEntireRow,
@@ -301,12 +329,26 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     if (e.button !== 0) return; // Only primary button
     e.preventDefault();
 
+    let targetRow = row;
+    let targetCol = col;
+    const merged = getMergedRangeForCell(sheet.mergedRanges, row, col);
+    if (merged) {
+      targetRow = merged.startRow;
+      targetCol = merged.startCol;
+    }
+
+    if (isFormatPainterActive && onApplyFormatPainter) {
+      onSelectCell({ row: targetRow, col: targetCol }, e.shiftKey);
+      onApplyFormatPainter();
+      return;
+    }
+
     // If currently editing another cell, commit it first
-    if (editingCell && (editingCell.row !== row || editingCell.col !== col)) {
+    if (editingCell && (editingCell.row !== targetRow || editingCell.col !== targetCol)) {
       onCommitEditing('none');
     }
 
-    onSelectCell({ row, col }, e.shiftKey);
+    onSelectCell({ row: targetRow, col: targetCol }, e.shiftKey);
     setIsMouseDown(true);
     scrollContainerRef.current?.focus();
   };
@@ -314,10 +356,18 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Double-click to start direct cell editing
   const handleCellDoubleClick = (row: number, col: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const key = coordToKey(row, col);
+    let targetRow = row;
+    let targetCol = col;
+    const merged = getMergedRangeForCell(sheet.mergedRanges, row, col);
+    if (merged) {
+      targetRow = merged.startRow;
+      targetCol = merged.startCol;
+    }
+
+    const key = coordToKey(targetRow, targetCol);
     const cell = sheet.cells[key];
     const initialText = cell?.formula ?? (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : '');
-    onStartEditing({ row, col }, initialText);
+    onStartEditing({ row: targetRow, col: targetCol }, initialText);
   };
 
   const handleCellMouseEnter = (row: number, col: number) => {
@@ -399,13 +449,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Compute selection overlay bounding box
   const selectionBox = useMemo(() => {
     if (!selectedRange) return null;
+    if (isSingleCell(selectedRange)) {
+      const merged = getMergedRangeForCell(sheet.mergedRanges, selectedRange.startRow, selectedRange.startCol);
+      if (merged) {
+        return virtualizer.getRangeRect(merged, zoom);
+      }
+    }
     return virtualizer.getRangeRect(selectedRange, zoom);
-  }, [virtualizer, selectedRange, zoom]);
+  }, [virtualizer, selectedRange, zoom, sheet.mergedRanges]);
 
   const activeCellBox = useMemo(() => {
     if (!activeCell) return null;
+    const merged = getMergedRangeForCell(sheet.mergedRanges, activeCell.row, activeCell.col);
+    if (merged) {
+      return virtualizer.getRangeRect(merged, zoom);
+    }
     return virtualizer.getCellRect(activeCell.row, activeCell.col, zoom);
-  }, [virtualizer, activeCell, zoom]);
+  }, [virtualizer, activeCell, zoom, sheet.mergedRanges]);
 
   const cornerW = Math.round(DEFAULT_GRID_CONFIG.rowHeaderWidth * zoom);
   const cornerH = Math.round(DEFAULT_GRID_CONFIG.colHeaderHeight * zoom);
@@ -567,32 +627,60 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         {/* Render visible cells */}
         {visibleRows.map((row) =>
           visibleCols.map((col) => {
+            if (isCellCoveredByMerge(sheet.mergedRanges, row, col)) {
+              return null;
+            }
+
             const key = coordToKey(row, col);
             const cell = sheet.cells[key];
             const left = virtualizer.getColOffset(col, zoom);
             const top = virtualizer.getRowOffset(row, zoom);
-            const width = virtualizer.getColWidth(col, zoom);
-            const height = virtualizer.getRowHeight(row, zoom);
+            let width = virtualizer.getColWidth(col, zoom);
+            let height = virtualizer.getRowHeight(row, zoom);
+
+            const merged = getMergedRangeForCell(sheet.mergedRanges, row, col);
+            let isAnchor = false;
+
+            if (merged && isMergeAnchor(merged, row, col)) {
+              isAnchor = true;
+              let mw = 0;
+              for (let c = merged.startCol; c <= merged.endCol; c++) {
+                mw += virtualizer.getColWidth(c, zoom);
+              }
+              let mh = 0;
+              for (let r = merged.startRow; r <= merged.endRow; r++) {
+                mh += virtualizer.getRowHeight(r, zoom);
+              }
+              width = mw;
+              height = mh;
+            }
 
             let cellContent = '';
-            let alignmentClass = 'text-left';
+            let isError = false;
 
             if (cell) {
               if (cell.dataType === 'error' || isFormulaError(cell.value)) {
                 cellContent = String(cell.value);
-                alignmentClass = 'text-center font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10';
+                isError = true;
               } else if (cell.value !== null && cell.value !== undefined) {
-                if (typeof cell.value === 'boolean') {
-                  cellContent = cell.value ? 'TRUE' : 'FALSE';
-                  alignmentClass = 'text-center font-semibold text-accent';
-                } else {
-                  cellContent = String(cell.value);
-                  if (cell.dataType === 'number' || typeof cell.value === 'number') {
-                    alignmentClass = 'text-right font-mono';
-                  }
-                }
+                cellContent = numberFormatter.format(cell.value, cell?.style?.numberFormat);
               }
             }
+
+            const cellStyle = cell?.style;
+            const hAlign =
+              cellStyle?.horizontalAlignment ||
+              (isError
+                ? 'center'
+                : cell?.dataType === 'number' || typeof cell?.value === 'number'
+                ? 'right'
+                : typeof cell?.value === 'boolean'
+                ? 'center'
+                : 'left');
+
+            const vAlign = cellStyle?.verticalAlignment || 'middle';
+            const isWrap = !!cellStyle?.wrapText;
+            const borderCss = getBorderCss(cellStyle?.borders);
 
             return (
               <div
@@ -606,12 +694,49 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   top,
                   width,
                   height,
-                  lineHeight: `${height - 2}px`,
-                  fontSize: `${Math.round(12 * zoom)}px`
+                  zIndex: isAnchor ? 10 : 1,
+                  fontFamily: cellStyle?.fontFamily || cellStyle?.font || undefined,
+                  fontSize: cellStyle?.fontSize
+                    ? `${Math.round(cellStyle.fontSize * zoom)}px`
+                    : `${Math.round(12 * zoom)}px`,
+                  fontWeight: cellStyle?.bold ? 700 : undefined,
+                  fontStyle: cellStyle?.italic ? 'italic' : undefined,
+                  textDecoration: [
+                    cellStyle?.underline ? 'underline' : '',
+                    cellStyle?.strikethrough ? 'line-through' : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined,
+                  color: cellStyle?.textColor || undefined,
+                  backgroundColor: cellStyle?.backgroundColor || undefined,
+                  textAlign: hAlign,
+                  paddingLeft: cellStyle?.indentation
+                    ? `${Math.round((cellStyle.indentation * 16 + 8) * zoom)}px`
+                    : undefined,
+                  whiteSpace: isWrap ? 'pre-wrap' : 'nowrap',
+                  wordBreak: isWrap ? 'break-word' : undefined,
+                  lineHeight: isWrap ? 'normal' : `${height - 2}px`,
+                  display: isWrap || vAlign !== 'middle' ? 'flex' : undefined,
+                  flexDirection: 'column',
+                  justifyContent:
+                    vAlign === 'top'
+                      ? 'flex-start'
+                      : vAlign === 'bottom'
+                      ? 'flex-end'
+                      : 'center',
+                  alignItems:
+                    hAlign === 'right'
+                      ? 'flex-end'
+                      : hAlign === 'center'
+                      ? 'center'
+                      : 'flex-start',
+                  ...borderCss
                 }}
                 className={cn(
-                  'border-r border-b border-border/60 px-2 overflow-hidden text-ellipsis whitespace-nowrap text-foreground bg-background hover:bg-surface-secondary/40 transition-colors cursor-cell select-none',
-                  alignmentClass
+                  'border-r border-b border-border/60 px-2 overflow-hidden text-ellipsis text-foreground bg-background hover:bg-surface-secondary/40 transition-colors select-none',
+                  isFormatPainterActive ? 'cursor-copy' : 'cursor-cell',
+                  isError &&
+                    'font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10'
                 )}
                 role="gridcell"
                 aria-rowindex={row + 1}
@@ -644,8 +769,27 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               onKeyDown={handleCellInputKeyDown}
               onBlur={handleCellInputBlur}
               style={{
-                width: Math.max(virtualizer.getColWidth(editingCell.col, zoom), 140),
-                height: virtualizer.getRowHeight(editingCell.row, zoom),
+                width: Math.max(
+                  (() => {
+                    const m = getMergedRangeForCell(sheet.mergedRanges, editingCell.row, editingCell.col);
+                    if (m && isMergeAnchor(m, editingCell.row, editingCell.col)) {
+                      let mw = 0;
+                      for (let c = m.startCol; c <= m.endCol; c++) mw += virtualizer.getColWidth(c, zoom);
+                      return mw;
+                    }
+                    return virtualizer.getColWidth(editingCell.col, zoom);
+                  })(),
+                  140
+                ),
+                height: (() => {
+                  const m = getMergedRangeForCell(sheet.mergedRanges, editingCell.row, editingCell.col);
+                  if (m && isMergeAnchor(m, editingCell.row, editingCell.col)) {
+                    let mh = 0;
+                    for (let r = m.startRow; r <= m.endRow; r++) mh += virtualizer.getRowHeight(r, zoom);
+                    return mh;
+                  }
+                  return virtualizer.getRowHeight(editingCell.row, zoom);
+                })(),
                 fontSize: `${Math.round(12 * zoom)}px`
               }}
               className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
