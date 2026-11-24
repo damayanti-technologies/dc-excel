@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
-import { Cell, CellCoordinates, CellRange, CellStyle } from '@/types/cell';
+import { Cell, CellCoordinates, CellRange, CellStyle, CellValue } from '@/types/cell';
 import { BorderPosition, BorderStyleType } from '@/types/formatting';
 import { PersistenceStatus } from '@/types/storage';
 import { workbookService } from '@/services';
@@ -27,6 +27,21 @@ import {
   unmergeRange
 } from '@/engine/formatting/merge-cells';
 import { SortConfig, ColumnFilter, DataValidationRule } from '@/types/data-tools';
+import {
+  ConditionalFormatRule,
+  NamedRange,
+  PivotTableConfig,
+  SubtotalConfig,
+  Scenario,
+} from '@/types/analysis';
+import {
+  resolveNamedRange,
+  generatePivotTable,
+  applySubtotals,
+  removeSubtotals,
+  addRowGroup,
+  removeRowGroup,
+} from '@/engine/analysis';
 import { detectTableRange, sortRange } from '@/engine/data-tools/sorting';
 import { evaluateFilters } from '@/engine/data-tools/filtering';
 import {
@@ -56,7 +71,14 @@ import {
   FindReplaceDialog,
   RemoveDuplicatesDialog,
   DataValidationDialog,
-  TextToColumnsDialog
+  TextToColumnsDialog,
+  ConditionalFormattingDialog,
+  ConditionalFormattingManagerDialog,
+  NameManagerDialog,
+  PivotTableDialog,
+  SubtotalsDialog,
+  GoalSeekDialog,
+  ScenarioManagerDialog,
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -75,6 +97,12 @@ export const SpreadsheetPage: React.FC = () => {
   const setColumnWidth = useSheetStore((state) => state.setColumnWidth);
   const setBatchCells = useSheetStore((state) => state.setBatchCells);
   const updateMetadata = useSheetStore((state) => state.updateMetadata);
+  const addConditionalFormat = useSheetStore((state) => state.addConditionalFormat);
+  const reorderConditionalFormats = useSheetStore((state) => state.reorderConditionalFormats);
+  const setRowGroups = useSheetStore((state) => state.setRowGroups);
+  const toggleRowGroupCollapse = useSheetStore((state) => state.toggleRowGroupCollapse);
+  const setSubtotals = useSheetStore((state) => state.setSubtotals);
+  const addPivotTable = useSheetStore((state) => state.addPivotTable);
 
   const activeCell = useSelectionStore((state) => state.activeCell);
   const anchorCell = useSelectionStore((state) => state.anchorCell);
@@ -91,6 +119,13 @@ export const SpreadsheetPage: React.FC = () => {
   const stopEditing = useSelectionStore((state) => state.stopEditing);
 
   const setCurrentWorkbook = useWorkbookStore((state) => state.setCurrentWorkbook);
+  const currentWorkbook = useWorkbookStore((state) => state.currentWorkbook);
+  const addNamedRange = useWorkbookStore((state) => state.addNamedRange);
+  const updateNamedRange = useWorkbookStore((state) => state.updateNamedRange);
+  const deleteNamedRange = useWorkbookStore((state) => state.deleteNamedRange);
+  const addScenario = useWorkbookStore((state) => state.addScenario);
+  const updateScenario = useWorkbookStore((state) => state.updateScenario);
+  const deleteScenario = useWorkbookStore((state) => state.deleteScenario);
 
   // Local state
   const [workbook, setWorkbook] = useState<Workbook | null>(null);
@@ -116,6 +151,24 @@ export const SpreadsheetPage: React.FC = () => {
   const [findReplaceInitialMode, setFindReplaceInitialMode] = useState<'find' | 'replace'>('find');
   const [activeFilterCol, setActiveFilterCol] = useState<number | null>(null);
   const [isAuditHighlighted, setIsAuditHighlighted] = useState(false);
+
+  // Stage 10 Analysis Tools State
+  const [isConditionalFormattingOpen, setIsConditionalFormattingOpen] = useState(false);
+  const [isConditionalFormattingManagerOpen, setIsConditionalFormattingManagerOpen] = useState(false);
+  const [isNameManagerOpen, setIsNameManagerOpen] = useState(false);
+  const [isPivotTableOpen, setIsPivotTableOpen] = useState(false);
+  const [isSubtotalsOpen, setIsSubtotalsOpen] = useState(false);
+  const [isGoalSeekOpen, setIsGoalSeekOpen] = useState(false);
+  const [isScenarioManagerOpen, setIsScenarioManagerOpen] = useState(false);
+
+  const namedRangeResolver = useCallback(
+    (name: string) => {
+      const nrs = currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || [];
+      const res = resolveNamedRange(name, activeSheet?.id || '', nrs);
+      return res || null;
+    },
+    [currentWorkbook?.metadata?.namedRanges, workbook?.metadata?.namedRanges, activeSheet?.id]
+  );
 
   // Format painter store
   const isFormatPainterActive = useFormatPainterStore((state) => state.isActive);
@@ -550,6 +603,246 @@ export const SpreadsheetPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  // --- Stage 10 Analysis Tool Handlers ---
+
+  // 1. Conditional Formatting
+  const handleSaveConditionalFormat = useCallback(
+    (rule: ConditionalFormatRule) => {
+      addConditionalFormat(rule);
+      toast.success('Formatting Applied', 'Conditional formatting rule saved.');
+    },
+    [addConditionalFormat]
+  );
+
+  const handleUpdateConditionalFormats = useCallback(
+    (rules: ConditionalFormatRule[]) => {
+      reorderConditionalFormats(rules);
+      toast.success('Rules Updated', 'Conditional formatting rules updated.');
+    },
+    [reorderConditionalFormats]
+  );
+
+  const handleClearConditionalFormattingSelection = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange() || getDataRange();
+    const currentRules = activeSheet.metadata?.conditionalFormats || [];
+    const remaining = currentRules.filter((r) => {
+      const overlaps =
+        r.range.startRow <= target.endRow &&
+        r.range.endRow >= target.startRow &&
+        r.range.startCol <= target.endCol &&
+        r.range.endCol >= target.startCol;
+      return !overlaps;
+    });
+    reorderConditionalFormats(remaining);
+    toast.info('Rules Cleared', 'Removed conditional formatting from selected area.');
+  }, [activeSheet, getTargetRange, getDataRange, reorderConditionalFormats]);
+
+  const handleClearConditionalFormattingSheet = useCallback(() => {
+    reorderConditionalFormats([]);
+    toast.info('Rules Cleared', 'Removed all conditional formatting rules from worksheet.');
+  }, [reorderConditionalFormats]);
+
+  // 2. Named Ranges
+  const handleAddNamedRange = useCallback(
+    (nr: NamedRange) => {
+      addNamedRange(nr);
+      toast.success('Name Defined', `Named range "${nr.name}" created.`);
+    },
+    [addNamedRange]
+  );
+
+  const handleUpdateNamedRange = useCallback(
+    (nr: NamedRange) => {
+      updateNamedRange(nr);
+      toast.success('Name Updated', `Named range "${nr.name}" updated.`);
+    },
+    [updateNamedRange]
+  );
+
+  const handleDeleteNamedRange = useCallback(
+    (id: string) => {
+      deleteNamedRange(id);
+      toast.info('Name Deleted', 'Named range removed.');
+    },
+    [deleteNamedRange]
+  );
+
+  // 3. Pivot Tables
+  const handleApplyPivotTable = useCallback(
+    (config: PivotTableConfig) => {
+      if (!activeSheet) return;
+      const pivotResult = generatePivotTable(config, (r, c) => activeSheet.cells[coordToKey(r, c)]);
+      
+      const batchCells: Record<string, Cell> = {};
+      for (const [key, pCell] of Object.entries(pivotResult.cells)) {
+        batchCells[key] = {
+          value: pCell.value,
+          dataType: typeof pCell.value === 'number' ? 'number' : 'string',
+          style: pCell.style,
+        };
+      }
+
+      setBatchCells(
+        batchCells,
+        config.destinationCoord.row + pivotResult.rowCount,
+        config.destinationCoord.col + pivotResult.colCount
+      );
+      addPivotTable(config);
+      toast.success('Pivot Table Created', `Generated ${pivotResult.rowCount} rows by ${pivotResult.colCount} columns.`);
+    },
+    [activeSheet, setBatchCells, addPivotTable]
+  );
+
+  // 4. Subtotals
+  const handleApplySubtotals = useCallback(
+    (config: SubtotalConfig) => {
+      if (!activeSheet) return;
+      const subResult = applySubtotals(config, activeSheet.cells);
+      setBatchCells(subResult.newCells);
+      setRowGroups(subResult.newRowGroups);
+      setSubtotals(config);
+      toast.success('Subtotals Applied', `Added ${subResult.rowsAdded} subtotal and grand total rows.`);
+    },
+    [activeSheet, setBatchCells, setRowGroups, setSubtotals]
+  );
+
+  const handleRemoveSubtotals = useCallback(() => {
+    if (!activeSheet) return;
+    const { newCells } = removeSubtotals(activeSheet.cells);
+    setBatchCells(newCells);
+    setRowGroups([]);
+    setSubtotals(undefined);
+    toast.info('Subtotals Removed', 'All subtotals and outline groups removed.');
+  }, [activeSheet, setBatchCells, setRowGroups, setSubtotals]);
+
+  // 5. Row Grouping
+  const handleGroupSelectedRows = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange() || getDataRange();
+    const updated = addRowGroup(activeSheet.metadata?.rowGroups || [], target.startRow, target.endRow);
+    setRowGroups(updated);
+    toast.success('Rows Grouped', `Grouped rows ${target.startRow + 1} to ${target.endRow + 1}.`);
+  }, [activeSheet, getTargetRange, getDataRange, setRowGroups]);
+
+  const handleUngroupSelectedRows = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange() || getDataRange();
+    const updated = removeRowGroup(activeSheet.metadata?.rowGroups || [], target.startRow, target.endRow);
+    setRowGroups(updated);
+    toast.info('Rows Ungrouped', `Removed outline for rows ${target.startRow + 1} to ${target.endRow + 1}.`);
+  }, [activeSheet, getTargetRange, getDataRange, setRowGroups]);
+
+  const handleToggleRowGroup = useCallback(
+    (groupIndex: number) => {
+      toggleRowGroupCollapse(groupIndex);
+    },
+    [toggleRowGroupCollapse]
+  );
+
+  // 6. What-If: Goal Seek
+  const handleRunGoalSeek = useCallback(
+    (targetCoord: CellCoordinates, _targetValue: number, variableCoord: CellCoordinates) => {
+      const evaluateWithVariable = (x: number): number => {
+        if (!activeSheet) return NaN;
+        const tempCells = {
+          ...activeSheet.cells,
+          [coordToKey(variableCoord.row, variableCoord.col)]: {
+            value: x,
+            dataType: 'number' as const,
+          },
+        };
+        const tempSheet = { ...activeSheet, cells: tempCells };
+        const { updatedCells } = calculationEngine.recalculateSheet(tempSheet, namedRangeResolver);
+        const targetCell = updatedCells[coordToKey(targetCoord.row, targetCoord.col)];
+        return typeof targetCell?.value === 'number'
+          ? targetCell.value
+          : parseFloat(String(targetCell?.value)) || NaN;
+      };
+
+      const commitVariableValue = (x: number) => {
+        if (!activeSheet) return;
+        const { updatedCells } = calculationEngine.updateCellInput(
+          activeSheet.cells,
+          variableCoord,
+          String(x),
+          namedRangeResolver
+        );
+        setBatchCells(updatedCells);
+        toast.success('Goal Seek Committed', `Variable cell set to ${x.toFixed(4)}.`);
+      };
+
+      return { evaluateWithVariable, commitVariableValue };
+    },
+    [activeSheet, namedRangeResolver, setBatchCells]
+  );
+
+  // 7. What-If: Scenarios
+  const handleAddScenario = useCallback(
+    (scenario: Scenario) => {
+      addScenario(scenario);
+      toast.success('Scenario Saved', `Scenario "${scenario.name}" created.`);
+    },
+    [addScenario]
+  );
+
+  const handleUpdateScenario = useCallback(
+    (scenario: Scenario) => {
+      updateScenario(scenario);
+      toast.success('Scenario Updated', `Scenario "${scenario.name}" updated.`);
+    },
+    [updateScenario]
+  );
+
+  const handleDeleteScenario = useCallback(
+    (id: string) => {
+      deleteScenario(id);
+      toast.info('Scenario Deleted', 'Scenario removed.');
+    },
+    [deleteScenario]
+  );
+
+  const handleApplyScenario = useCallback(
+    (scenario: Scenario) => {
+      if (!activeSheet) return;
+      let workingCells = { ...activeSheet.cells };
+      for (const v of scenario.variables) {
+        workingCells = calculationEngine.updateCellInput(
+          workingCells,
+          v.coord,
+          String(v.value ?? ''),
+          namedRangeResolver
+        ).updatedCells;
+      }
+      setBatchCells(workingCells);
+      toast.success('Scenario Applied', `Applied scenario "${scenario.name}".`);
+    },
+    [activeSheet, namedRangeResolver, setBatchCells]
+  );
+
+  const handleComputeScenarioResults = useCallback(
+    (scenario: Scenario) => {
+      if (!activeSheet) return {};
+      let workingCells = { ...activeSheet.cells };
+      for (const v of scenario.variables) {
+        workingCells = calculationEngine.updateCellInput(
+          workingCells,
+          v.coord,
+          String(v.value ?? ''),
+          namedRangeResolver
+        ).updatedCells;
+      }
+      const results: Record<string, CellValue> = {};
+      for (const [key, cell] of Object.entries(workingCells)) {
+        if (cell.formula) {
+          results[key] = cell.value;
+        }
+      }
+      return results;
+    },
+    [activeSheet, namedRangeResolver]
+  );
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
 
@@ -902,7 +1195,8 @@ export const SpreadsheetPage: React.FC = () => {
       const { updatedCells } = calculationEngine.updateCellInput(
         activeSheet.cells,
         targetCoord,
-        editingValue
+        editingValue,
+        namedRangeResolver
       );
 
       setBatchCells(updatedCells);
@@ -930,7 +1224,7 @@ export const SpreadsheetPage: React.FC = () => {
         });
       }
     },
-    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell]
+    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell, namedRangeResolver]
   );
 
   // 7. Clear Cell Contents (Delete / Backspace)
@@ -940,11 +1234,12 @@ export const SpreadsheetPage: React.FC = () => {
       const { updatedCells } = calculationEngine.updateCellInput(
         activeSheet.cells,
         coord,
-        ''
+        '',
+        namedRangeResolver
       );
       setBatchCells(updatedCells);
     },
-    [activeSheet, setBatchCells]
+    [activeSheet, setBatchCells, namedRangeResolver]
   );
 
   // 8. Clipboard: Copy
@@ -1242,6 +1537,17 @@ export const SpreadsheetPage: React.FC = () => {
             setFindReplaceInitialMode('replace');
             setIsFindReplaceOpen(true);
           }}
+          onOpenConditionalFormatting={() => setIsConditionalFormattingOpen(true)}
+          onOpenConditionalFormattingManager={() => setIsConditionalFormattingManagerOpen(true)}
+          onClearConditionalFormattingSelection={handleClearConditionalFormattingSelection}
+          onClearConditionalFormattingSheet={handleClearConditionalFormattingSheet}
+          onOpenNameManager={() => setIsNameManagerOpen(true)}
+          onOpenPivotTable={() => setIsPivotTableOpen(true)}
+          onOpenSubtotals={() => setIsSubtotalsOpen(true)}
+          onGroupSelectedRows={handleGroupSelectedRows}
+          onUngroupSelectedRows={handleUngroupSelectedRows}
+          onOpenGoalSeek={() => setIsGoalSeekOpen(true)}
+          onOpenScenarioManager={() => setIsScenarioManagerOpen(true)}
         />
       )}
 
@@ -1285,6 +1591,7 @@ export const SpreadsheetPage: React.FC = () => {
           onClearCell={handleClearCell}
           onOpenColumnFilter={(col) => setActiveFilterCol(col)}
           onUpdateCellValue={handleUpdateCellValue}
+          onToggleRowGroup={handleToggleRowGroup}
         />
       </div>
 
@@ -1419,6 +1726,82 @@ export const SpreadsheetPage: React.FC = () => {
         sheet={activeSheet}
         range={getTargetRange() || getDataRange()}
         onApplyTextToColumns={handleApplyTextToColumns}
+      />
+
+      {/* 18. Conditional Formatting Dialog (New Rule) */}
+      <ConditionalFormattingDialog
+        isOpen={isConditionalFormattingOpen}
+        initialRange={getTargetRange() || getDataRange()}
+        onSaveRule={handleSaveConditionalFormat}
+        onClose={() => setIsConditionalFormattingOpen(false)}
+      />
+
+      {/* 19. Conditional Formatting Rules Manager Dialog */}
+      <ConditionalFormattingManagerDialog
+        isOpen={isConditionalFormattingManagerOpen}
+        rules={activeSheet.metadata?.conditionalFormats || []}
+        currentSelection={getTargetRange() || undefined}
+        onUpdateRules={handleUpdateConditionalFormats}
+        onClose={() => setIsConditionalFormattingManagerOpen(false)}
+      />
+
+      {/* 20. Name Manager Dialog */}
+      <NameManagerDialog
+        isOpen={isNameManagerOpen}
+        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
+        currentSheetId={activeSheet.id}
+        currentSheetName={activeSheet.name}
+        sheets={sheets}
+        currentSelection={getTargetRange() || undefined}
+        onAddNamedRange={handleAddNamedRange}
+        onUpdateNamedRange={handleUpdateNamedRange}
+        onDeleteNamedRange={handleDeleteNamedRange}
+        onClose={() => setIsNameManagerOpen(false)}
+      />
+
+      {/* 21. Pivot Table Dialog */}
+      <PivotTableDialog
+        isOpen={isPivotTableOpen}
+        activeSheetId={activeSheet.id}
+        sheets={sheets}
+        cells={activeSheet.cells}
+        currentSelection={getTargetRange() || getDataRange()}
+        onApplyPivotTable={handleApplyPivotTable}
+        onClose={() => setIsPivotTableOpen(false)}
+      />
+
+      {/* 22. Subtotals Dialog */}
+      <SubtotalsDialog
+        isOpen={isSubtotalsOpen}
+        cells={activeSheet.cells}
+        currentSelection={getTargetRange() || getDataRange()}
+        hasExistingSubtotals={Boolean(
+          activeSheet.metadata?.subtotals ||
+          (activeSheet.metadata?.rowGroups && activeSheet.metadata.rowGroups.length > 0)
+        )}
+        onApplySubtotals={handleApplySubtotals}
+        onRemoveSubtotals={handleRemoveSubtotals}
+        onClose={() => setIsSubtotalsOpen(false)}
+      />
+
+      {/* 23. Goal Seek Dialog */}
+      <GoalSeekDialog
+        isOpen={isGoalSeekOpen}
+        activeCell={activeCell}
+        onRunGoalSeek={handleRunGoalSeek}
+        onClose={() => setIsGoalSeekOpen(false)}
+      />
+
+      {/* 24. Scenario Manager Dialog */}
+      <ScenarioManagerDialog
+        isOpen={isScenarioManagerOpen}
+        scenarios={currentWorkbook?.metadata?.scenarios || workbook?.metadata?.scenarios || []}
+        onAddScenario={handleAddScenario}
+        onUpdateScenario={handleUpdateScenario}
+        onDeleteScenario={handleDeleteScenario}
+        onApplyScenario={handleApplyScenario}
+        onComputeScenarioResults={handleComputeScenarioResults}
+        onClose={() => setIsScenarioManagerOpen(false)}
       />
     </div>
   );

@@ -17,7 +17,15 @@ import {
   Columns,
   Grid,
   Unlock,
-  ChevronDown
+  ChevronDown,
+  Table,
+  Tag,
+  Sigma,
+  Target,
+  Layers,
+  FolderTree,
+  FolderMinus,
+  Palette,
 } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
@@ -46,6 +54,19 @@ interface DataToolbarProps {
   onUnfreezePanes: () => void;
   onOpenFind: () => void;
   onOpenReplace: () => void;
+
+  // Stage 10 Analysis Tools
+  onOpenConditionalFormatting: () => void;
+  onOpenConditionalFormattingManager: () => void;
+  onClearConditionalFormattingSelection: () => void;
+  onClearConditionalFormattingSheet: () => void;
+  onOpenNameManager: () => void;
+  onOpenPivotTable: () => void;
+  onOpenSubtotals: () => void;
+  onGroupSelectedRows: () => void;
+  onUngroupSelectedRows: () => void;
+  onOpenGoalSeek: () => void;
+  onOpenScenarioManager: () => void;
 }
 
 export const DataToolbar: React.FC<DataToolbarProps> = ({
@@ -71,9 +92,63 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
   onFreezeAtSelection,
   onUnfreezePanes,
   onOpenFind,
-  onOpenReplace
+  onOpenReplace,
+  onOpenConditionalFormatting,
+  onOpenConditionalFormattingManager,
+  onClearConditionalFormattingSelection,
+  onClearConditionalFormattingSheet,
+  onOpenNameManager,
+  onOpenPivotTable,
+  onOpenSubtotals,
+  onGroupSelectedRows,
+  onUngroupSelectedRows,
+  onOpenGoalSeek,
+  onOpenScenarioManager,
 }) => {
   const isPanesFrozen = frozenRows > 0 || frozenCols > 0;
+
+  const conditionalFormattingMenuItems: (DropdownItem | 'divider')[] = [
+    {
+      id: 'cf-new-rule',
+      label: 'New Formatting Rule...',
+      icon: <Sparkles className="w-3.5 h-3.5 text-accent" />,
+      onClick: onOpenConditionalFormatting,
+    },
+    {
+      id: 'cf-manage-rules',
+      label: 'Manage Rules...',
+      icon: <Palette className="w-3.5 h-3.5" />,
+      onClick: onOpenConditionalFormattingManager,
+    },
+    'divider',
+    {
+      id: 'cf-clear-selection',
+      label: 'Clear Rules from Selected Cells',
+      icon: <Unlock className="w-3.5 h-3.5" />,
+      onClick: onClearConditionalFormattingSelection,
+    },
+    {
+      id: 'cf-clear-sheet',
+      label: 'Clear Rules from Entire Sheet',
+      icon: <Unlock className="w-3.5 h-3.5" />,
+      onClick: onClearConditionalFormattingSheet,
+    },
+  ];
+
+  const whatIfMenuItems: (DropdownItem | 'divider')[] = [
+    {
+      id: 'goal-seek',
+      label: 'Goal Seek...',
+      icon: <Target className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />,
+      onClick: onOpenGoalSeek,
+    },
+    {
+      id: 'scenario-manager',
+      label: 'Scenario Manager...',
+      icon: <Layers className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />,
+      onClick: onOpenScenarioManager,
+    },
+  ];
 
   const freezeMenuItems: (DropdownItem | 'divider')[] = [
     {
@@ -324,6 +399,103 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
               <span className="hidden md:inline text-[11px]">Replace</span>
             </button>
           </Tooltip>
+        </div>
+
+        {/* GROUP 6: DATA ANALYSIS & TOOLS */}
+        <div className="flex items-center gap-0.5 px-1.5 border-l border-border/60">
+          {/* Conditional Formatting Dropdown */}
+          <Dropdown
+            trigger={
+              <button
+                type="button"
+                className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-accent transition-colors flex items-center gap-1.5"
+                aria-label="Conditional Formatting"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-500" />
+                <span className="hidden md:inline text-[11px] font-medium">Conditional Formatting</span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+            }
+            items={conditionalFormattingMenuItems}
+          />
+
+          {/* Name Manager */}
+          <Tooltip content="Name Manager (Define & Manage Named Ranges for Formulas)">
+            <button
+              type="button"
+              onClick={onOpenNameManager}
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-sky-600 dark:hover:text-sky-400 transition-colors flex items-center gap-1"
+              aria-label="Name Manager"
+            >
+              <Tag className="w-4 h-4 text-sky-500" />
+              <span className="hidden lg:inline text-[11px]">Name Manager</span>
+            </button>
+          </Tooltip>
+
+          {/* Pivot Table */}
+          <Tooltip content="Insert / Design Pivot Table">
+            <button
+              type="button"
+              onClick={onOpenPivotTable}
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1"
+              aria-label="Pivot Table"
+            >
+              <Table className="w-4 h-4 text-indigo-500" />
+              <span className="hidden lg:inline text-[11px]">Pivot Table</span>
+            </button>
+          </Tooltip>
+
+          {/* Subtotal */}
+          <Tooltip content="Calculate Group Subtotals on Column Changes">
+            <button
+              type="button"
+              onClick={onOpenSubtotals}
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
+              aria-label="Subtotal"
+            >
+              <Sigma className="w-4 h-4 text-emerald-600" />
+              <span className="hidden xl:inline text-[11px]">Subtotal</span>
+            </button>
+          </Tooltip>
+
+          {/* Group / Ungroup */}
+          <Tooltip content="Group Selected Rows">
+            <button
+              type="button"
+              onClick={onGroupSelectedRows}
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-primary transition-colors flex items-center"
+              aria-label="Group Rows"
+            >
+              <FolderTree className="w-4 h-4 text-amber-500" />
+            </button>
+          </Tooltip>
+
+          <Tooltip content="Ungroup Selected Rows">
+            <button
+              type="button"
+              onClick={onUngroupSelectedRows}
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-primary transition-colors flex items-center"
+              aria-label="Ungroup Rows"
+            >
+              <FolderMinus className="w-4 h-4 text-amber-500" />
+            </button>
+          </Tooltip>
+
+          {/* What-If Analysis Dropdown */}
+          <Dropdown
+            trigger={
+              <button
+                type="button"
+                className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-accent transition-colors flex items-center gap-1.5"
+                aria-label="What-If Analysis"
+              >
+                <Target className="w-4 h-4 text-teal-500" />
+                <span className="hidden md:inline text-[11px] font-medium">What-If</span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+              </button>
+            }
+            items={whatIfMenuItems}
+          />
         </div>
       </div>
     </div>

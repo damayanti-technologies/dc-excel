@@ -1,6 +1,6 @@
 import { FunctionDefinition, ASTNode, EvaluationContext } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
-import { coerceNumber, resolveTo1DArray } from './helpers';
+import { coerceNumber, resolveTo1DArray, resolveTo2DArray } from './helpers';
 import { CellValue } from '@/types/cell';
 
 function extractNumericValues(
@@ -11,8 +11,9 @@ function extractNumericValues(
   const numbers: number[] = [];
 
   for (const arg of args) {
-    if (arg.type === 'RangeRef') {
-      const grid = context.getRangeValues(arg.range);
+    if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+      const grid = resolveTo2DArray(arg, context, evaluate);
+      if (typeof grid === 'string') return { numbers: [], error: grid };
       for (const row of grid) {
         for (const val of row) {
           if (isFormulaError(val)) return { numbers: [], error: val };
@@ -72,8 +73,9 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef') {
-          const grid = context.getRangeValues(arg.range);
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+          const grid = resolveTo2DArray(arg, context, evaluate);
+          if (typeof grid === 'string') return grid;
           for (const row of grid) {
             for (const val of row) {
               if (isFormulaError(val)) return val;
@@ -315,8 +317,9 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef') {
-          const grid = context.getRangeValues(arg.range);
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+          const grid = resolveTo2DArray(arg, context, evaluate);
+          if (typeof grid === 'string') return grid;
           for (const row of grid) {
             for (const val of row) {
               if (val !== null && val !== undefined && val !== '') {

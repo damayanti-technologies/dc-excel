@@ -252,8 +252,8 @@ export class FormulaParser {
         };
       }
 
-      // If an identifier is not followed by '(', it's an unrecognized name error
-      return { type: 'Error', error: FormulaError.NAME };
+      // If an identifier is not followed by '(', it is treated as a named range reference
+      return { type: 'NamedRangeRef', name: funcName };
     }
 
     // Parentheses (expr)

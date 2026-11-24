@@ -69,6 +69,18 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
       return grid[0]?.[0] ?? null;
     }
 
+    case 'NamedRangeRef': {
+      if (!context.resolveNamedRange) {
+        return FormulaError.NAME;
+      }
+      const resolved = context.resolveNamedRange(node.name);
+      if (!resolved) {
+        return FormulaError.NAME;
+      }
+      const grid = context.getRangeValues(resolved.range);
+      return grid[0]?.[0] ?? null;
+    }
+
     case 'Percent': {
       const operandVal = evaluateAST(node.operand, context);
       if (isFormulaError(operandVal)) return operandVal;

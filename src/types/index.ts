@@ -6,3 +6,4 @@ export * from './preferences';
 export * from './storage';
 export * from './engine';
 export * from './data-tools';
+export * from './analysis';

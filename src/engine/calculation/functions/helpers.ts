@@ -73,6 +73,17 @@ export function resolveTo2DArray(
     return [[val ?? null]];
   }
 
+  if (node.type === 'NamedRangeRef') {
+    if (!context.resolveNamedRange) {
+      return FormulaError.NAME;
+    }
+    const resolved = context.resolveNamedRange(node.name);
+    if (!resolved) {
+      return FormulaError.NAME;
+    }
+    return context.getRangeValues(resolved.range);
+  }
+
   const val = evaluate(node, context);
   if (isFormulaError(val)) return val;
   return [[val]];

@@ -10,7 +10,10 @@ import { coordToKey, keyToCoord } from '@/utils/coordinates';
 /**
  * Creates an EvaluationContext backed by a cells map.
  */
-export function createEvaluationContext(cells: Record<string, Cell>): EvaluationContext {
+export function createEvaluationContext(
+  cells: Record<string, Cell>,
+  namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+): EvaluationContext {
   return {
     getCellValue: (coord: CellCoordinates) => {
       const key = coordToKey(coord.row, coord.col);
@@ -34,7 +37,8 @@ export function createEvaluationContext(cells: Record<string, Cell>): Evaluation
         result.push(rowVals);
       }
       return result;
-    }
+    },
+    resolveNamedRange: namedRangeResolver
   };
 }
 
@@ -94,9 +98,13 @@ export class CalculationEngine {
   /**
    * Evaluates a standalone formula string in the context of given cells.
    */
-  public evaluateFormula(formula: string, cells: Record<string, Cell>): CellValue {
+  public evaluateFormula(
+    formula: string,
+    cells: Record<string, Cell>,
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+  ): CellValue {
     const ast = parseFormula(formula);
-    const context = createEvaluationContext(cells);
+    const context = createEvaluationContext(cells, namedRangeResolver);
     return evaluateAST(ast, context);
   }
 
@@ -104,7 +112,10 @@ export class CalculationEngine {
    * Rebuilds dependencies and recalculates all formula cells in a sheet.
    * Typically called on initial workbook load or recovery.
    */
-  public recalculateSheet(sheet: Sheet): {
+  public recalculateSheet(
+    sheet: Sheet,
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+  ): {
     updatedCells: Record<string, Cell>;
     cycles: string[];
   } {
@@ -120,7 +131,7 @@ export class CalculationEngine {
       if (formulaStr && formulaStr.startsWith('=')) {
         const ast = parseFormula(formulaStr);
         this.astCache.set(key, ast);
-        const precedents = extractReferencesFromAST(ast);
+        const precedents = extractReferencesFromAST(ast, namedRangeResolver);
         this.dependencyGraph.setCellDependencies(key, precedents);
         formulaCells.set(key, { formula: formulaStr, ast });
       }
@@ -148,7 +159,7 @@ export class CalculationEngine {
     const allNonCycleKeys = Array.from(formulaCells.keys()).filter((k) => !cycles.includes(k));
     const fullOrder = this.dependencyGraph.getFullTopologicalOrder(allNonCycleKeys);
 
-    const context = createEvaluationContext(cellsCopy);
+    const context = createEvaluationContext(cellsCopy, namedRangeResolver);
     for (const key of fullOrder) {
       if (cycles.includes(key)) continue;
       const fInfo = formulaCells.get(key);
@@ -175,7 +186,8 @@ export class CalculationEngine {
   public updateCellInput(
     currentCells: Record<string, Cell>,
     coord: CellCoordinates,
-    rawInput: string
+    rawInput: string,
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
   ): {
     updatedCells: Record<string, Cell>;
     recalculatedCount: number;
@@ -194,7 +206,7 @@ export class CalculationEngine {
       // Cell contains formula
       const ast = parseFormula(parsed.formula);
       this.astCache.set(key, ast);
-      const precedents = extractReferencesFromAST(ast);
+      const precedents = extractReferencesFromAST(ast, namedRangeResolver);
       this.dependencyGraph.setCellDependencies(key, precedents);
 
       // Check if self or newly formed dependency is circular
@@ -205,7 +217,7 @@ export class CalculationEngine {
           dataType: 'error'
         };
       } else {
-        const context = createEvaluationContext(updatedCells);
+        const context = createEvaluationContext(updatedCells, namedRangeResolver);
         const evalResult = evaluateAST(ast, context);
         const isErr = isFormulaError(evalResult);
         updatedCells[key] = {
@@ -241,7 +253,7 @@ export class CalculationEngine {
     }
 
     // 3. Recalculate downstream non-cycle cells in topological order
-    const context = createEvaluationContext(updatedCells);
+    const context = createEvaluationContext(updatedCells, namedRangeResolver);
     let count = 0;
 
     for (const depKey of order) {

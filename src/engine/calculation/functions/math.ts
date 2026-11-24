@@ -1,6 +1,6 @@
 import { FunctionDefinition } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
-import { coerceNumber, resolveTo1DArray } from './helpers';
+import { coerceNumber, resolveTo1DArray, resolveTo2DArray } from './helpers';
 
 function roundWithDigits(num: number, digits: number, mode: 'round' | 'up' | 'down'): number {
   const factor = Math.pow(10, digits);
@@ -31,8 +31,9 @@ export const mathFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let total = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef') {
-          const grid = context.getRangeValues(arg.range);
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+          const grid = resolveTo2DArray(arg, context, evaluate);
+          if (typeof grid === 'string') return grid;
           for (const row of grid) {
             for (const val of row) {
               if (isFormulaError(val)) return val;
@@ -456,8 +457,9 @@ export const mathFunctions: FunctionDefinition[] = [
       let count = 0;
 
       for (const arg of args) {
-        if (arg.type === 'RangeRef') {
-          const grid = context.getRangeValues(arg.range);
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+          const grid = resolveTo2DArray(arg, context, evaluate);
+          if (typeof grid === 'string') return grid;
           for (const row of grid) {
             for (const val of row) {
               if (isFormulaError(val)) return val;

@@ -1,11 +1,15 @@
 import { ASTNode } from './types';
 import { coordToKey } from '@/utils/coordinates';
+import { CellRange } from '@/types/cell';
 
 /**
  * Traverses an AST and extracts all referenced cell coordinate keys ("row:col").
  * Range references are expanded to all contained cell keys.
  */
-export function extractReferencesFromAST(node: ASTNode): string[] {
+export function extractReferencesFromAST(
+  node: ASTNode,
+  resolveNamedRange?: (name: string) => { range: CellRange } | null
+): string[] {
   const refs = new Set<string>();
 
   function walk(n: ASTNode) {
@@ -18,6 +22,19 @@ export function extractReferencesFromAST(node: ASTNode): string[] {
         for (let r = n.range.startRow; r <= n.range.endRow; r++) {
           for (let c = n.range.startCol; c <= n.range.endCol; c++) {
             refs.add(coordToKey(r, c));
+          }
+        }
+        break;
+
+      case 'NamedRangeRef':
+        if (resolveNamedRange) {
+          const resolved = resolveNamedRange(n.name);
+          if (resolved) {
+            for (let r = resolved.range.startRow; r <= resolved.range.endRow; r++) {
+              for (let c = resolved.range.startCol; c <= resolved.range.endCol; c++) {
+                refs.add(coordToKey(r, c));
+              }
+            }
           }
         }
         break;

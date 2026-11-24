@@ -57,6 +57,11 @@ export interface RangeRefNode {
   raw: string; // e.g. "A1:B10"
 }
 
+export interface NamedRangeRefNode {
+  type: 'NamedRangeRef';
+  name: string; // e.g. "SALES"
+}
+
 export interface UnaryOpNode {
   type: 'UnaryOp';
   operator: '+' | '-';
@@ -108,6 +113,7 @@ export type ASTNode =
   | BooleanLiteralNode
   | CellRefNode
   | RangeRefNode
+  | NamedRangeRefNode
   | UnaryOpNode
   | BinaryOpNode
   | PercentNode
@@ -122,6 +128,7 @@ export interface EvaluationContext {
   getCellValue: (coord: CellCoordinates) => CellValue;
   getCellRawOrFormula?: (coord: CellCoordinates) => string | undefined;
   getRangeValues: (range: CellRange) => CellValue[][];
+  resolveNamedRange?: (name: string) => { range: CellRange; sheetId?: string } | null;
 }
 
 /**

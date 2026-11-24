@@ -3,6 +3,12 @@ import { Sheet } from '@/types/sheet';
 import { Cell, CellCoordinates } from '@/types/cell';
 import { coordToKey } from '@/utils/coordinates';
 import {
+  ConditionalFormatRule,
+  RowGroup,
+  SubtotalConfig,
+  PivotTableConfig,
+} from '@/types/analysis';
+import {
   insertRow as insertRowOp,
   deleteRow as deleteRowOp,
   insertColumn as insertColumnOp,
@@ -29,6 +35,19 @@ interface SheetState {
   deleteColumn: (atCol: number) => void;
   updateMetadata: (metadata: Partial<import('@/types/sheet').SheetMetadata>) => void;
   setAllCells: (cells: import('@/types/cell').SparseCellMap) => void;
+
+  // Analysis state actions
+  addConditionalFormat: (rule: ConditionalFormatRule) => void;
+  updateConditionalFormat: (rule: ConditionalFormatRule) => void;
+  deleteConditionalFormat: (ruleId: string) => void;
+  reorderConditionalFormats: (rules: ConditionalFormatRule[]) => void;
+  setRowGroups: (groups: RowGroup[]) => void;
+  toggleRowGroupCollapse: (groupIndex: number) => void;
+  setSubtotals: (subtotals: SubtotalConfig | undefined) => void;
+  addPivotTable: (pivot: PivotTableConfig) => void;
+  updatePivotTable: (pivot: PivotTableConfig) => void;
+  deletePivotTable: (id: string) => void;
+
   clearSheet: () => void;
 }
 
@@ -163,6 +182,156 @@ export const useSheetStore = create<SheetState>((set) => ({
           ...state.activeSheet,
           cells
         }
+      };
+    }),
+
+  addConditionalFormat: (rule) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentRules = state.activeSheet.metadata?.conditionalFormats || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            conditionalFormats: [...currentRules, rule],
+          },
+        },
+      };
+    }),
+
+  updateConditionalFormat: (rule) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentRules = state.activeSheet.metadata?.conditionalFormats || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            conditionalFormats: currentRules.map((r) => (r.id === rule.id ? rule : r)),
+          },
+        },
+      };
+    }),
+
+  deleteConditionalFormat: (ruleId) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentRules = state.activeSheet.metadata?.conditionalFormats || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            conditionalFormats: currentRules.filter((r) => r.id !== ruleId),
+          },
+        },
+      };
+    }),
+
+  reorderConditionalFormats: (rules) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            conditionalFormats: rules,
+          },
+        },
+      };
+    }),
+
+  setRowGroups: (groups) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            rowGroups: groups,
+          },
+        },
+      };
+    }),
+
+  toggleRowGroupCollapse: (groupIndex) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentGroups = state.activeSheet.metadata?.rowGroups || [];
+      const updatedGroups = currentGroups.map((g, idx) =>
+        idx === groupIndex ? { ...g, isCollapsed: !g.isCollapsed } : g
+      );
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            rowGroups: updatedGroups,
+          },
+        },
+      };
+    }),
+
+  setSubtotals: (subtotals) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            subtotals,
+          },
+        },
+      };
+    }),
+
+  addPivotTable: (pivot) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentPivots = state.activeSheet.metadata?.pivotTables || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            pivotTables: [...currentPivots, pivot],
+          },
+        },
+      };
+    }),
+
+  updatePivotTable: (pivot) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentPivots = state.activeSheet.metadata?.pivotTables || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            pivotTables: currentPivots.map((p) => (p.id === pivot.id ? pivot : p)),
+          },
+        },
+      };
+    }),
+
+  deletePivotTable: (id) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentPivots = state.activeSheet.metadata?.pivotTables || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            pivotTables: currentPivots.filter((p) => p.id !== id),
+          },
+        },
       };
     }),
 

@@ -1,3 +1,5 @@
+import { NamedRange, Scenario } from './analysis';
+
 /**
  * Extended metadata associated with a workbook.
  */
@@ -8,6 +10,8 @@ export interface WorkbookMetadata {
   isFavorite?: boolean;
   version?: number;
   locale?: string;
+  namedRanges?: NamedRange[];
+  scenarios?: Scenario[];
 }
 
 /**

@@ -20,6 +20,7 @@ import { useFormulaInputAssist } from '../hooks/useFormulaInputAssist';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
 import { FormulaArgumentHelp } from './FormulaArgumentHelp';
 import { CellValidationDropdown } from './CellValidationDropdown';
+import { evaluateConditionalFormatting } from '@/engine/analysis/conditional-formatting';
 import { cn } from '@/utils/cn';
 
 function getBorderCss(borders?: CellBorders): React.CSSProperties {
@@ -66,6 +67,7 @@ interface SpreadsheetGridProps {
   isAuditHighlighted?: boolean;
   onOpenColumnFilter?: (col: number) => void;
   onUpdateCellValue?: (row: number, col: number, value: string | number) => void;
+  onToggleRowGroup?: (groupIndex: number) => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -92,7 +94,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onCancelEditing,
   onClearCell,
   onOpenColumnFilter,
-  onUpdateCellValue
+  onUpdateCellValue,
+  onToggleRowGroup
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
@@ -482,10 +485,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   // Freeze panes and filter metadata
   const frozenRows = sheet.metadata?.freezePanes?.frozenRows || 0;
   const frozenCols = sheet.metadata?.freezePanes?.frozenCols || 0;
-  const hiddenRowsSet = useMemo(
-    () => new Set(sheet.metadata?.hiddenRows || []),
-    [sheet.metadata?.hiddenRows]
-  );
+  // Conditional formatting evaluations
+  const conditionalFormatMap = useMemo(() => {
+    return evaluateConditionalFormatting(sheet.cells, sheet.metadata?.conditionalFormats || []);
+  }, [sheet.cells, sheet.metadata?.conditionalFormats]);
+
+  const hiddenRowsSet = useMemo(() => {
+    const set = new Set(sheet.metadata?.hiddenRows || []);
+    const groups = sheet.metadata?.rowGroups || [];
+    for (const g of groups) {
+      if (g.isCollapsed) {
+        for (let r = g.startRow; r <= g.endRow; r++) {
+          set.add(r);
+        }
+      }
+    }
+    return set;
+  }, [sheet.metadata?.hiddenRows, sheet.metadata?.rowGroups]);
   const filterConfig = sheet.metadata?.filterConfig;
 
   // Generate visible rows and columns arrays (pinned frozen rows/cols prepended)
@@ -664,6 +680,25 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             >
               <span>{row + 1}</span>
 
+              {/* Row Group Outline Collapse / Expand Trigger */}
+              {sheet.metadata?.rowGroups?.map((group, gIdx) => {
+                if (group.startRow !== row) return null;
+                return (
+                  <button
+                    key={`rg-${gIdx}`}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleRowGroup?.(gIdx);
+                    }}
+                    className="absolute left-1 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded bg-surface border border-border flex items-center justify-center text-[10px] font-bold text-foreground hover:bg-surface-secondary z-20 cursor-pointer shadow-xs leading-none"
+                    title={group.isCollapsed ? 'Expand group' : 'Collapse group'}
+                  >
+                    {group.isCollapsed ? '+' : '−'}
+                  </button>
+                );
+              })}
+
               {/* Row Resize Handle */}
               <div
                 onMouseDown={(e) => handleRowResizeStart(row, e)}
@@ -760,6 +795,23 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             }
 
             const cellStyle = cell?.style;
+            const cf = conditionalFormatMap.get(key);
+            const cfStyle = cf?.style;
+
+            // Merge styles with conditional formatting precedence
+            const finalBgColor =
+              cf?.colorScaleColor ||
+              cfStyle?.backgroundColor ||
+              cellStyle?.backgroundColor ||
+              undefined;
+            const finalTextColor = cfStyle?.textColor || cellStyle?.textColor || undefined;
+            const finalBold = cfStyle?.bold !== undefined ? cfStyle.bold : cellStyle?.bold;
+            const finalItalic = cfStyle?.italic !== undefined ? cfStyle.italic : cellStyle?.italic;
+            const finalUnderline = cfStyle?.underline !== undefined ? cfStyle.underline : cellStyle?.underline;
+            const finalBorders = cfStyle?.borders
+              ? { ...cellStyle?.borders, ...cfStyle.borders }
+              : cellStyle?.borders;
+
             const hAlign =
               cellStyle?.horizontalAlignment ||
               (isError
@@ -772,7 +824,8 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
             const vAlign = cellStyle?.verticalAlignment || 'middle';
             const isWrap = !!cellStyle?.wrapText;
-            const borderCss = getBorderCss(cellStyle?.borders);
+            const borderCss = getBorderCss(finalBorders);
+            const showText = !(cf?.dataBar?.showBarOnly || cf?.icon?.showIconOnly);
 
             return (
               <div
@@ -791,16 +844,16 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   fontSize: cellStyle?.fontSize
                     ? `${Math.round(cellStyle.fontSize * zoom)}px`
                     : `${Math.round(12 * zoom)}px`,
-                  fontWeight: cellStyle?.bold ? 700 : undefined,
-                  fontStyle: cellStyle?.italic ? 'italic' : undefined,
+                  fontWeight: finalBold ? 700 : undefined,
+                  fontStyle: finalItalic ? 'italic' : undefined,
                   textDecoration: [
-                    cellStyle?.underline ? 'underline' : '',
+                    finalUnderline ? 'underline' : '',
                     cellStyle?.strikethrough ? 'line-through' : ''
                   ]
                     .filter(Boolean)
                     .join(' ') || undefined,
-                  color: cellStyle?.textColor || undefined,
-                  backgroundColor: cellStyle?.backgroundColor || undefined,
+                  color: finalTextColor,
+                  backgroundColor: finalBgColor,
                   textAlign: hAlign,
                   paddingLeft: cellStyle?.indentation
                     ? `${Math.round((cellStyle.indentation * 16 + 8) * zoom)}px`
@@ -837,7 +890,81 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 aria-rowindex={row + 1}
                 aria-colindex={col + 1}
               >
-                {cellContent}
+                {/* Data Bar rendering */}
+                {cf?.dataBar && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 1,
+                      bottom: 1,
+                      width: `${cf.dataBar.widthPercent}%`,
+                      backgroundColor: cf.dataBar.color,
+                      opacity: 0.35,
+                      left: cf.dataBar.isNegative ? undefined : 0,
+                      right: cf.dataBar.isNegative ? 0 : undefined,
+                      pointerEvents: 'none',
+                      borderRadius: 2,
+                      zIndex: 1,
+                    }}
+                  />
+                )}
+
+                {/* Content with optional Icon */}
+                <div className="flex items-center w-full z-10 relative">
+                  {cf?.icon && (
+                    <span
+                      className="inline-flex items-center shrink-0 mr-1.5"
+                      title={cf.icon.label}
+                    >
+                      {cf.icon.iconSet.startsWith('arrows') ? (
+                        cf.icon.iconIndex === 0 ? (
+                          <span className="text-emerald-500 font-bold text-xs leading-none">▲</span>
+                        ) : cf.icon.iconIndex === 1 ? (
+                          <span className="text-amber-500 font-bold text-xs leading-none">▶</span>
+                        ) : (
+                          <span className="text-rose-500 font-bold text-xs leading-none">▼</span>
+                        )
+                      ) : cf.icon.iconSet.startsWith('traffic_lights') ? (
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full inline-block ${
+                            cf.icon.iconIndex === 0
+                              ? 'bg-emerald-500'
+                              : cf.icon.iconIndex === 1
+                              ? 'bg-amber-400'
+                              : 'bg-rose-500'
+                          }`}
+                        />
+                      ) : cf.icon.iconSet.startsWith('ratings') ? (
+                        <span className="text-amber-500 text-[11px] font-bold leading-none">
+                          {'★'.repeat(Math.max(1, 3 - cf.icon.iconIndex))}
+                        </span>
+                      ) : cf.icon.iconSet.startsWith('flags') ? (
+                        <span
+                          className={`text-xs ${
+                            cf.icon.iconIndex === 0
+                              ? 'text-emerald-500'
+                              : cf.icon.iconIndex === 1
+                              ? 'text-amber-500'
+                              : 'text-rose-500'
+                          }`}
+                        >
+                          🚩
+                        </span>
+                      ) : (
+                        <span
+                          className={`w-2 h-2 rounded-xs inline-block ${
+                            cf.icon.iconIndex === 0
+                              ? 'bg-emerald-500'
+                              : cf.icon.iconIndex === 1
+                              ? 'bg-amber-500'
+                              : 'bg-rose-500'
+                          }`}
+                        />
+                      )}
+                    </span>
+                  )}
+                  {showText && <span className="truncate flex-1">{cellContent}</span>}
+                </div>
 
                 {/* In-Cell Validation List Dropdown Trigger */}
                 {hasDropdown && isCellActive && (
