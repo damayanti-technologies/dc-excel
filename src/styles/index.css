@@ -194,3 +194,52 @@ html, body, #root {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/* ==========================================================================
+   STAGE 14: PRINT STYLES & PDF EXPORT
+   ========================================================================== */
+@media print {
+  header,
+  nav,
+  footer,
+  aside,
+  .no-print,
+  button:not(.print-include),
+  [role="dialog"],
+  [role="status"],
+  [role="toolbar"]:not(.print-include) {
+    display: none !important;
+  }
+
+  html, body, #root {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Expand virtualized table container for printing */
+  .spreadsheet-viewport {
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

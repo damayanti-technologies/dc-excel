@@ -10,6 +10,7 @@ import {
   HardDrive,
   ShieldAlert,
   ArrowRight,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -17,6 +18,8 @@ import { useWorkspaceStore } from '@/stores/workspace-store';
 import { ImportDialog } from '@/features/spreadsheet/components/ImportDialog';
 import { BackupRestoreDialog } from '@/features/spreadsheet/components/BackupRestoreDialog';
 import { StorageManagementDialog } from '@/features/spreadsheet/components/StorageManagementDialog';
+import { WelcomeTourModal } from '@/features/spreadsheet/components/WelcomeTourModal';
+import { HelpShortcutsDialog } from '@/features/spreadsheet/components/HelpShortcutsDialog';
 import { recoveryService } from '@/services/recovery-service';
 import { CrashRecoveryRecord } from '@/types/persistence';
 import { toast } from '@/stores/toast-store';
@@ -28,6 +31,8 @@ export const DashboardWelcome: React.FC = () => {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isBackupDialogOpen, setIsBackupDialogOpen] = useState(false);
   const [isStorageDialogOpen, setIsStorageDialogOpen] = useState(false);
+  const [isTourDialogOpen, setIsTourDialogOpen] = useState(false);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [pendingRecoveries, setPendingRecoveries] = useState<CrashRecoveryRecord[]>([]);
 
   useEffect(() => {
@@ -145,6 +150,26 @@ export const DashboardWelcome: React.FC = () => {
             >
               Storage
             </Button>
+
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<HelpCircle className="w-4 h-4" />}
+              onClick={() => setIsTourDialogOpen(true)}
+              title="Quick Tour & Introduction"
+            >
+              Tour
+            </Button>
+
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<HelpCircle className="w-4 h-4" />}
+              onClick={() => setIsHelpDialogOpen(true)}
+              title="Help & Keyboard Shortcuts (F1)"
+            >
+              Help
+            </Button>
           </div>
         </div>
 
@@ -168,6 +193,20 @@ export const DashboardWelcome: React.FC = () => {
         <StorageManagementDialog
           isOpen={isStorageDialogOpen}
           onClose={() => setIsStorageDialogOpen(false)}
+        />
+
+        {/* Welcome Tour Modal */}
+        <WelcomeTourModal
+          isOpen={isTourDialogOpen}
+          onClose={() => setIsTourDialogOpen(false)}
+          onNewWorkbook={() => openCreateWorkbook()}
+          onImportFile={() => setIsImportDialogOpen(true)}
+        />
+
+        {/* Help & Shortcuts Modal */}
+        <HelpShortcutsDialog
+          isOpen={isHelpDialogOpen}
+          onClose={() => setIsHelpDialogOpen(false)}
         />
       </div>
     </div>

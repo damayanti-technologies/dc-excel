@@ -19,7 +19,11 @@ import {
   FolderArchive,
   HardDrive,
   Save,
+  Search,
+  HelpCircle,
+  SlidersHorizontal,
 } from 'lucide-react';
+import { QuickAccessToolbar } from './QuickAccessToolbar';
 import { Workbook } from '@/types/workbook';
 import { PersistenceStatus } from '@/types/storage';
 import { useUIPreferencesStore } from '@/stores/ui-preferences-store';
@@ -42,6 +46,19 @@ interface WorkbookHeaderProps {
   onOpenVersionHistory?: () => void;
   onOpenBackupRestore?: () => void;
   onOpenStorageManagement?: () => void;
+  onOpenCommandPalette?: () => void;
+  onOpenPrint?: () => void;
+  onOpenHelp?: () => void;
+  onOpenPreferences?: () => void;
+  onNewWorkbook?: () => void;
+  onFind?: () => void;
+  onCut?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
+  onBold?: () => void;
+  onItalic?: () => void;
+  onSortAsc?: () => void;
+  onFilter?: () => void;
 }
 
 export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
@@ -56,6 +73,19 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
   onOpenVersionHistory,
   onOpenBackupRestore,
   onOpenStorageManagement,
+  onOpenCommandPalette,
+  onOpenPrint,
+  onOpenHelp,
+  onOpenPreferences,
+  onNewWorkbook,
+  onFind,
+  onCut,
+  onCopy,
+  onPaste,
+  onBold,
+  onItalic,
+  onSortAsc,
+  onFilter,
 }) => {
   const theme = useUIPreferencesStore((state) => state.theme);
   const setTheme = useUIPreferencesStore((state) => state.setTheme);
@@ -126,11 +156,11 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
   return (
     <>
       <header className="h-12 border-b border-border bg-surface-elevated px-3 sm:px-4 flex items-center justify-between transition-colors z-20 shrink-0 select-none">
-        {/* Left: Home Navigation, Logo, Title & Rename */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+        {/* Left: Home Navigation, Logo, Title & Rename, QAT */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           <Link
             to="/"
-            className="p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors"
+            className="p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors shrink-0"
             title="Return to Dashboard"
             aria-label="Return to Dashboard"
           >
@@ -144,26 +174,49 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
             <span className="font-bold tracking-tight text-sm hidden md:inline">OmniSheet</span>
           </Link>
 
-          <div className="h-4 w-px bg-border mx-0.5 hidden sm:block" />
+          <div className="h-4 w-px bg-border mx-0.5 hidden sm:block shrink-0" />
 
           {/* Workbook Name Display & Quick Rename Trigger */}
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0 shrink-0">
             <button
               type="button"
               onClick={handleOpenRename}
-              className="group flex items-center gap-1.5 text-xs sm:text-sm font-bold text-foreground hover:text-accent transition-colors truncate text-left px-1.5 py-1 rounded hover:bg-surface-secondary cursor-pointer"
+              className="group flex items-center gap-1.5 text-xs sm:text-sm font-bold text-foreground hover:text-accent transition-colors text-left px-1.5 py-1 rounded hover:bg-surface-secondary cursor-pointer shrink-0"
               title="Click to rename workbook"
             >
-              <span className="truncate max-w-[150px] sm:max-w-xs">
+              <span className="truncate max-w-[130px] sm:max-w-[180px] xl:max-w-xs font-semibold">
                 {workbook?.name || 'Untitled Workbook'}
               </span>
               <Edit2 className="w-3 h-3 text-foreground-subtle opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           </div>
+
+          <div className="h-4 w-px bg-border mx-1 hidden lg:block shrink-0" />
+
+          {/* Quick Access Toolbar */}
+          <QuickAccessToolbar
+            onSave={onManualSave || (() => {})}
+            onUndo={() => void undo()}
+            onRedo={() => void redo()}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onNew={onNewWorkbook || (() => {})}
+            onOpenDashboard={() => { window.location.href = '/'; }}
+            onPrint={onOpenPrint || (() => {})}
+            onFind={onFind || (() => {})}
+            onCut={onCut || (() => {})}
+            onCopy={onCopy || (() => {})}
+            onPaste={onPaste || (() => {})}
+            onBold={onBold || (() => {})}
+            onItalic={onItalic || (() => {})}
+            onSortAsc={onSortAsc || (() => {})}
+            onFilter={onFilter || (() => {})}
+            className="hidden lg:flex shrink-0"
+          />
         </div>
 
         {/* Right: Save Status, Undo/Redo, Persistence Tools, Theme, Settings */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 text-xs">
           {/* Save Status Signal */}
           {saveStatus === 'saving' ? (
             <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
@@ -201,14 +254,12 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
               title={lastSavedAt ? `Saved at ${new Date(lastSavedAt).toLocaleTimeString()}` : 'Saved locally to IndexedDB'}
             >
               <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span className="hidden sm:inline">Saved locally</span>
+              <span className="hidden md:inline">Saved locally</span>
             </div>
           )}
 
-          <div className="h-4 w-px bg-border hidden sm:block" />
-
-          {/* Active Undo / Redo Buttons */}
-          <div className="flex items-center gap-0.5 text-foreground-muted">
+          {/* Active Undo / Redo Buttons (shown when QAT is hidden on smaller viewports) */}
+          <div className="flex lg:hidden items-center gap-0.5 text-foreground-muted">
             <Tooltip content={canUndo ? `Undo: ${undoDescription || 'action'} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}>
               <button
                 type="button"
@@ -241,19 +292,19 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
             </Tooltip>
           </div>
 
-          <div className="h-4 w-px bg-border" />
+          <div className="h-4 w-px bg-border hidden sm:block" />
 
           {/* Persistence & Version Tools */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {onOpenVersionHistory && (
               <button
                 type="button"
                 onClick={onOpenVersionHistory}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
                 title="Workbook Version History"
               >
                 <History className="w-3.5 h-3.5 text-accent" />
-                <span className="hidden md:inline">History</span>
+                <span className="hidden 2xl:inline">History</span>
               </button>
             )}
 
@@ -261,11 +312,11 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenBackupRestore}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
                 title="Backup & Restore (.omni archive)"
               >
                 <FolderArchive className="w-3.5 h-3.5 text-accent" />
-                <span className="hidden lg:inline">Backup</span>
+                <span className="hidden 2xl:inline">Backup</span>
               </button>
             )}
 
@@ -285,16 +336,16 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
           <div className="h-4 w-px bg-border" />
 
           {/* Import & Export Quick Actions */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {onOpenImport && (
               <button
                 type="button"
                 onClick={onOpenImport}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
                 title="Import Excel (.xlsx) or CSV"
               >
                 <Upload className="w-3.5 h-3.5 text-primary" />
-                <span className="hidden sm:inline">Import</span>
+                <span className="hidden xl:inline">Import</span>
               </button>
             )}
 
@@ -302,16 +353,44 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
               <button
                 type="button"
                 onClick={onOpenExport}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
                 title="Export as Excel (.xlsx), CSV, or TSV"
               >
                 <Download className="w-3.5 h-3.5 text-primary" />
-                <span className="hidden sm:inline">Export</span>
+                <span className="hidden xl:inline">Export</span>
               </button>
             )}
           </div>
 
           <div className="h-4 w-px bg-border" />
+
+          {/* Command Palette Quick Trigger */}
+          {onOpenCommandPalette && (
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="hidden sm:flex items-center gap-1.5 px-2 py-1 text-xs text-foreground-muted bg-surface-secondary/70 hover:bg-surface-secondary border border-border rounded-lg transition-colors cursor-pointer"
+              title="Command Palette (Ctrl + Shift + P)"
+              aria-label="Command Palette"
+            >
+              <Search className="w-3.5 h-3.5 text-accent" />
+              <span className="hidden 2xl:inline">Commands</span>
+              <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-surface border border-border hidden xl:inline">Ctrl+Shift+P</kbd>
+            </button>
+          )}
+
+          {/* Help & Shortcuts Button */}
+          {onOpenHelp && (
+            <button
+              type="button"
+              onClick={onOpenHelp}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-border text-foreground hover:bg-surface-secondary transition-colors cursor-pointer"
+              title="Help & Keyboard Shortcuts (F1)"
+              aria-label="Help and Shortcuts"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Theme Dropdown */}
           <Dropdown
@@ -329,15 +408,27 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
             items={themeDropdownItems}
           />
 
-          {/* Settings link */}
-          <Link
-            to="/settings"
-            className="w-7 h-7 rounded-lg flex items-center justify-center border border-border text-foreground hover:bg-surface-secondary transition-colors"
-            title="Settings"
-            aria-label="Settings"
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </Link>
+          {/* Preferences Settings Trigger */}
+          {onOpenPreferences ? (
+            <button
+              type="button"
+              onClick={onOpenPreferences}
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-border text-foreground hover:bg-surface-secondary transition-colors cursor-pointer"
+              title="Preferences & Settings"
+              aria-label="Preferences"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <Link
+              to="/settings"
+              className="w-7 h-7 rounded-lg flex items-center justify-center border border-border text-foreground hover:bg-surface-secondary transition-colors"
+              title="Settings"
+              aria-label="Settings"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </Link>
+          )}
         </div>
       </header>
 

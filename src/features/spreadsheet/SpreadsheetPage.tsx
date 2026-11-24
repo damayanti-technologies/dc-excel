@@ -1,5 +1,5 @@
 /* global BeforeUnloadEvent */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
@@ -91,7 +91,54 @@ import {
   StorageManagementDialog,
   MultiTabConflictBanner,
   CrashRecoveryPrompt,
+  SpreadsheetStatusBar,
+  CommandPaletteDialog,
+  CommandPaletteAction,
+  GoToDialog,
+  PrintDialog,
+  WelcomeTourModal,
+  HelpShortcutsDialog,
+  PreferencesDialog,
 } from './components';
+import {
+  FileSpreadsheet,
+  Save,
+  Printer,
+  Upload,
+  Download,
+  History,
+  FolderArchive,
+  Undo2,
+  Redo2,
+  Scissors,
+  Copy,
+  Clipboard,
+  Search,
+  SearchCode,
+  CheckSquare,
+  Bold,
+  Italic,
+  Underline,
+  Sparkles,
+  ArrowUpDown,
+  Filter,
+  Trash2,
+  FileText,
+  PlusSquare,
+  BarChart2,
+  Table,
+  Tag,
+  SunMoon,
+  ZoomIn,
+  ZoomOut,
+  Grid,
+  Eye,
+  Navigation,
+  HelpCircle,
+  SlidersHorizontal,
+  Palette
+} from 'lucide-react';
+import { useUIPreferencesStore } from '@/stores/ui-preferences-store';
 import { saveQueue } from '@/engine/persistence/save-queue';
 import { historyManager } from '@/engine/history/history-manager';
 import { recoveryService } from '@/services/recovery-service';
@@ -203,6 +250,38 @@ export const SpreadsheetPage: React.FC = () => {
   const [isStorageManagementOpen, setIsStorageManagementOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<MultiTabMessage | null>(null);
   const [recoveryRecord, setRecoveryRecord] = useState<CrashRecoveryRecord | null>(null);
+
+  // Stage 14 Productivity, Polish & Accessibility State
+  const preferences = useUIPreferencesStore((state) => state.preferences);
+  const currentTheme = useUIPreferencesStore((state) => state.theme);
+  const setTheme = useUIPreferencesStore((state) => state.setTheme);
+
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isGoToOpen, setIsGoToOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
+  const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(false);
+  const [showGridlines, setShowGridlines] = useState(true);
+  const [showFormulaBar, setShowFormulaBar] = useState(true);
+
+  // Sync defaults from preferences
+  useEffect(() => {
+    if (preferences.applicationPreferences) {
+      if (preferences.applicationPreferences.showGridLinesDefault !== undefined) {
+        setShowGridlines(preferences.applicationPreferences.showGridLinesDefault);
+      }
+      if (preferences.applicationPreferences.showFormulaBarDefault !== undefined) {
+        setShowFormulaBar(preferences.applicationPreferences.showFormulaBarDefault);
+      }
+      if (preferences.applicationPreferences.defaultZoom !== undefined) {
+        setZoom(preferences.applicationPreferences.defaultZoom);
+      }
+      if (preferences.applicationPreferences.hasSeenOnboarding === false) {
+        setIsWelcomeTourOpen(true);
+      }
+    }
+  }, []);
 
   const handleImportSuccess = useCallback(
     (result: any) => {
@@ -1553,6 +1632,78 @@ export const SpreadsheetPage: React.FC = () => {
     toast.info('Column Deleted', 'Deleted active column.');
   };
 
+  const handleInsertRowAt = useCallback((row: number) => {
+    insertRow(row, 'above');
+    toast.info('Row Inserted', `Inserted row above row ${row + 1}.`);
+  }, [insertRow]);
+
+  const handleDeleteRowAt = useCallback((row: number) => {
+    if (!activeSheet || activeSheet.rowCount <= 1) {
+      toast.warning('Action Blocked', 'Cannot delete the only row.');
+      return;
+    }
+    deleteRow(row);
+    toast.info('Row Deleted', `Deleted row ${row + 1}.`);
+  }, [activeSheet, deleteRow]);
+
+  const handleInsertColumnAt = useCallback((col: number) => {
+    insertColumn(col, 'before');
+    toast.info('Column Inserted', 'Inserted column.');
+  }, [insertColumn]);
+
+  const handleDeleteColumnAt = useCallback((col: number) => {
+    if (!activeSheet || activeSheet.columnCount <= 1) {
+      toast.warning('Action Blocked', 'Cannot delete the only column.');
+      return;
+    }
+    deleteColumn(col);
+    toast.info('Column Deleted', 'Deleted column.');
+  }, [activeSheet, deleteColumn]);
+
+  // Stage 14: Date & Time Insert Handlers
+  const handleInsertCurrentDate = useCallback(() => {
+    if (!activeCell || !activeSheet) return;
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0]!;
+    handleUpdateCellValue(activeCell.row, activeCell.col, dateStr);
+  }, [activeCell, activeSheet, handleUpdateCellValue]);
+
+  const handleInsertCurrentTime = useCallback(() => {
+    if (!activeCell || !activeSheet) return;
+    const now = new Date();
+    const timeStr = now.toTimeString().split(' ')[0]!;
+    handleUpdateCellValue(activeCell.row, activeCell.col, timeStr);
+  }, [activeCell, activeSheet, handleUpdateCellValue]);
+
+  // Stage 14: Navigation & Go To Handlers
+  const handleNavigateToRange = useCallback(
+    (range: CellRange) => {
+      selectRangeFromAnchor({ row: range.endRow, col: range.endCol });
+      setActiveCell({ row: range.startRow, col: range.startCol });
+    },
+    [selectRangeFromAnchor, setActiveCell]
+  );
+
+  const handleNavigateToNamedRange = useCallback(
+    (namedRange: NamedRange) => {
+      if (namedRange.scope === 'sheet' && namedRange.sheetId && namedRange.sheetId !== activeSheet?.id) {
+        void handleSelectSheet(namedRange.sheetId);
+      }
+      handleNavigateToRange(namedRange.range);
+    },
+    [activeSheet, handleSelectSheet, handleNavigateToRange]
+  );
+
+  const handleGoToNavigate = useCallback(
+    (sheetId: string, range: CellRange) => {
+      if (sheetId !== activeSheet?.id) {
+        void handleSelectSheet(sheetId);
+      }
+      handleNavigateToRange(range);
+    },
+    [activeSheet, handleSelectSheet, handleNavigateToRange]
+  );
+
   // 12. Selection actions
   const handleSelectCell = (coord: CellCoordinates, isShift: boolean) => {
     if (isShift) {
@@ -1622,6 +1773,24 @@ export const SpreadsheetPage: React.FC = () => {
         const activeCellKey = activeCell ? coordToKey(activeCell.row, activeCell.col) : null;
         const currentStyle = activeCellKey && activeSheet ? activeSheet.cells[activeCellKey]?.style : undefined;
         handleApplyStyle({ underline: !currentStyle?.underline });
+      } else if (isCtrl && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(true);
+      } else if (isCtrl && !e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        setIsPrintOpen(true);
+      } else if ((isCtrl && (e.key === 'g' || e.key === 'G')) || e.key === 'F5') {
+        e.preventDefault();
+        setIsGoToOpen(true);
+      } else if (e.key === 'F1') {
+        e.preventDefault();
+        setIsHelpOpen(true);
+      } else if (isCtrl && !e.shiftKey && e.key === ';') {
+        e.preventDefault();
+        handleInsertCurrentDate();
+      } else if (isCtrl && (e.key === ':' || (e.shiftKey && e.key === ';'))) {
+        e.preventDefault();
+        handleInsertCurrentTime();
       } else if (e.key === 'Escape' && isFormatPainterActive) {
         e.preventDefault();
         deactivateFormatPainter();
@@ -1637,6 +1806,8 @@ export const SpreadsheetPage: React.FC = () => {
     handlePaste,
     handleSelectAll,
     handleApplyStyle,
+    handleInsertCurrentDate,
+    handleInsertCurrentTime,
     activeCell,
     activeSheet,
     isFormatPainterActive,
@@ -1718,6 +1889,356 @@ export const SpreadsheetPage: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedChartId, editingCell, handleDeleteChart]);
 
+  // Stage 14: Command Palette Commands List
+  const paletteCommands: CommandPaletteAction[] = useMemo(() => [
+    // File
+    {
+      id: 'cmd-new-workbook',
+      title: 'New Workbook',
+      category: 'File',
+      icon: <FileSpreadsheet className="w-4 h-4" />,
+      onExecute: () => { window.location.href = '/'; }
+    },
+    {
+      id: 'cmd-save-workbook',
+      title: 'Save Workbook',
+      category: 'File',
+      shortcut: 'Ctrl + S',
+      icon: <Save className="w-4 h-4" />,
+      onExecute: () => void handleManualSave()
+    },
+    {
+      id: 'cmd-print',
+      title: 'Print / Export PDF',
+      category: 'File',
+      shortcut: 'Ctrl + P',
+      icon: <Printer className="w-4 h-4" />,
+      onExecute: () => setIsPrintOpen(true)
+    },
+    {
+      id: 'cmd-import-file',
+      title: 'Import File (.xlsx, .csv)',
+      category: 'File',
+      icon: <Upload className="w-4 h-4" />,
+      onExecute: () => setIsImportOpen(true)
+    },
+    {
+      id: 'cmd-export-file',
+      title: 'Export Workbook (.xlsx, .csv)',
+      category: 'File',
+      icon: <Download className="w-4 h-4" />,
+      onExecute: () => setIsExportOpen(true)
+    },
+    {
+      id: 'cmd-version-history',
+      title: 'Workbook Version History',
+      category: 'File',
+      icon: <History className="w-4 h-4" />,
+      onExecute: () => setIsVersionHistoryOpen(true)
+    },
+    {
+      id: 'cmd-backup-restore',
+      title: 'Backup & Restore (.omni)',
+      category: 'File',
+      icon: <FolderArchive className="w-4 h-4" />,
+      onExecute: () => setIsBackupRestoreOpen(true)
+    },
+
+    // Editing
+    {
+      id: 'cmd-undo',
+      title: 'Undo',
+      category: 'Editing',
+      shortcut: 'Ctrl + Z',
+      icon: <Undo2 className="w-4 h-4" />,
+      onExecute: () => void historyManager.undo()
+    },
+    {
+      id: 'cmd-redo',
+      title: 'Redo',
+      category: 'Editing',
+      shortcut: 'Ctrl + Y',
+      icon: <Redo2 className="w-4 h-4" />,
+      onExecute: () => void historyManager.redo()
+    },
+    {
+      id: 'cmd-cut',
+      title: 'Cut',
+      category: 'Editing',
+      shortcut: 'Ctrl + X',
+      icon: <Scissors className="w-4 h-4" />,
+      onExecute: () => void handleCut()
+    },
+    {
+      id: 'cmd-copy',
+      title: 'Copy',
+      category: 'Editing',
+      shortcut: 'Ctrl + C',
+      icon: <Copy className="w-4 h-4" />,
+      onExecute: () => void handleCopy()
+    },
+    {
+      id: 'cmd-paste',
+      title: 'Paste',
+      category: 'Editing',
+      shortcut: 'Ctrl + V',
+      icon: <Clipboard className="w-4 h-4" />,
+      onExecute: () => void handlePaste()
+    },
+    {
+      id: 'cmd-find',
+      title: 'Find',
+      category: 'Editing',
+      shortcut: 'Ctrl + F',
+      icon: <Search className="w-4 h-4" />,
+      onExecute: () => { setFindReplaceInitialMode('find'); setIsFindReplaceOpen(true); }
+    },
+    {
+      id: 'cmd-replace',
+      title: 'Replace',
+      category: 'Editing',
+      shortcut: 'Ctrl + H',
+      icon: <SearchCode className="w-4 h-4" />,
+      onExecute: () => { setFindReplaceInitialMode('replace'); setIsFindReplaceOpen(true); }
+    },
+    {
+      id: 'cmd-select-all',
+      title: 'Select All Cells',
+      category: 'Editing',
+      shortcut: 'Ctrl + A',
+      icon: <CheckSquare className="w-4 h-4" />,
+      onExecute: () => handleSelectAll()
+    },
+    {
+      id: 'cmd-insert-date',
+      title: 'Insert Current Date',
+      category: 'Editing',
+      shortcut: 'Ctrl + ;',
+      icon: <Table className="w-4 h-4" />,
+      onExecute: handleInsertCurrentDate
+    },
+    {
+      id: 'cmd-insert-time',
+      title: 'Insert Current Time',
+      category: 'Editing',
+      shortcut: 'Ctrl + Shift + ;',
+      icon: <Table className="w-4 h-4" />,
+      onExecute: handleInsertCurrentTime
+    },
+
+    // Formatting
+    {
+      id: 'cmd-bold',
+      title: 'Toggle Bold',
+      category: 'Formatting',
+      shortcut: 'Ctrl + B',
+      icon: <Bold className="w-4 h-4" />,
+      onExecute: () => {
+        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
+        handleApplyStyle({ bold: !cell?.style?.bold });
+      }
+    },
+    {
+      id: 'cmd-italic',
+      title: 'Toggle Italic',
+      category: 'Formatting',
+      shortcut: 'Ctrl + I',
+      icon: <Italic className="w-4 h-4" />,
+      onExecute: () => {
+        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
+        handleApplyStyle({ italic: !cell?.style?.italic });
+      }
+    },
+    {
+      id: 'cmd-underline',
+      title: 'Toggle Underline',
+      category: 'Formatting',
+      shortcut: 'Ctrl + U',
+      icon: <Underline className="w-4 h-4" />,
+      onExecute: () => {
+        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
+        handleApplyStyle({ underline: !cell?.style?.underline });
+      }
+    },
+    {
+      id: 'cmd-format-cells',
+      title: 'Format Cells...',
+      category: 'Formatting',
+      icon: <Palette className="w-4 h-4" />,
+      onExecute: () => setIsMobileFormattingOpen(true)
+    },
+    {
+      id: 'cmd-conditional-formatting',
+      title: 'Conditional Formatting Rules',
+      category: 'Formatting',
+      icon: <Sparkles className="w-4 h-4" />,
+      onExecute: () => setIsConditionalFormattingManagerOpen(true)
+    },
+
+    // Data
+    {
+      id: 'cmd-sort-asc',
+      title: 'Sort Ascending (A to Z)',
+      category: 'Data',
+      icon: <ArrowUpDown className="w-4 h-4" />,
+      onExecute: () => handleQuickSort('asc', activeCell?.col)
+    },
+    {
+      id: 'cmd-sort-desc',
+      title: 'Sort Descending (Z to A)',
+      category: 'Data',
+      icon: <ArrowUpDown className="w-4 h-4" />,
+      onExecute: () => handleQuickSort('desc', activeCell?.col)
+    },
+    {
+      id: 'cmd-filter',
+      title: 'Toggle Filter',
+      category: 'Data',
+      icon: <Filter className="w-4 h-4" />,
+      onExecute: () => handleToggleFilter()
+    },
+    {
+      id: 'cmd-remove-duplicates',
+      title: 'Remove Duplicates',
+      category: 'Data',
+      icon: <Trash2 className="w-4 h-4" />,
+      onExecute: () => setIsRemoveDuplicatesOpen(true)
+    },
+    {
+      id: 'cmd-data-validation',
+      title: 'Data Validation',
+      category: 'Data',
+      icon: <FileText className="w-4 h-4" />,
+      onExecute: () => setIsDataValidationOpen(true)
+    },
+    {
+      id: 'cmd-text-to-columns',
+      title: 'Text to Columns',
+      category: 'Data',
+      icon: <Table className="w-4 h-4" />,
+      onExecute: () => setIsTextToColumnsOpen(true)
+    },
+
+    // Insert
+    {
+      id: 'cmd-insert-sheet',
+      title: 'Insert Worksheet',
+      category: 'Insert',
+      icon: <PlusSquare className="w-4 h-4" />,
+      onExecute: () => void handleAddSheet()
+    },
+    {
+      id: 'cmd-insert-chart',
+      title: 'Insert Chart',
+      category: 'Insert',
+      icon: <BarChart2 className="w-4 h-4" />,
+      onExecute: () => setIsInsertChartOpen(true)
+    },
+    {
+      id: 'cmd-insert-pivot',
+      title: 'Insert Pivot Table',
+      category: 'Insert',
+      icon: <Table className="w-4 h-4" />,
+      onExecute: () => setIsPivotTableOpen(true)
+    },
+    {
+      id: 'cmd-name-manager',
+      title: 'Name Manager / Define Range',
+      category: 'Insert',
+      icon: <Tag className="w-4 h-4" />,
+      onExecute: () => setIsNameManagerOpen(true)
+    },
+
+    // View
+    {
+      id: 'cmd-toggle-theme',
+      title: 'Toggle Dark / Light Theme',
+      category: 'View',
+      icon: <SunMoon className="w-4 h-4" />,
+      onExecute: () => void setTheme(currentTheme === 'dark' ? 'light' : 'dark')
+    },
+    {
+      id: 'cmd-zoom-in',
+      title: 'Zoom In',
+      category: 'View',
+      icon: <ZoomIn className="w-4 h-4" />,
+      onExecute: () => setZoom(Math.min(200, zoom + 10))
+    },
+    {
+      id: 'cmd-zoom-out',
+      title: 'Zoom Out',
+      category: 'View',
+      icon: <ZoomOut className="w-4 h-4" />,
+      onExecute: () => setZoom(Math.max(50, zoom - 10))
+    },
+    {
+      id: 'cmd-reset-zoom',
+      title: 'Reset Zoom to 100%',
+      category: 'View',
+      icon: <ZoomIn className="w-4 h-4" />,
+      onExecute: () => setZoom(100)
+    },
+    {
+      id: 'cmd-toggle-gridlines',
+      title: showGridlines ? 'Hide Gridlines' : 'Show Gridlines',
+      category: 'View',
+      icon: <Grid className="w-4 h-4" />,
+      onExecute: () => setShowGridlines(!showGridlines)
+    },
+    {
+      id: 'cmd-toggle-formula-bar',
+      title: showFormulaBar ? 'Hide Formula Bar' : 'Show Formula Bar',
+      category: 'View',
+      icon: <Eye className="w-4 h-4" />,
+      onExecute: () => setShowFormulaBar(!showFormulaBar)
+    },
+
+    // Help & Navigation
+    {
+      id: 'cmd-go-to',
+      title: 'Go To Cell / Range...',
+      category: 'Help',
+      shortcut: 'Ctrl + G',
+      icon: <Navigation className="w-4 h-4" />,
+      onExecute: () => setIsGoToOpen(true)
+    },
+    {
+      id: 'cmd-help',
+      title: 'Help & Shortcuts Reference',
+      category: 'Help',
+      shortcut: 'F1',
+      icon: <HelpCircle className="w-4 h-4" />,
+      onExecute: () => setIsHelpOpen(true)
+    },
+    {
+      id: 'cmd-preferences',
+      title: 'Preferences & Settings...',
+      category: 'Help',
+      icon: <SlidersHorizontal className="w-4 h-4" />,
+      onExecute: () => setIsPreferencesOpen(true)
+    }
+  ], [
+    activeSheet,
+    activeCell,
+    currentTheme,
+    showGridlines,
+    showFormulaBar,
+    zoom,
+    handleManualSave,
+    handleCut,
+    handleCopy,
+    handlePaste,
+    handleSelectAll,
+    handleInsertCurrentDate,
+    handleInsertCurrentTime,
+    handleApplyStyle,
+    handleQuickSort,
+    handleToggleFilter,
+    handleAddSheet,
+    setTheme,
+    setZoom
+  ]);
+
   if (isLoading) {
     return <LoadingState message="Loading spreadsheet grid..." />;
   }
@@ -1772,6 +2293,28 @@ export const SpreadsheetPage: React.FC = () => {
         onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
         onOpenBackupRestore={() => setIsBackupRestoreOpen(true)}
         onOpenStorageManagement={() => setIsStorageManagementOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        onOpenPrint={() => setIsPrintOpen(true)}
+        onOpenHelp={() => setIsHelpOpen(true)}
+        onOpenPreferences={() => setIsPreferencesOpen(true)}
+        onNewWorkbook={() => { window.location.href = '/'; }}
+        onFind={() => {
+          setFindReplaceInitialMode('find');
+          setIsFindReplaceOpen(true);
+        }}
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onBold={() => {
+          const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
+          handleApplyStyle({ bold: !cell?.style?.bold });
+        }}
+        onItalic={() => {
+          const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
+          handleApplyStyle({ italic: !cell?.style?.italic });
+        }}
+        onSortAsc={() => handleQuickSort('asc', activeCell?.col)}
+        onFilter={handleToggleFilter}
       />
 
       {/* 2. Ribbon Tabs Switcher */}
@@ -1898,17 +2441,23 @@ export const SpreadsheetPage: React.FC = () => {
       )}
 
       {/* 4. Formula Bar */}
-      <FormulaBar
-        activeCell={activeCell}
-        cell={currentCellData}
-        isEditing={!!editingCell}
-        editingValue={editingValue}
-        onStartEditing={(initVal) => activeCell && startEditing(activeCell, initVal)}
-        onEditingChange={setEditingValue}
-        onCommitEditing={handleCommitEditing}
-        onCancelEditing={stopEditing}
-        onOpenReference={() => setIsReferenceOpen(true)}
-      />
+      {showFormulaBar && (
+        <FormulaBar
+          activeCell={activeCell}
+          cell={currentCellData}
+          isEditing={!!editingCell}
+          editingValue={editingValue}
+          selectedRange={selectedRange}
+          namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
+          onStartEditing={(initVal) => activeCell && startEditing(activeCell, initVal)}
+          onEditingChange={setEditingValue}
+          onCommitEditing={handleCommitEditing}
+          onCancelEditing={stopEditing}
+          onOpenReference={() => setIsReferenceOpen(true)}
+          onNavigateToRange={handleNavigateToRange}
+          onNavigateToNamedRange={handleNavigateToNamedRange}
+        />
+      )}
 
       {/* 5. Virtualized Spreadsheet Grid Viewport */}
       <div className="flex-1 relative overflow-hidden flex flex-col min-h-0 min-w-0">
@@ -1922,6 +2471,7 @@ export const SpreadsheetPage: React.FC = () => {
           editingValue={editingValue}
           isFormatPainterActive={isFormatPainterActive}
           isAuditHighlighted={isAuditHighlighted}
+          showGridlines={showGridlines}
           onApplyFormatPainter={handleApplyFormatPainter}
           onSelectCell={handleSelectCell}
           onDragSelect={selectRangeFromAnchor}
@@ -1949,6 +2499,16 @@ export const SpreadsheetPage: React.FC = () => {
           onExportChart={handleExportChart}
           namedRangeResolver={namedRangeResolver}
           pivotTables={activeSheet.metadata?.pivotTables}
+          onCopy={handleCopy}
+          onCut={handleCut}
+          onPaste={handlePaste}
+          onInsertRow={handleInsertRowAt}
+          onDeleteRow={handleDeleteRowAt}
+          onInsertColumn={handleInsertColumnAt}
+          onDeleteColumn={handleDeleteColumnAt}
+          onOpenFormatCells={() => setIsMobileFormattingOpen(true)}
+          onOpenDefineName={() => setIsNameManagerOpen(true)}
+          onQuickSort={handleQuickSort}
         />
       </div>
 
@@ -1966,6 +2526,20 @@ export const SpreadsheetPage: React.FC = () => {
         onSetTabColor={handleSetTabColor}
         onHideSheet={handleHideSheet}
         onOpenUnhideDialog={() => setIsUnhideDialogOpen(true)}
+      />
+
+      {/* 6b. Stage 14: Bottom Status Bar */}
+      <SpreadsheetStatusBar
+        isEditing={Boolean(editingCell)}
+        activeCell={activeCell}
+        selectedRange={selectedRange}
+        cells={activeSheet.cells}
+        zoom={Math.round(zoom * 100)}
+        onZoomChange={(newZoomPct) => setZoom(newZoomPct / 100)}
+        showGridlines={showGridlines}
+        onToggleGridlines={() => setShowGridlines(!showGridlines)}
+        showFormulaBar={showFormulaBar}
+        onToggleFormulaBar={() => setShowFormulaBar(!showFormulaBar)}
       />
 
       {/* 7. Formula Reference Panel Modal */}
@@ -2243,6 +2817,57 @@ export const SpreadsheetPage: React.FC = () => {
       <StorageManagementDialog
         isOpen={isStorageManagementOpen}
         onClose={() => setIsStorageManagementOpen(false)}
+      />
+
+      {/* 32. Command Palette Dialog (Stage 14) */}
+      <CommandPaletteDialog
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        commands={paletteCommands}
+      />
+
+      {/* 33. Go To Reference Dialog (Stage 14) */}
+      <GoToDialog
+        isOpen={isGoToOpen}
+        onClose={() => setIsGoToOpen(false)}
+        activeCell={activeCell}
+        currentSheetId={activeSheet.id}
+        sheets={sheets}
+        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
+        onNavigate={handleGoToNavigate}
+      />
+
+      {/* 34. Print & PDF Export Setup Dialog (Stage 14) */}
+      {workbook && (
+        <PrintDialog
+          isOpen={isPrintOpen}
+          onClose={() => setIsPrintOpen(false)}
+          workbookName={workbook.name}
+          activeSheet={activeSheet}
+          sheets={sheets}
+          selectedRange={selectedRange}
+          charts={activeSheet.metadata?.charts}
+        />
+      )}
+
+      {/* 35. Help & Keyboard Shortcuts Reference Dialog (Stage 14) */}
+      <HelpShortcutsDialog
+        isOpen={isHelpOpen}
+        onClose={() => setIsHelpOpen(false)}
+      />
+
+      {/* 36. User Preferences & Settings Dialog (Stage 14) */}
+      <PreferencesDialog
+        isOpen={isPreferencesOpen}
+        onClose={() => setIsPreferencesOpen(false)}
+      />
+
+      {/* 37. First-Time Welcome Tour Modal (Stage 14) */}
+      <WelcomeTourModal
+        isOpen={isWelcomeTourOpen}
+        onClose={() => setIsWelcomeTourOpen(false)}
+        onNewWorkbook={() => { window.location.href = '/'; }}
+        onImportFile={() => setIsImportOpen(true)}
       />
     </div>
   );

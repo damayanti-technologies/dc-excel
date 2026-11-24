@@ -15,6 +15,10 @@ export interface ApplicationPreferences {
   showHeadersDefault: boolean;
   maxUndoSteps: number;
   numberLocale: string;
+  defaultZoom: number;
+  reducedMotion: boolean;
+  quickAccessToolbar: string[];
+  hasSeenOnboarding: boolean;
 }
 
 export interface UserPreferences {
@@ -42,6 +46,10 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
     showFormulaBarDefault: true,
     showHeadersDefault: true,
     maxUndoSteps: 100,
-    numberLocale: 'en-US'
+    numberLocale: 'en-US',
+    defaultZoom: 100,
+    reducedMotion: false,
+    quickAccessToolbar: ['save', 'undo', 'redo', 'print', 'find'],
+    hasSeenOnboarding: false
   }
 };

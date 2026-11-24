@@ -75,6 +75,27 @@ export const ChartOverlay: React.FC<ChartOverlayProps> = ({
 
   const dragStartRef = useRef<{ startX: number; startY: number }>({ startX: 0, startY: 0 });
 
+  // Right-click context menu state
+  const [chartContextMenu, setChartContextMenu] = useState<{
+    chart: ChartConfig;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!chartContextMenu) return;
+    const handleClose = () => setChartContextMenu(null);
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setChartContextMenu(null);
+    };
+    window.addEventListener('click', handleClose);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [chartContextMenu]);
+
   // Handle Drag Move
   const handleDragStart = (e: React.MouseEvent, chart: ChartConfig) => {
     e.stopPropagation();
@@ -223,6 +244,14 @@ export const ChartOverlay: React.FC<ChartOverlayProps> = ({
               zIndex: isSelected ? 50 : chart.position.zIndex || 20,
               borderRadius: chart.style.borderRadius ? `${chart.style.borderRadius}px` : '8px',
             }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelectChart(chart.id);
+              const x = Math.min(e.clientX, window.innerWidth - 200);
+              const y = Math.min(e.clientY, window.innerHeight - 250);
+              setChartContextMenu({ chart, x, y });
+            }}
             className={`group bg-surface border transition-shadow flex flex-col select-none overflow-hidden ${
               isSelected
                 ? 'ring-2 ring-accent border-accent shadow-xl'
@@ -361,6 +390,105 @@ export const ChartOverlay: React.FC<ChartOverlayProps> = ({
           </div>
         );
       })}
+
+      {/* Chart Context Menu */}
+      {chartContextMenu && (
+        <div
+          role="menu"
+          aria-label="Chart context menu"
+          style={{ top: chartContextMenu.y, left: chartContextMenu.x }}
+          className="fixed z-50 min-w-[190px] py-1 bg-surface-elevated border border-border rounded-xl shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1 font-semibold text-[10px] text-foreground-muted uppercase tracking-wider border-b border-border">
+            {chartContextMenu.chart.title.text || 'Chart Options'}
+          </div>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onEditChart(chartContextMenu.chart);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-foreground-muted" />
+            <span>Edit Chart...</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onDuplicateChart(chartContextMenu.chart.id);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <Copy className="w-3.5 h-3.5 text-foreground-muted" />
+            <span>Duplicate Chart</span>
+          </button>
+
+          <div className="h-px bg-border my-1" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onBringForward(chartContextMenu.chart.id);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <ArrowUp className="w-3.5 h-3.5 text-foreground-muted" />
+            <span>Bring Forward</span>
+          </button>
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onSendBackward(chartContextMenu.chart.id);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <ArrowDown className="w-3.5 h-3.5 text-foreground-muted" />
+            <span>Send Backward</span>
+          </button>
+
+          <div className="h-px bg-border my-1" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onExportChart(chartContextMenu.chart);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <Download className="w-3.5 h-3.5 text-foreground-muted" />
+            <span>Export as PNG</span>
+          </button>
+
+          <div className="h-px bg-border my-1" />
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onDeleteChart(chartContextMenu.chart.id);
+              setChartContextMenu(null);
+            }}
+            className="w-full px-3 py-1.5 text-left text-rose-500 hover:bg-rose-500/10 flex items-center gap-2 cursor-pointer transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Chart</span>
+          </button>
+        </div>
+      )}
     </>
   );
 };

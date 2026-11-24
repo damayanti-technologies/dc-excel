@@ -92,11 +92,102 @@ All processing occurs 100% in-browser in client memory with zero server uploads 
 
 ---
 
-# OmniSheet Project Status — Stage 13 Complete
+# OmniSheet Project Status — Stage 14 Complete
 
-**Current Stage:** Stage 13 of 15: Data Persistence, Autosave & Recovery System  
+**Current Stage:** Stage 14 of 15: Productivity, UI Polish & Accessibility  
 **Last Updated:** November 24, 2026  
-**Status:** **STAGE 13 COMPLETE — PASSED (100% Tests, 0 Lint Errors, Clean Production Build, Live Browser Verified)**
+**Status:** **STAGE 14 COMPLETE — PASSED (100% Tests, 0 Type Errors, Clean Production Build, Live Browser Verified)**
+
+---
+
+## 1. Overview of Stage 14 Implementation
+
+Stage 14 transforms OmniSheet into an ultra-responsive, highly accessible, keyboard-first professional spreadsheet application. It integrates extensive productivity workflows, standard spreadsheet shortcut mappings, full context menus, an Excel-style status bar with $O(K)$ selection statistics, customizable Quick Access Toolbar, multiline formula bar, reference navigation, print & PDF layout formatting, and onboarding guides.
+
+### Core Architectural Additions
+1. **Centralized Keyboard Shortcut Registry & Engine (`src/engine/shortcuts/`):**
+   - Registry of 22 standard shortcuts across Workbook, Editing, Navigation, Formatting, and View categories.
+   - Excel-standard contiguous block jump algorithm (`findDataEdge`) for `Ctrl + ArrowUp/Down/Left/Right` jumping across populated cell ranges and whitespace boundaries.
+   - `Shift + Arrow` continuous range selection expansion and contraction.
+   - `Home`, `End`, `Ctrl + Home` (A1 jump), `Ctrl + End` (data boundary jump), `PageUp`, `PageDown`.
+   - Date (`Ctrl + ;`) and Time (`Ctrl + Shift + ;`) direct cell value insertion.
+   - `Ctrl + Shift + P` (Command Palette), `Ctrl + P` (Print), `Ctrl + G` / `F5` (Go To), `F1` (Help & Shortcuts).
+2. **Searchable Command Palette (`CommandPaletteDialog.tsx`):**
+   - Instant fuzzy keyword matching over actions across 7 categories (File, Editing, Formatting, Data, Insert, View, Help).
+   - Full keyboard navigation (Arrow Up/Down, Enter to execute, Escape to dismiss).
+   - Direct execution of real app actions (Export, Backup, Version History, Pivot Table, Chart, Conditional Formatting, Find, Undo, Redo, Zoom).
+3. **Comprehensive Context Menus (`SpreadsheetGrid.tsx`, `ChartOverlay.tsx`):**
+   - **Cell Context Menu:** Cut, Copy, Paste, Insert Row/Column, Delete Row/Column, Clear Contents, Format Cells, Sort A-Z, Sort Z-A, Filter, Define Named Range.
+   - **Row Header Context Menu:** Insert Row Above, Delete Row, Clear Contents.
+   - **Column Header Context Menu:** Insert Column Left, Delete Column, Sort Ascending, Sort Descending, Filter.
+   - **Worksheet Tab Context Menu:** Rename, Duplicate, Delete, Hide, Move Left, Move Right, Tab Color.
+   - **Chart Context Menu:** Edit Chart, Duplicate Chart, Bring Forward, Send Backward, Export PNG, Delete Chart.
+4. **Quick Access Toolbar (QAT) (`QuickAccessToolbar.tsx`):**
+   - Header-integrated action strip (Save, Undo, Redo, Print, Find, New, Open, Cut, Copy, Paste, Bold, Italic, Sort, Filter).
+   - Customizable dropdown menu allowing users to check/uncheck actions with instant persistence to `UserPreferences`.
+   - "Reset to Defaults" option.
+5. **Enhanced Formula Bar & Name Box (`FormulaBar.tsx`):**
+   - **Name Box:** Displays active cell address (`B5`) or selection dimensions (`3R × 2C`).
+   - Coordinate and Range input with instant jump and validation error feedback.
+   - Dropdown picker for workbook and sheet-scoped Named Ranges.
+   - **Formula Bar:** Multiline expansion toggle (`ChevronDown`/`ChevronUp`), `Alt + Enter` soft line breaks, and cursor position preservation.
+6. **Spreadsheet Status Bar (`SpreadsheetStatusBar.tsx`):**
+   - Bottom status bar displaying Ready / Edit mode indicator.
+   - Dynamic selection statistics: `Count`, `Nums`, `Sum`, `Average`, `Min`, `Max`.
+   - High-performance $O(K)$ calculation engine (`selection-stats.ts`) iterating only populated cells in `SparseCellMap` within the bounding box, operating in $<1$ms even on $1,000 \times 1,000$ range selections.
+   - Zoom controls: zoom out, zoom in, slider (50% - 200%), zoom percentage indicator, and one-click 100% reset.
+   - Gridlines toggle and Formula Bar visibility toggle buttons.
+7. **Go To Dialog (`GoToDialog.tsx`):**
+   - Direct navigation to any cell or range address (`C10`, `A1:D20`).
+   - Named range picker with scope badges.
+   - Worksheet switcher.
+   - Recent navigation history list.
+8. **Print & PDF Export System (`PrintDialog.tsx` & `@media print`):**
+   - Print setup modal with live printable page preview.
+   - Print Scope: Active Sheet, Selected Range, Entire Workbook.
+   - Page Orientation: Portrait or Landscape.
+   - Paper Sizes: A4, Letter, Legal.
+   - Margins: Normal (0.75"), Wide (1.0"), Narrow (0.25").
+   - Display options: Print Gridlines, Print Row & Column Headings.
+   - Print-optimized CSS rules hiding header, ribbons, tabs, and status bar, with pure white background and crisp high-contrast grid rendering.
+9. **Accessibility & Usability:**
+   - ARIA grid roles: `role="grid"`, `aria-rowcount`, `aria-colcount`, `role="row"`, `role="gridcell"`, `aria-selected`.
+   - High-contrast focus rings and accessible tooltips.
+   - `@media (prefers-reduced-motion: reduce)` CSS overrides disabling transitions and animations.
+   - Responsive touch layouts and compact headers for tablet viewports.
+10. **Onboarding, Help & Preferences:**
+    - First-time `WelcomeTourModal` carousel guide.
+    - Tabbed `HelpShortcutsDialog` (`F1`) with searchable shortcuts directory, formula reference, and local-first privacy statement.
+    - `PreferencesDialog` modal for theme, default zoom level, default gridlines/formula bar visibility, and reduced motion.
+
+---
+
+## 2. Verification & Quality Metrics
+
+| Suite | Target | Status | Result |
+| :--- | :--- | :---: | :--- |
+| **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **72 test files, 458/458 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean production build with PWA service worker precaching. |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Verified Header QAT, Name Box, Command Palette, Context Menu, Status Bar Stats, and Print Dialog. |
+
+---
+
+## 3. Visual Verification Deliverables
+
+1. `omnisheet_stage14_desktop_workspace.png`: Workspace overview with QAT, enhanced Name Box, and grid.
+2. `omnisheet_stage14_command_palette.png`: Searchable command palette filtered by keyword.
+3. `omnisheet_stage14_context_menu.png`: Cell right-click context menu.
+4. `omnisheet_stage14_status_bar.png`: Multi-cell selection showing live selection stats (`Count: 3`, `Sum: 60`, `Avg: 20`, `Min: 10`, `Max: 30`) and zoom slider.
+5. `omnisheet_stage14_print_dialog.png`: Print & PDF setup modal with print preview and layout controls.
+
+---
+
+## 4. Architectural Boundaries Maintained
+
+- **Strictly In-Browser:** 100% client-side execution, zero external network calls, zero cloud telemetry.
+- **Pure Local-First:** User preferences, shortcuts, and history stored locally in IndexedDB and localStorage.
+- **STOP BEFORE STAGE 15:** Execution pauses here pending explicit user authorization before Stage 15.
 
 ---
 
