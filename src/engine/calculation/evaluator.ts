@@ -55,6 +55,9 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
     case 'Error':
       return node.error;
 
+    case 'Empty':
+      return null;
+
     case 'CellRef': {
       const val = context.getCellValue(node.coord);
       return val ?? null;

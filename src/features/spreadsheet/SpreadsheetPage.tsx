@@ -20,7 +20,8 @@ import {
   SpreadsheetToolbar,
   FormulaBar,
   SpreadsheetGrid,
-  SheetTabsBar
+  SheetTabsBar,
+  FormulaReferencePanel
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -61,6 +62,16 @@ export const SpreadsheetPage: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<PersistenceStatus>('idle');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isReferenceOpen, setIsReferenceOpen] = useState(false);
+
+  const handleInsertFunction = useCallback(
+    (syntax: string) => {
+      if (activeCell) {
+        startEditing(activeCell, syntax);
+      }
+    },
+    [activeCell, startEditing]
+  );
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -450,6 +461,7 @@ export const SpreadsheetPage: React.FC = () => {
         onEditingChange={setEditingValue}
         onCommitEditing={handleCommitEditing}
         onCancelEditing={stopEditing}
+        onOpenReference={() => setIsReferenceOpen(true)}
       />
 
       {/* 4. Virtualized Spreadsheet Grid Viewport */}
@@ -483,6 +495,13 @@ export const SpreadsheetPage: React.FC = () => {
         activeSheetId={activeSheet.id}
         onSelectSheet={(sheetId) => void handleSelectSheet(sheetId)}
         onAddSheet={() => void handleAddSheet()}
+      />
+
+      {/* 6. Formula Reference Panel Modal */}
+      <FormulaReferencePanel
+        isOpen={isReferenceOpen}
+        onClose={() => setIsReferenceOpen(false)}
+        onInsertFunction={handleInsertFunction}
       />
     </div>
   );

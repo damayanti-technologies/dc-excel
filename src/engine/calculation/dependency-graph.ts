@@ -37,6 +37,13 @@ export function extractReferencesFromAST(node: ASTNode): string[] {
           walk(arg);
         }
         break;
+
+      case 'Empty':
+      case 'Error':
+      case 'NumberLiteral':
+      case 'StringLiteral':
+      case 'BooleanLiteral':
+        break;
     }
   }
 

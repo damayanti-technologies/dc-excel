@@ -219,9 +219,26 @@ export class FormulaParser {
         const args: ASTNode[] = [];
 
         if (!this.check('PAREN_CLOSE')) {
-          do {
-            args.push(this.parseComparison());
-          } while (this.match('COMMA'));
+          while (true) {
+            if (this.check('COMMA')) {
+              // Omitted argument before comma, e.g. FUNC(, B1) or FUNC(A1,, C1)
+              args.push({ type: 'Empty' });
+              this.advance();
+            } else if (this.check('PAREN_CLOSE')) {
+              break;
+            } else {
+              args.push(this.parseComparison());
+              if (this.match('COMMA')) {
+                if (this.check('PAREN_CLOSE')) {
+                  args.push({ type: 'Empty' });
+                  break;
+                }
+                continue;
+              } else {
+                break;
+              }
+            }
+          }
         }
 
         if (!this.match('PAREN_CLOSE')) {

@@ -98,6 +98,10 @@ export interface ErrorNode {
   error: FormulaErrorType;
 }
 
+export interface EmptyNode {
+  type: 'Empty';
+}
+
 export type ASTNode =
   | NumberLiteralNode
   | StringLiteralNode
@@ -108,7 +112,8 @@ export type ASTNode =
   | BinaryOpNode
   | PercentNode
   | FunctionCallNode
-  | ErrorNode;
+  | ErrorNode
+  | EmptyNode;
 
 /**
  * Interface supplied to the evaluator to resolve cell values and ranges dynamically.
@@ -127,3 +132,42 @@ export type FormulaFunctionHandler = (
   context: EvaluationContext,
   evaluate: (node: ASTNode, context: EvaluationContext) => CellValue
 ) => CellValue;
+
+/**
+ * Categories of spreadsheet functions.
+ */
+export type FunctionCategory =
+  | 'Logical'
+  | 'Lookup & Reference'
+  | 'Text'
+  | 'Date & Time'
+  | 'Mathematical'
+  | 'Statistical'
+  | 'Information';
+
+/**
+ * Parameter definition for formula function argument assistance.
+ */
+export interface FunctionArgumentDef {
+  name: string;
+  description: string;
+  type?: 'any' | 'number' | 'string' | 'boolean' | 'range' | 'array';
+  optional?: boolean;
+  defaultValue?: string;
+  repeating?: boolean;
+}
+
+/**
+ * Full metadata for a registered function in the Function Registry.
+ */
+export interface FunctionDefinition {
+  name: string;
+  category: FunctionCategory;
+  description: string;
+  minArgs: number;
+  maxArgs: number;
+  args: FunctionArgumentDef[];
+  returnType: string;
+  examples: string[];
+  handler: FormulaFunctionHandler;
+}

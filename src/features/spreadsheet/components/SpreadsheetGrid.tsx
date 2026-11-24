@@ -8,6 +8,9 @@ import { handleGridKeyboardNavigation } from '@/engine/grid/keyboard';
 import { DEFAULT_GRID_CONFIG } from '@/engine/grid/constants';
 import { ResizeTarget } from '@/engine/grid/types';
 import { isFormulaError } from '@/engine/calculation/errors';
+import { useFormulaInputAssist } from '../hooks/useFormulaInputAssist';
+import { FormulaAutocomplete } from './FormulaAutocomplete';
+import { FormulaArgumentHelp } from './FormulaArgumentHelp';
 import { cn } from '@/utils/cn';
 
 interface SpreadsheetGridProps {
@@ -245,8 +248,25 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     }
   };
 
+  const {
+    suggestions,
+    selectedIndex,
+    argumentHelpContext,
+    acceptSuggestion,
+    handleAssistKeyDown,
+    updateCursorPosition
+  } = useFormulaInputAssist({
+    value: editingValue,
+    onChange: onEditingChange,
+    inputRef: cellInputRef
+  });
+
   // Cell editor input key events
   const handleCellInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (handleAssistKeyDown(e)) {
+      return;
+    }
+
     if (e.key === 'Enter') {
       e.preventDefault();
       onCommitEditing(e.shiftKey ? 'up' : 'down');
@@ -263,7 +283,14 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   };
 
   const handleCellInputBlur = (e: React.FocusEvent) => {
-    if (e.relatedTarget && (e.relatedTarget as HTMLElement).getAttribute('aria-label') === 'Formula Bar') {
+    const related = e.relatedTarget as HTMLElement | null;
+    if (
+      related &&
+      (related.getAttribute('aria-label') === 'Formula Bar' ||
+        related.closest('[role="listbox"]') ||
+        related.closest('[role="tooltip"]') ||
+        related.closest('[role="dialog"]'))
+    ) {
       return;
     }
     onCommitEditing('none');
@@ -596,27 +623,53 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
           })
         )}
 
-        {/* 5. Direct In-Cell Editing Input Overlay */}
+        {/* 5. Direct In-Cell Editing Input Overlay with Autocomplete & Argument Help */}
         {editingCell && (
-          <input
-            ref={cellInputRef}
-            type="text"
-            value={editingValue}
-            onChange={(e) => onEditingChange(e.target.value)}
-            onKeyDown={handleCellInputKeyDown}
-            onBlur={handleCellInputBlur}
+          <div
             style={{
               position: 'absolute',
               left: virtualizer.getColOffset(editingCell.col, zoom),
               top: virtualizer.getRowOffset(editingCell.row, zoom),
-              width: Math.max(virtualizer.getColWidth(editingCell.col, zoom), 120),
-              height: virtualizer.getRowHeight(editingCell.row, zoom),
-              fontSize: `${Math.round(12 * zoom)}px`,
-              zIndex: 25
+              zIndex: 35
             }}
-            className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
-            aria-label="Direct Cell Editor"
-          />
+            className="relative"
+          >
+            <input
+              ref={cellInputRef}
+              type="text"
+              value={editingValue}
+              onChange={(e) => onEditingChange(e.target.value)}
+              onClick={updateCursorPosition}
+              onKeyUp={updateCursorPosition}
+              onKeyDown={handleCellInputKeyDown}
+              onBlur={handleCellInputBlur}
+              style={{
+                width: Math.max(virtualizer.getColWidth(editingCell.col, zoom), 140),
+                height: virtualizer.getRowHeight(editingCell.row, zoom),
+                fontSize: `${Math.round(12 * zoom)}px`
+              }}
+              className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
+              aria-label="Direct Cell Editor"
+            />
+
+            {/* In-Cell Floating Autocomplete Suggestions */}
+            {suggestions.length > 0 && (
+              <div className="absolute top-full left-0 mt-1 z-50">
+                <FormulaAutocomplete
+                  suggestions={suggestions}
+                  selectedIndex={selectedIndex}
+                  onSelect={acceptSuggestion}
+                />
+              </div>
+            )}
+
+            {/* In-Cell Floating Argument Helper Tooltip */}
+            {argumentHelpContext && (
+              <div className="absolute top-full left-0 mt-1 z-50">
+                <FormulaArgumentHelp context={argumentHelpContext} />
+              </div>
+            )}
+          </div>
         )}
 
         {/* 6. Selection Box Bounding Overlay */}
