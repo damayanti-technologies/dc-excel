@@ -668,3 +668,10 @@ export class FolderService {
 export const workbookService = new WorkbookService();
 export const folderService = new FolderService();
 export * from './import-export-service';
+export * from './version-service';
+export * from './recovery-service';
+export * from './backup-service';
+export * from './storage-service';
+export * from './multi-tab-service';
+export * from '@/engine/persistence/save-queue';
+export * from '@/engine/history/history-manager';

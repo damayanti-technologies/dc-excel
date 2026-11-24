@@ -37,3 +37,8 @@ export * from './ChartEditorDialog';
 export * from './InsertToolbar';
 export * from './ImportDialog';
 export * from './ExportDialog';
+export * from './VersionHistoryDialog';
+export * from './BackupRestoreDialog';
+export * from './StorageManagementDialog';
+export * from './MultiTabConflictBanner';
+export * from './CrashRecoveryPrompt';

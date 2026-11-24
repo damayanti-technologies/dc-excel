@@ -3,7 +3,7 @@ import { Sheet, SheetSummary } from './sheet';
 import { Folder, FolderSummary } from './folder';
 import { UserPreferences } from './preferences';
 
-export type PersistenceStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type PersistenceStatus = 'idle' | 'saving' | 'saved' | 'dirty' | 'error' | 'recovering';
 
 export interface IWorkbookRepository {
   getAll(): Promise<WorkbookSummary[]>;

@@ -183,6 +183,7 @@ export class WorkbookRepository implements IWorkbookRepository {
       sheetCount: workbook.sheetIds.length,
       activeSheetId: workbook.activeSheetId,
       folderId: workbook.folderId ?? null,
+      revision: workbook.revision,
       metadata: {
         ...(workbook.metadata || {}),
         isFavorite: isStarred

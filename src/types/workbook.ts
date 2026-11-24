@@ -27,6 +27,7 @@ export interface Workbook {
   sheetIds: string[];
   activeSheetId: string;
   folderId?: string | null;
+  revision?: number;
   metadata?: WorkbookMetadata;
 }
 
@@ -43,5 +44,6 @@ export interface WorkbookSummary {
   sheetCount: number;
   activeSheetId: string;
   folderId?: string | null;
+  revision?: number;
   metadata?: WorkbookMetadata;
 }

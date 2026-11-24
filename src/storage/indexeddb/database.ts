@@ -5,7 +5,7 @@ import { StorageQuotaInfo } from '@/types/storage';
 import { Logger } from '@/utils/logger';
 
 export const DB_NAME = 'omnisheet_db';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 let dbInstance: IDBPDatabase<unknown> | null = null;
 const migrationManager = new DatabaseMigrationManager();
@@ -74,10 +74,12 @@ export async function deleteDatabase(): Promise<void> {
  */
 export async function clearAllStores(): Promise<void> {
   const db = await getDatabase();
-  const storeNames = ['workbooks', 'sheets', 'folders', 'preferences', 'backups'];
+  const storeNames = ['workbooks', 'sheets', 'folders', 'preferences', 'backups', 'versions', 'recovery'];
   const tx = db.transaction(storeNames, 'readwrite');
   for (const name of storeNames) {
-    await tx.objectStore(name).clear();
+    if (db.objectStoreNames.contains(name)) {
+      await tx.objectStore(name).clear();
+    }
   }
   await tx.done;
   Logger.debug('Storage', 'All database stores cleared.');

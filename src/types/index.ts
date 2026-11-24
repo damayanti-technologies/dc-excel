@@ -9,3 +9,4 @@ export * from './data-tools';
 export * from './analysis';
 export * from './chart';
 export * from './io';
+export * from './persistence';

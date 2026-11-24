@@ -14,6 +14,7 @@ export class DatabaseMigrationManager {
   constructor() {
     this.registerV1Migration();
     this.registerV2Migration();
+    this.registerV3Migration();
   }
 
   /**
@@ -76,6 +77,28 @@ export class DatabaseMigrationManager {
         if (!workbookStore.indexNames.contains('isStarred')) {
           workbookStore.createIndex('isStarred', 'isStarred', { unique: false });
         }
+      }
+    });
+  }
+
+  /**
+   * Version 3: Stage 13 Version History & Crash Recovery stores.
+   */
+  private registerV3Migration(): void {
+    this.migrations.set(3, (db) => {
+      Logger.info('Storage', 'Executing database migration to Version 3 (Version History & Crash Recovery)');
+
+      // Versions Object Store (Workbook snapshots / checkpoints)
+      if (!db.objectStoreNames.contains('versions')) {
+        const versionStore = db.createObjectStore('versions', { keyPath: 'id' });
+        versionStore.createIndex('workbookId', 'workbookId', { unique: false });
+        versionStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+
+      // Crash Recovery Object Store (Uncommitted edit checkpoints)
+      if (!db.objectStoreNames.contains('recovery')) {
+        const recoveryStore = db.createObjectStore('recovery', { keyPath: 'workbookId' });
+        recoveryStore.createIndex('updatedAt', 'updatedAt', { unique: false });
       }
     });
   }

@@ -1,3 +1,4 @@
+/* global BeforeUnloadEvent */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
@@ -85,7 +86,17 @@ import {
   ChartEditorDialog,
   ImportDialog,
   ExportDialog,
+  VersionHistoryDialog,
+  BackupRestoreDialog,
+  StorageManagementDialog,
+  MultiTabConflictBanner,
+  CrashRecoveryPrompt,
 } from './components';
+import { saveQueue } from '@/engine/persistence/save-queue';
+import { historyManager } from '@/engine/history/history-manager';
+import { recoveryService } from '@/services/recovery-service';
+import { multiTabService } from '@/services/multi-tab-service';
+import { MultiTabMessage, CrashRecoveryRecord } from '@/types/persistence';
 
 export const SpreadsheetPage: React.FC = () => {
   const { workbookId } = useParams<{ workbookId: string }>();
@@ -102,6 +113,7 @@ export const SpreadsheetPage: React.FC = () => {
   const setRowHeight = useSheetStore((state) => state.setRowHeight);
   const setColumnWidth = useSheetStore((state) => state.setColumnWidth);
   const setBatchCells = useSheetStore((state) => state.setBatchCells);
+  const setAllCells = useSheetStore((state) => state.setAllCells);
   const updateMetadata = useSheetStore((state) => state.updateMetadata);
   const addConditionalFormat = useSheetStore((state) => state.addConditionalFormat);
   const reorderConditionalFormats = useSheetStore((state) => state.reorderConditionalFormats);
@@ -184,6 +196,14 @@ export const SpreadsheetPage: React.FC = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
+  // Stage 13 Persistence, History & Recovery State
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+  const [isBackupRestoreOpen, setIsBackupRestoreOpen] = useState(false);
+  const [isStorageManagementOpen, setIsStorageManagementOpen] = useState(false);
+  const [conflictMessage, setConflictMessage] = useState<MultiTabMessage | null>(null);
+  const [recoveryRecord, setRecoveryRecord] = useState<CrashRecoveryRecord | null>(null);
+
   const handleImportSuccess = useCallback(
     (result: any) => {
       toast.success(
@@ -241,8 +261,16 @@ export const SpreadsheetPage: React.FC = () => {
       const target = getTargetRange();
       if (!target) return;
 
+      const prevCells = { ...activeSheet.cells };
       const updatedCells = applyStyleToRange(activeSheet.cells, target, styleUpdate);
       setBatchCells(updatedCells);
+
+      historyManager.pushAction({
+        type: 'format_style',
+        description: 'Format cells',
+        undo: () => useSheetStore.getState().setAllCells(prevCells),
+        redo: () => useSheetStore.getState().setAllCells(updatedCells),
+      });
     },
     [activeSheet, getTargetRange, setBatchCells]
   );
@@ -253,8 +281,16 @@ export const SpreadsheetPage: React.FC = () => {
       const target = getTargetRange();
       if (!target) return;
 
+      const prevCells = { ...activeSheet.cells };
       const updatedCells = applyBordersToRange(activeSheet.cells, target, position, style, color);
       setBatchCells(updatedCells);
+
+      historyManager.pushAction({
+        type: 'borders',
+        description: 'Apply borders',
+        undo: () => useSheetStore.getState().setAllCells(prevCells),
+        redo: () => useSheetStore.getState().setAllCells(updatedCells),
+      });
     },
     [activeSheet, getTargetRange, setBatchCells]
   );
@@ -264,8 +300,17 @@ export const SpreadsheetPage: React.FC = () => {
     const target = getTargetRange();
     if (!target) return;
 
+    const prevCells = { ...activeSheet.cells };
     const updatedCells = clearFormattingFromRange(activeSheet.cells, target);
-    setBatchCells(updatedCells);
+    setAllCells(updatedCells);
+
+    historyManager.pushAction({
+      type: 'clear_formatting',
+      description: 'Clear formatting',
+      undo: () => useSheetStore.getState().setAllCells(prevCells),
+      redo: () => useSheetStore.getState().setAllCells(updatedCells),
+    });
+
     toast.info('Formatting Cleared', 'Cell formatting has been reset to default.');
   }, [activeSheet, getTargetRange, setBatchCells]);
 
@@ -878,7 +923,6 @@ export const SpreadsheetPage: React.FC = () => {
     [activeSheet, namedRangeResolver]
   );
 
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
 
   // 1. Load or provision workbook and sheets on mount
@@ -899,6 +943,10 @@ export const SpreadsheetPage: React.FC = () => {
 
       setWorkbook(wb);
       setCurrentWorkbook(wb);
+
+      // Multi-Tab & SaveQueue initialization
+      multiTabService.registerActiveWorkbook(wb.id, wb.revision || 1);
+      saveQueue.setRevision(wb.revision || 1);
 
       const loadedSheets = await workbookService.getSheetsForWorkbook(wb.id);
       setSheets(loadedSheets);
@@ -929,32 +977,98 @@ export const SpreadsheetPage: React.FC = () => {
     void loadWorkbookData();
   }, [loadWorkbookData]);
 
-  // 2. Debounced auto-save when activeSheet changes
+  // Stage 13: Check for crash recovery on mount / workbook change
   useEffect(() => {
-    if (isInitialLoadRef.current || !activeSheet) return;
-
-    setSaveStatus('saving');
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await workbookService.saveSheet(activeSheet);
-        setSaveStatus('saved');
-      } catch {
-        setSaveStatus('error');
-        toast.error('Save Failed', 'Unable to persist changes to IndexedDB.');
+    if (!workbookId) return;
+    void (async () => {
+      const rec = await recoveryService.checkRecovery(workbookId);
+      if (rec) {
+        setRecoveryRecord(rec);
       }
-    }, 400);
+    })();
+  }, [workbookId]);
 
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+  // Stage 13: Multi-Tab conflict detection listener
+  useEffect(() => {
+    const unsubscribe = multiTabService.onConflict((msg) => {
+      setConflictMessage(msg);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Stage 13: SaveQueue status subscription
+  useEffect(() => {
+    const unsubscribe = saveQueue.subscribe((state) => {
+      setSaveStatus(state.status);
+      if (state.lastSavedAt) {
+        setLastSavedAt(state.lastSavedAt);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Stage 13: Prompt on tab close / reload if dirty & attempt emergency flush
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (saveQueue.currentStatus === 'dirty') {
+        void saveQueue.flush();
+        e.preventDefault();
+        e.returnValue = '';
       }
     };
-  }, [activeSheet]);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // 2. Debounced auto-save via SaveQueue
+  useEffect(() => {
+    if (isInitialLoadRef.current || !activeSheet || !workbook) return;
+
+    const updatedSheets = sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s));
+    saveQueue.enqueue(workbook, updatedSheets, false);
+  }, [activeSheet, workbook, sheets]);
+
+  // Stage 13: Manual Save handler
+  const handleManualSave = useCallback(async () => {
+    if (!workbook || !activeSheet) return;
+    const updatedSheets = sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s));
+    saveQueue.enqueue(workbook, updatedSheets, true);
+    const ok = await saveQueue.flush();
+    if (ok) {
+      multiTabService.notifyWorkbookSaved(workbook.id, saveQueue.currentRevisionNumber);
+      toast.success('Saved', 'Workbook saved locally.');
+    }
+  }, [workbook, activeSheet, sheets]);
+
+  // Stage 13: Crash Recovery handlers
+  const handleAcceptRecovery = async () => {
+    if (!workbookId) return;
+    try {
+      const restored = await recoveryService.restoreRecovery(workbookId);
+      if (restored) {
+        setWorkbook(restored.workbook);
+        setCurrentWorkbook(restored.workbook);
+        setSheets(restored.sheets);
+        const targetSheet =
+          restored.sheets.find((s) => s.id === restored.workbook.activeSheetId) || restored.sheets[0];
+        if (targetSheet) {
+          const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+          setActiveSheet({ ...targetSheet, cells: updatedCells });
+        }
+        setRecoveryRecord(null);
+        toast.success('Recovered', 'Unsaved changes restored from backup checkpoint.');
+      }
+    } catch {
+      toast.error('Recovery Failed', 'Unable to restore recovered checkpoint.');
+    }
+  };
+
+  const handleDiscardRecovery = async () => {
+    if (!workbookId) return;
+    await recoveryService.discardRecovery(workbookId);
+    setRecoveryRecord(null);
+    toast.info('Discarded', 'Unsaved recovery checkpoint removed.');
+  };
 
   // 3. User operations: Rename workbook
   const handleRenameWorkbook = async (newName: string) => {
@@ -1227,6 +1341,11 @@ export const SpreadsheetPage: React.FC = () => {
       if (!activeSheet || !editingCell) return;
 
       const targetCoord = { ...editingCell };
+      const prevKey = coordToKey(targetCoord.row, targetCoord.col);
+      const prevCell = activeSheet.cells[prevKey];
+      const prevInput = prevCell ? (prevCell.formula || (prevCell.value !== null && prevCell.value !== undefined ? String(prevCell.value) : '')) : '';
+      const currentInput = editingValue;
+
       const { updatedCells } = calculationEngine.updateCellInput(
         activeSheet.cells,
         targetCoord,
@@ -1234,8 +1353,37 @@ export const SpreadsheetPage: React.FC = () => {
         namedRangeResolver
       );
 
-      setBatchCells(updatedCells);
+      setAllCells(updatedCells);
       stopEditing();
+
+      if (prevInput !== currentInput) {
+        historyManager.pushAction({
+          type: 'cell_edit',
+          description: `Edit ${colIndexToName(targetCoord.col)}${targetCoord.row + 1}`,
+          undo: () => {
+            const currentSheet = useSheetStore.getState().activeSheet;
+            if (!currentSheet) return;
+            const { updatedCells: restoredCells } = calculationEngine.updateCellInput(
+              currentSheet.cells,
+              targetCoord,
+              prevInput,
+              namedRangeResolver
+            );
+            useSheetStore.getState().setAllCells(restoredCells);
+          },
+          redo: () => {
+            const currentSheet = useSheetStore.getState().activeSheet;
+            if (!currentSheet) return;
+            const { updatedCells: reappliedCells } = calculationEngine.updateCellInput(
+              currentSheet.cells,
+              targetCoord,
+              currentInput,
+              namedRangeResolver
+            );
+            useSheetStore.getState().setAllCells(reappliedCells);
+          }
+        });
+      }
 
       if (moveTo === 'down') {
         setActiveCell({
@@ -1266,13 +1414,46 @@ export const SpreadsheetPage: React.FC = () => {
   const handleClearCell = useCallback(
     (coord: CellCoordinates) => {
       if (!activeSheet) return;
+      const key = coordToKey(coord.row, coord.col);
+      const prevCell = activeSheet.cells[key];
+      const prevInput = prevCell ? (prevCell.formula || (prevCell.value !== null && prevCell.value !== undefined ? String(prevCell.value) : '')) : '';
+
       const { updatedCells } = calculationEngine.updateCellInput(
         activeSheet.cells,
         coord,
         '',
         namedRangeResolver
       );
-      setBatchCells(updatedCells);
+      setAllCells(updatedCells);
+
+      if (prevInput) {
+        historyManager.pushAction({
+          type: 'clear_cell',
+          description: `Clear ${colIndexToName(coord.col)}${coord.row + 1}`,
+          undo: () => {
+            const currentSheet = useSheetStore.getState().activeSheet;
+            if (!currentSheet) return;
+            const { updatedCells: restoredCells } = calculationEngine.updateCellInput(
+              currentSheet.cells,
+              coord,
+              prevInput,
+              namedRangeResolver
+            );
+            useSheetStore.getState().setAllCells(restoredCells);
+          },
+          redo: () => {
+            const currentSheet = useSheetStore.getState().activeSheet;
+            if (!currentSheet) return;
+            const { updatedCells: clearedCells } = calculationEngine.updateCellInput(
+              currentSheet.cells,
+              coord,
+              '',
+              namedRangeResolver
+            );
+            useSheetStore.getState().setAllCells(clearedCells);
+          }
+        });
+      }
     },
     [activeSheet, setBatchCells, namedRangeResolver]
   );
@@ -1405,7 +1586,16 @@ export const SpreadsheetPage: React.FC = () => {
         return;
       }
 
-      if (isCtrl && e.key.toLowerCase() === 'c') {
+      if (isCtrl && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void handleManualSave();
+      } else if (isCtrl && !e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        void historyManager.undo();
+      } else if ((isCtrl && e.key.toLowerCase() === 'y') || (isCtrl && e.shiftKey && e.key.toLowerCase() === 'z')) {
+        e.preventDefault();
+        void historyManager.redo();
+      } else if (isCtrl && e.key.toLowerCase() === 'c') {
         e.preventDefault();
         void handleCopy();
       } else if (isCtrl && e.key.toLowerCase() === 'x') {
@@ -1441,6 +1631,7 @@ export const SpreadsheetPage: React.FC = () => {
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
   }, [
+    handleManualSave,
     handleCopy,
     handleCut,
     handlePaste,
@@ -1550,13 +1741,37 @@ export const SpreadsheetPage: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full w-full overflow-hidden bg-background text-foreground select-none">
+      {/* Stage 13: Multi-Tab Conflict Alert Banner */}
+      {conflictMessage && (
+        <MultiTabConflictBanner
+          externalRevision={conflictMessage.revision}
+          onReload={() => window.location.reload()}
+          onDismiss={() => setConflictMessage(null)}
+        />
+      )}
+
+      {/* Stage 13: Crash Recovery Notification Banner */}
+      {recoveryRecord && (
+        <CrashRecoveryPrompt
+          recoveryRecord={recoveryRecord}
+          onRestore={() => void handleAcceptRecovery()}
+          onDiscard={() => void handleDiscardRecovery()}
+        />
+      )}
+
       {/* 1. Top Header */}
       <WorkbookHeader
         workbook={workbook}
         saveStatus={saveStatus}
+        lastSavedAt={lastSavedAt}
         onRename={handleRenameWorkbook}
+        onManualSave={() => void handleManualSave()}
+        onRetrySave={() => void saveQueue.retry()}
         onOpenImport={() => setIsImportOpen(true)}
         onOpenExport={() => setIsExportOpen(true)}
+        onOpenVersionHistory={() => setIsVersionHistoryOpen(true)}
+        onOpenBackupRestore={() => setIsBackupRestoreOpen(true)}
+        onOpenStorageManagement={() => setIsStorageManagementOpen(true)}
       />
 
       {/* 2. Ribbon Tabs Switcher */}
@@ -1991,6 +2206,44 @@ export const SpreadsheetPage: React.FC = () => {
           selectedRange={selectedRange || undefined}
         />
       )}
+
+      {/* 29. Version History Dialog (Stage 13) */}
+      {workbook && (
+        <VersionHistoryDialog
+          isOpen={isVersionHistoryOpen}
+          onClose={() => setIsVersionHistoryOpen(false)}
+          workbook={workbook}
+          sheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
+          onRestoreSuccess={(restoredWb: Workbook, restoredSheets: Sheet[]) => {
+            setWorkbook(restoredWb);
+            setCurrentWorkbook(restoredWb);
+            setSheets(restoredSheets);
+            const targetSheet =
+              restoredSheets.find((s) => s.id === restoredWb.activeSheetId) || restoredSheets[0];
+            if (targetSheet) {
+              const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+              setActiveSheet({ ...targetSheet, cells: updatedCells });
+            }
+          }}
+        />
+      )}
+
+      {/* 30. Backup & Restore Dialog (Stage 13) */}
+      <BackupRestoreDialog
+        isOpen={isBackupRestoreOpen}
+        onClose={() => setIsBackupRestoreOpen(false)}
+        currentWorkbook={workbook || undefined}
+        currentSheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
+        onRestoreSuccess={() => {
+          void loadWorkbookData();
+        }}
+      />
+
+      {/* 31. Storage Management & Diagnostics Dialog (Stage 13) */}
+      <StorageManagementDialog
+        isOpen={isStorageManagementOpen}
+        onClose={() => setIsStorageManagementOpen(false)}
+      />
     </div>
   );
 };

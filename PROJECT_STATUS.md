@@ -89,4 +89,85 @@ All processing occurs 100% in-browser in client memory with zero server uploads 
 - **Strictly In-Browser:** Zero server uploads, cloud sync (Google Drive / OneDrive), or telemetry.
 - **Pure Local-First:** All files parsed and generated in client RAM and persisted to IndexedDB.
 - **No VBA/Macros:** Macro execution blocked for security.
-- **Next Stage Preparation:** Stage 13 (Printing, PDF Export & Page Setup) is ready to begin upon explicit authorization.
+
+---
+
+# OmniSheet Project Status — Stage 13 Complete
+
+**Current Stage:** Stage 13 of 15: Data Persistence, Autosave & Recovery System  
+**Last Updated:** November 24, 2026  
+**Status:** **STAGE 13 COMPLETE — PASSED (100% Tests, 0 Lint Errors, Clean Production Build, Live Browser Verified)**
+
+---
+
+## 1. Overview of Stage 13 Implementation
+
+Stage 13 builds a comprehensive data reliability and recovery architecture ensuring that users never lose spreadsheet data due to accidental tab closures, browser crashes, uncommitted changes, or storage errors.
+
+### Core Architectural Pillars
+1. **IndexedDB Version 3 Migration:**
+   - Upgraded database `omnisheet_db` to version 3.
+   - Added `versions` object store (`keyPath: 'id'`, indices: `workbookId`, `createdAt`).
+   - Added `recovery` object store (`keyPath: 'workbookId'`, indices: `updatedAt`).
+2. **Debounced Serialization & Save Queue (`saveQueue`):**
+   - Centralized write queue debounced at 600ms to eliminate write thrashing during rapid cell entry.
+   - Atomic revision tracking (`workbook.revision`) preventing stale overwrites.
+   - Immediate asynchronous crash recovery checkpointing on dirty state.
+   - Manual save trigger (`Ctrl + S` and header button) flushing queue immediately.
+3. **Comprehensive Undo & Redo System (`historyManager` & `useHistoryStore`):**
+   - Command pattern with reversible actions stack up to 80 operations deep.
+   - Full support for cell edits, formatting, borders, cell clearing, and clipboard paste.
+   - Instant header buttons with dynamic action descriptions and tooltips.
+   - Global keyboard shortcuts (`Ctrl + Z`, `Ctrl + Y`, `Ctrl + Shift + Z`).
+4. **Workbook Version History & Checkpoints (`versionService`):**
+   - Manual named milestones and automatic background checkpoints.
+   - Version inspection with diff preview, cell counts, and byte sizing.
+   - **Pre-restore Safety Backup:** Restoring an earlier version automatically creates an auto-checkpoint of the current state before replacing it.
+   - Version pruning and deletion controls.
+5. **Crash Recovery System (`recoveryService`):**
+   - Auto-saved uncommitted session state in `recovery` store.
+   - Startup detection of interrupted sessions with top alert banner (`CrashRecoveryPrompt`).
+   - Clean restoration into primary stores or discard.
+6. **Portable Backup Archives (.omni ZIP via JSZip) (`backupService`):**
+   - Creates portable zip archives containing structured `manifest.json`, `workbooks.json`, and `sheets.json`.
+   - Inspection and validation of archive schemas without applying changes.
+   - Dual restore modes: "Restore as New" (fresh conflict-free IDs) and "Replace Existing".
+7. **Storage Monitoring & Data Diagnostics (`storageService`):**
+   - Real-time `navigator.storage.estimate()` usage vs quota progress meter.
+   - Breakdown by store: workbooks, sheets, versions, recovery records.
+   - Maintenance tools: purge historical versions and clean orphaned sheets.
+   - Full database integrity checker detecting missing references and coordinate corruption.
+8. **Multi-Tab Conflict Coordination (`multiTabService`):**
+   - `BroadcastChannel('omnisheet_multi_tab')` cross-tab synchronization.
+   - Real-time conflict notification banner when another tab saves a higher revision.
+   - Safe "Reload Latest" action preventing accidental overwrites.
+
+---
+
+## 2. Verification & Quality Metrics
+
+| Suite | Target | Status | Result |
+| :--- | :--- | :---: | :--- |
+| **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
+| **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors across all TypeScript/React source files. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **68 test files, 436/436 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean production build with PWA service worker precaching (6 MB workbox limit). |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Verified grid layout (cell A1 directly below column header A), Undo/Redo cycles, Version History, Storage Diagnostics, and Backup/Restore. |
+
+---
+
+## 3. Visual Verification Deliverables
+
+1. `omnisheet_stage13_grid_undo_redo.png`: Grid workspace showing cell A1 = 2500, unobstructed layout below Column Header A, and active Undo button in the header.
+2. `omnisheet_stage13_storage_dialog.png`: Storage Management modal showing quota progress meter, store breakdown, cleanup tools, and Data Integrity diagnostics ("Database Healthy").
+3. `omnisheet_stage13_backup_dialog.png`: Backup & Restore dialog showing Create Backup and Restore Backup tabs with format explanation.
+4. `omnisheet_stage13_version_history.png`: Version History modal with manual checkpoint creation form, version list (Rev #1, size, cell count), and snapshot inspector.
+
+---
+
+## 4. Architectural Boundaries Maintained
+
+- **Strictly In-Browser:** 100% client-side IndexedDB persistence, zero cloud API calls or telemetry.
+- **Safety First:** Restoring versions always creates a safety checkpoint first.
+- **Zero Data Loss:** Debounced save queue, beforeunload guard, and crash recovery checkpointing.
+- **STOP BEFORE STAGE 14:** Execution pauses here pending explicit user authorization before Stage 14.

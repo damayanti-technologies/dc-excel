@@ -5,3 +5,4 @@ export * from './sheet-store';
 export * from './selection-store';
 export * from './toast-store';
 export * from './workspace-store';
+export * from './history-store';

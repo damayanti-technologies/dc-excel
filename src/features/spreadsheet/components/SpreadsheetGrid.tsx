@@ -565,19 +565,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       aria-colcount={sheet.columnCount}
       className="flex-1 w-full h-full overflow-auto bg-background outline-none relative select-none"
     >
-      {/* 1. Top-Left Corner Header (Click to Select All) */}
-      <div
-        onClick={onSelectAll}
-        style={{ width: cornerW, height: cornerH }}
-        className="sticky top-0 left-0 z-30 bg-surface-secondary border-r border-b border-border flex items-center justify-center cursor-pointer hover:bg-surface-tertiary transition-colors"
-        title="Select all cells (Ctrl+A)"
-        role="button"
-        tabIndex={-1}
-      >
-        <div className="w-2.5 h-2.5 border-r-2 border-b-2 border-foreground-muted/60 -translate-x-0.5 -translate-y-0.5" />
-      </div>
-
-      {/* 2. Sticky Column Headers Bar (Horizontally Virtualized) */}
+      {/* 1 & 2: Sticky Column Headers Bar with Corner Header (Horizontally Virtualized) */}
       <div
         style={{
           height: cornerH,
@@ -588,6 +576,24 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         }}
         className="bg-surface-secondary border-b border-border pointer-events-none"
       >
+        {/* Top-Left Corner Header (Click to Select All) */}
+        <div
+          onClick={onSelectAll}
+          style={{
+            width: cornerW,
+            height: cornerH,
+            position: 'sticky',
+            left: 0,
+            zIndex: 30,
+            pointerEvents: 'auto'
+          }}
+          className="bg-surface-secondary border-r border-border flex items-center justify-center cursor-pointer hover:bg-surface-tertiary transition-colors"
+          title="Select all cells (Ctrl+A)"
+          role="button"
+          tabIndex={-1}
+        >
+          <div className="w-2.5 h-2.5 border-r-2 border-b-2 border-foreground-muted/60 -translate-x-0.5 -translate-y-0.5" />
+        </div>
         {visibleCols.map((col) => {
           const isFrozen = col < frozenCols;
           const left = isFrozen
@@ -610,6 +616,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               onClick={() => onSelectEntireColumn(col)}
               style={{
                 position: 'absolute',
+                top: 0,
                 left,
                 width,
                 height: cornerH,

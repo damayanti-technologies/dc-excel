@@ -15,10 +15,15 @@ import {
   Laptop,
   Upload,
   Download,
+  History,
+  FolderArchive,
+  HardDrive,
+  Save,
 } from 'lucide-react';
 import { Workbook } from '@/types/workbook';
 import { PersistenceStatus } from '@/types/storage';
 import { useUIPreferencesStore } from '@/stores/ui-preferences-store';
+import { useHistoryStore } from '@/stores/history-store';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Modal } from '@/components/ui/Modal';
@@ -28,20 +33,40 @@ import { Button } from '@/components/ui/Button';
 interface WorkbookHeaderProps {
   workbook: Workbook | null;
   saveStatus: PersistenceStatus;
+  lastSavedAt?: number | null;
   onRename: (newName: string) => Promise<void>;
+  onManualSave?: () => void;
+  onRetrySave?: () => void;
   onOpenImport?: () => void;
   onOpenExport?: () => void;
+  onOpenVersionHistory?: () => void;
+  onOpenBackupRestore?: () => void;
+  onOpenStorageManagement?: () => void;
 }
 
 export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
   workbook,
   saveStatus,
+  lastSavedAt,
   onRename,
+  onManualSave,
+  onRetrySave,
   onOpenImport,
   onOpenExport,
+  onOpenVersionHistory,
+  onOpenBackupRestore,
+  onOpenStorageManagement,
 }) => {
   const theme = useUIPreferencesStore((state) => state.theme);
   const setTheme = useUIPreferencesStore((state) => state.setTheme);
+
+  // Undo & Redo from History Store
+  const canUndo = useHistoryStore((state) => state.canUndo);
+  const canRedo = useHistoryStore((state) => state.canRedo);
+  const undoDescription = useHistoryStore((state) => state.undoDescription);
+  const redoDescription = useHistoryStore((state) => state.redoDescription);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
 
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
@@ -137,52 +162,124 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Save Status, Undo/Redo visual buttons, Theme, Settings */}
+        {/* Right: Save Status, Undo/Redo, Persistence Tools, Theme, Settings */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 text-xs">
           {/* Save Status Signal */}
-          <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-surface-secondary border border-border/70 text-foreground-muted">
-            {saveStatus === 'saving' ? (
-              <>
-                <Loader2 className="w-3 h-3 animate-spin text-accent" />
-                <span className="hidden sm:inline">Saving...</span>
-              </>
-            ) : saveStatus === 'error' ? (
-              <>
-                <AlertCircle className="w-3 h-3 text-red-500" />
-                <span className="text-red-500 hidden sm:inline">Save failed</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden sm:inline">Saved locally</span>
-              </>
-            )}
-          </div>
+          {saveStatus === 'saving' ? (
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+              <Loader2 className="w-3 h-3 animate-spin text-amber-500" />
+              <span className="hidden sm:inline">Saving...</span>
+            </div>
+          ) : saveStatus === 'dirty' ? (
+            <button
+              type="button"
+              onClick={onManualSave}
+              className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+              title="Unsaved changes. Click to save now (Ctrl+S)"
+            >
+              <Save className="w-3 h-3 text-amber-500" />
+              <span className="hidden sm:inline">Unsaved (Save)</span>
+            </button>
+          ) : saveStatus === 'error' ? (
+            <button
+              type="button"
+              onClick={onRetrySave || onManualSave}
+              className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
+              title="Save failed. Click to retry."
+            >
+              <AlertCircle className="w-3 h-3 text-red-500" />
+              <span className="hidden sm:inline">Save failed (Retry)</span>
+            </button>
+          ) : saveStatus === 'recovering' ? (
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
+              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+              <span className="hidden sm:inline">Recovering...</span>
+            </div>
+          ) : (
+            <div
+              className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+              title={lastSavedAt ? `Saved at ${new Date(lastSavedAt).toLocaleTimeString()}` : 'Saved locally to IndexedDB'}
+            >
+              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden sm:inline">Saved locally</span>
+            </div>
+          )}
 
           <div className="h-4 w-px bg-border hidden sm:block" />
 
-          {/* Visual Undo / Redo Placeholders */}
+          {/* Active Undo / Redo Buttons */}
           <div className="flex items-center gap-0.5 text-foreground-muted">
-            <Tooltip content="Undo (Coming in Stage 8)">
+            <Tooltip content={canUndo ? `Undo: ${undoDescription || 'action'} (Ctrl+Z)` : 'Undo (Ctrl+Z)'}>
               <button
                 type="button"
-                disabled
-                className="p-1.5 rounded opacity-40 cursor-not-allowed hover:bg-transparent"
+                onClick={() => void undo()}
+                disabled={!canUndo}
+                className={`p-1.5 rounded transition-colors ${
+                  canUndo
+                    ? 'hover:bg-surface-secondary text-foreground cursor-pointer active:scale-95'
+                    : 'opacity-40 cursor-not-allowed hover:bg-transparent'
+                }`}
                 aria-label="Undo"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
-            <Tooltip content="Redo (Coming in Stage 8)">
+            <Tooltip content={canRedo ? `Redo: ${redoDescription || 'action'} (Ctrl+Y)` : 'Redo (Ctrl+Y)'}>
               <button
                 type="button"
-                disabled
-                className="p-1.5 rounded opacity-40 cursor-not-allowed hover:bg-transparent"
+                onClick={() => void redo()}
+                disabled={!canRedo}
+                className={`p-1.5 rounded transition-colors ${
+                  canRedo
+                    ? 'hover:bg-surface-secondary text-foreground cursor-pointer active:scale-95'
+                    : 'opacity-40 cursor-not-allowed hover:bg-transparent'
+                }`}
                 aria-label="Redo"
               >
                 <RotateCw className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* Persistence & Version Tools */}
+          <div className="flex items-center gap-1.5">
+            {onOpenVersionHistory && (
+              <button
+                type="button"
+                onClick={onOpenVersionHistory}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                title="Workbook Version History"
+              >
+                <History className="w-3.5 h-3.5 text-accent" />
+                <span className="hidden md:inline">History</span>
+              </button>
+            )}
+
+            {onOpenBackupRestore && (
+              <button
+                type="button"
+                onClick={onOpenBackupRestore}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                title="Backup & Restore (.omni archive)"
+              >
+                <FolderArchive className="w-3.5 h-3.5 text-accent" />
+                <span className="hidden lg:inline">Backup</span>
+              </button>
+            )}
+
+            {onOpenStorageManagement && (
+              <button
+                type="button"
+                onClick={onOpenStorageManagement}
+                className="w-7 h-7 rounded-lg flex items-center justify-center border border-border text-foreground hover:bg-surface-secondary transition-colors"
+                title="Storage & Diagnostics"
+                aria-label="Storage & Diagnostics"
+              >
+                <HardDrive className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="h-4 w-px bg-border" />
