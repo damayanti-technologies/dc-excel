@@ -7,6 +7,15 @@
 ## 1. Architectural Highlights
 
 - **Local-First & Offline-First:** Persists all workbooks, worksheets, folders, preferences, cell styles, and merged ranges in browser IndexedDB. Runs standalone without an internet connection.
+- **Data Management & Data Tools (`Stage 9`):** Comprehensive spreadsheet data manipulation suite. Dedicated **Data** ribbon tab featuring:
+  - **Single & Multi-Level Sorting:** Instant A-to-Z / Z-to-A quick sorting and custom multi-level sort modal preserving row record integrity, cell styles, and formulas, with table range auto-detection and blanks always placed at the bottom.
+  - **Column Filtering & Visual Row Hiding:** Interactive filter icons on table column headers, distinct value checklist popovers with live counts, condition rules (text contains/starts/ends, numeric greater/less/between, blanks), multi-column AND logic, and non-destructive virtual row hiding persisted to IndexedDB.
+  - **Freeze Panes:** Freeze Top Row, Freeze First Column, Freeze at Selection, and Unfreeze Panes with pinned headers/rails, sticky viewport alignment, and visual boundary separators.
+  - **Find & Replace:** Search values or formulas across active sheet or entire workbook with case sensitivity, match entire cell contents, stepping navigation (`Next`/`Prev`), single replace, replace all, and global shortcuts (`Ctrl+F`, `Ctrl+H`).
+  - **Remove Duplicates:** Configurable column selector, header row toggle, live duplicate count preview, and safe row deletion with automatic upward record shifting.
+  - **Data Validation & In-Cell Dropdowns:** Whole number, decimal, date, text length, custom formula, and list criteria with in-cell dropdown chevron popover selectors and error alert configurations (`stop`, `warning`, `info`).
+  - **Text to Columns:** Delimited (comma, semicolon, tab, space, custom, consecutive collapse) and fixed-width split wizard with destination overwrite warning and live data preview table.
+  - **Trim Whitespace:** One-click cleanup of leading, trailing, and repeated whitespace across selected ranges while protecting formula cells.
 - **Workbook & Worksheet Management (`Stage 8`):** Full multi-sheet workbook orchestration featuring an Excel-inspired bottom tab bar with smooth horizontal scroll navigation, quick jump sheet menu (`AllSheetsMenu`), `+` new sheet creator with gap-reclaiming name generation, inline renaming with validation rules (31-char limit, duplicate prevention, forbidden characters), deep-copy sheet duplication, deletion with confirmation and single-sheet protection, HTML5 drag-and-drop and accessible context menu reordering, 16-color tab accents with custom hex pickers, and sheet hiding/unhiding modals.
 - **Professional Cell Formatting & Styling Engine (`Stage 7`):** Desktop-class cell styling and formatting toolbar with font family, size, B/I/U/S, text and background color pickers with a 50-color palette matrix and custom hex input, comprehensive border picker (thin, medium, thick, double, dashed with customizable colors), horizontal and vertical alignments, indent controls, wrap text, merged cells engine with non-anchor data protection warnings, number formatting engine (General, Number with grouping, Currencies `$`, `€`, `£`, `₹`, `¥`, Percentages, Dates, Times, Scientific, and multi-section custom formats), single and locked multi-use Format Painter, Clear Formatting with sparse map pruning, and built-in cell styles presets.
 - **Advanced Formula Library & Autocomplete (`Stage 6`):** Extends calculation capabilities with 92 built-in functions across 7 categories (Lookup & Reference with `VLOOKUP`, `HLOOKUP`, `XLOOKUP`, `INDEX`, `MATCH`, Text with `TEXTJOIN`, `CONCAT`, `MID`, `SUBSTITUTE`, Date & Time with UTC serial date math, Mathematical, Statistical, Logical, and Information). Real-time formula autocomplete dropdown, live argument parameter assistant tooltips with syntax highlighting, and an interactive Formula Reference Panel modal accessible via the Formula Bar's `fx` button.
@@ -49,7 +58,7 @@ npm install
 | `npm run dev` | Launches the Vite local development server with hot module replacement (HMR) at `http://localhost:5173`. |
 | `npm run build` | Executes TypeScript typecheck and builds the optimized production bundle with PWA service worker into `/dist`. |
 | `npm run preview` | Serves the production build locally to test offline service worker caching and PWA installation. |
-| `npm run test` | Executes the Vitest unit and integration test suite (252 tests across 38 test files). |
+| `npm run test` | Executes the Vitest unit and integration test suite (296 tests across 46 test files). |
 | `npm run test:watch` | Runs Vitest in interactive watch mode. |
 | `npm run test:e2e` | Runs Playwright end-to-end tests across desktop and mobile layouts. |
 | `npm run typecheck` | Runs the TypeScript compiler in strict mode without emitting output (`tsc --noEmit`). |

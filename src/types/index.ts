@@ -5,3 +5,4 @@ export * from './folder';
 export * from './preferences';
 export * from './storage';
 export * from './engine';
+export * from './data-tools';

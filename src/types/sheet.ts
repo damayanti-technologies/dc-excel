@@ -1,4 +1,5 @@
 import { CellRange, SparseCellMap } from './cell';
+import { FreezePaneConfig, FilterConfig, DataValidationRule } from './data-tools';
 
 export type { CellRange, SparseCellMap };
 
@@ -12,6 +13,10 @@ export interface SheetMetadata {
   zoom?: number;
   showGridLines?: boolean;
   showRowColHeaders?: boolean;
+  freezePanes?: FreezePaneConfig;
+  filterConfig?: FilterConfig;
+  hiddenRows?: number[];
+  dataValidations?: DataValidationRule[];
 }
 
 /**

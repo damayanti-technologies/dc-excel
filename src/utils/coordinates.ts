@@ -24,6 +24,17 @@ export function keyToCoord(key: string): CellCoordinates {
 }
 
 /**
+ * Safely parses sparse storage key back to zero-indexed CellCoordinates, or null if invalid.
+ */
+export function parseKey(key: string): CellCoordinates | null {
+  try {
+    return keyToCoord(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Converts 0-indexed column number to Excel-style column label (e.g., 0 -> A, 25 -> Z, 26 -> AA).
  */
 export function colIndexToName(col: number): string {

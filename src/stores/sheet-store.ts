@@ -27,6 +27,8 @@ interface SheetState {
   deleteRow: (atRow: number) => void;
   insertColumn: (atCol: number, position?: 'before' | 'after') => void;
   deleteColumn: (atCol: number) => void;
+  updateMetadata: (metadata: Partial<import('@/types/sheet').SheetMetadata>) => void;
+  setAllCells: (cells: import('@/types/cell').SparseCellMap) => void;
   clearSheet: () => void;
 }
 
@@ -136,6 +138,31 @@ export const useSheetStore = create<SheetState>((set) => ({
       if (!state.activeSheet) return state;
       return {
         activeSheet: deleteColumnOp(state.activeSheet, atCol)
+      };
+    }),
+
+  updateMetadata: (metadata) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            ...metadata
+          }
+        }
+      };
+    }),
+
+  setAllCells: (cells) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          cells
+        }
       };
     }),
 

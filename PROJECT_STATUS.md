@@ -1,64 +1,114 @@
 # Project Status: OmniSheet
 
-**Current Stage:** **Stage 8: Workbook & Worksheet Management**  
+**Current Stage:** **Stage 9: Data Management & Data Tools**  
 **Status:** **Completed & Verified**  
-**Version:** `0.8.0`  
+**Version:** `0.9.0`  
 **Date:** November 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Stage 8 delivers complete, desktop-grade worksheet management for OmniSheet, enabling users to seamlessly manage multiple worksheets inside a single workbook. The implementation features an Excel-inspired bottom worksheet tab bar supporting creation, inline renaming with validation, deep-copy duplication, safe deletion with single-sheet guard rails, drag-and-drop reordering, accessible keyboard navigation, vibrant tab color accents, and hiding/unhiding capabilities.
+Stage 9 implements a comprehensive, desktop-class data management toolkit for OmniSheet, enabling users to organize, filter, clean, validate, and search spreadsheet data. Designed for local-first execution with virtualized rendering performance, the engine maintains complete row integrity, prevents unintended data loss, supports multi-level sorting with automatic table bounding, column filtering with non-destructive row hiding, freeze panes for sticky row/column navigation, Find & Replace across sheets and workbooks, duplicate row elimination with upward shifting, and data validation rules with interactive in-cell dropdown lists.
 
-All worksheet changes persist immediately to browser IndexedDB without any loss of cell data, formulas, formatting, or dimensions. All previous stage capabilities (92 calculation functions, autocomplete, virtualized grid, cell editing, and formatting engine) are 100% preserved.
+All data tool configurations (filters, freeze panes, hidden rows, validation rules) are automatically synchronized and persisted in IndexedDB.
 
 ---
 
-## 2. Completed Features in Stage 8
+## 2. Completed Features in Stage 9
 
-### 2.1 Worksheet Tab Bar (`SheetTabsBar.tsx`)
-- [x] **Tab Bar Layout & Navigation**:
-  - Horizontal scroll controls: Previous (`<`) and Next (`>`) scroll buttons.
-  - `AllSheetsMenu`: Dropdown menu showing all workbook sheets, active checkmark, tab colors, and hidden indicators for fast jumping.
-  - `+` button: One-click creation of new worksheets.
-  - Active tab indicator: Elevated background with accent top bar and bold typography.
-  - Color bar: 3.5px colored accent strip along the bottom edge of tabs.
-  - Status indicator: Displays visible sheet count, hidden sheet count, and "Ready" state.
+### 2.1 Dedicated Data Ribbon Toolbar (`DataToolbar.tsx`)
+- [x] **Ribbon Navigation**:
+  - Top tab switcher allows effortless switching between `Home` (Formatting Toolbar) and `Data` (Data Toolbar).
+  - Organized into logical command groups:
+    1. **Sort & Filter**: Quick Sort A-Z, Quick Sort Z-A, Custom Sort, Filter Toggle, Clear Filter, Reapply Filter.
+    2. **Data Cleanup**: Remove Duplicates, Text to Columns, Trim Whitespace.
+    3. **Data Validation**: Validation Criteria Dialog, Clear Validation, Audit / Circle Invalid Data.
+    4. **Freeze Panes**: Freeze Top Row, Freeze First Column, Freeze at Selection, Unfreeze Panes.
+    5. **Find & Replace**: Find (Ctrl+F) and Replace (Ctrl+H) shortcuts.
 
-### 2.2 Worksheet Operations (`src/engine/worksheet/sheet-operations.ts`)
-- [x] **Name Validation (`validateSheetName`)**:
-  - Rejects empty strings and whitespace.
-  - Enforces 31-character maximum limit.
-  - Rejects forbidden characters (`\ / ? * : [ ]`).
-  - Enforces case-insensitive uniqueness across sheets in the same workbook.
-- [x] **Conflict-Free Name Generation (`generateUniqueSheetName`)**:
-  - Generates `Sheet1`, `Sheet2`, `Sheet3`... intelligently reusing any deleted or missing gap indices.
-- [x] **Inline Renaming**:
-  - Double-click tab or context menu "Rename" to edit name in place.
-  - Auto-focuses and selects all text.
-  - `Enter` commits; `Escape` cancels; `Blur` commits with validation error toasts.
-- [x] **Deep-Copy Duplication (`duplicateSheet`, `cloneSheet`)**:
-  - Duplicates sparse cells, formatting styles, borders, number formats, row heights, column widths, and merged ranges.
-  - Auto-generates unique copy names (e.g. `Original (Copy)` or `Original (Copy 2)`).
-  - Inserts duplicated sheet immediately adjacent to the source sheet and makes it active.
-  - Intended formula behavior: intra-sheet relative references (`A1`, `SUM(B1:B10)`) continue referencing the identical relative coordinates within the new sheet.
-- [x] **Worksheet Deletion (`deleteSheet`)**:
-  - Confirmation modal (`ConfirmationDialog`) with destructive action styling.
-  - Single-sheet guard rail: Strictly prevents deleting the only sheet in a workbook.
-  - Automatic neighbor selection: Switches active sheet to an adjacent sheet upon deletion.
-  - Storage cleanup: Purges sheet record from IndexedDB preventing orphaned data.
-- [x] **Reordering & Drag-and-Drop (`reorderSheets`, `moveSheet`)**:
-  - Drag and drop tabs left/right with visual insertion line indicator.
-  - Accessible "Move Left" and "Move Right" context menu options.
-  - Updates `workbook.sheetIds` and `sheet.index` order in IndexedDB.
-- [x] **Tab Colors (`setSheetTabColor`, `TabColorPickerPopover.tsx`)**:
-  - 16-color curated palette + custom hex picker + "No Color" reset.
-  - Persists in `sheet.metadata.tabColor`.
-- [x] **Hide and Unhide Worksheets (`hideSheet`, `unhideSheet`, `UnhideSheetsDialog.tsx`)**:
-  - Context menu "Hide Sheet" hides tab from tab bar while preserving all data.
-  - Single visible sheet guard rail: Prevents hiding the only visible sheet in a workbook.
-  - "Unhide Worksheets..." dialog modal displaying hidden worksheets with one-click restoration.
+### 2.2 Sorting Engine (`src/engine/data-tools/sorting.ts`, `CustomSortDialog.tsx`)
+- [x] **Single-Column Quick Sort**: One-click ascending and descending sort based on current active cell column.
+- [x] **Multi-Level Custom Sort Dialog**:
+  - Add and delete sort levels ("Sort by", "Then by").
+  - Column selector showing user header labels or column letters.
+  - Direction selector: Ascending (A to Z / Smallest to Largest) and Descending (Z to A / Largest to Smallest).
+  - "My data has headers" checkbox.
+- [x] **Row Integrity & Formula Preservation**:
+  - Sorts full row slices; records never become disjointed.
+  - Cell formatting styles and formulas move with their corresponding row records.
+- [x] **Spreadsheet Value Comparator (`compareCellValues`)**:
+  - Type-aware comparison for numbers, text, dates, and booleans.
+  - Blanks and empty cells are *always* sorted to the very bottom in both ascending and descending sorts.
+- [x] **Table Range Auto-Detection (`detectTableRange`)**:
+  - Expands single-cell selections to contiguous bounding boxes of populated data automatically.
+
+### 2.3 Filtering & Row Hiding (`src/engine/data-tools/filtering.ts`, `ColumnFilterPopover.tsx`)
+- [x] **Column Header Filter Buttons**:
+  - Filter trigger buttons rendered directly in column header cells when filtering is enabled.
+  - Active filter badges indicating which columns have filters applied.
+- [x] **Column Filter Popover**:
+  - Quick Sort A to Z / Z to A shortcuts.
+  - Filter by condition: `is_blank`, `is_not_blank`, `contains`, `not_contains`, `begins_with`, `ends_with`, `equals`, `not_equals`, `greater_than`, `less_than`, `greater_or_equal`, `less_or_equal`.
+  - Filter by values: Search box, "Select All" / "Clear", and distinct value checkboxes with occurrence counts.
+  - Clear Filter from column button.
+- [x] **Multi-Column Filtering (AND Logic)**:
+  - Rows must satisfy criteria across all active column filters.
+- [x] **Non-Destructive Row Hiding**:
+  - Filtered-out row indices are computed in `hiddenRows` and visually skipped by the virtualizer; no cell records are deleted or modified.
+- [x] **Persistence**:
+  - `filterConfig` and `hiddenRows` persist per worksheet in IndexedDB.
+
+### 2.4 Freeze Panes (`src/engine/data-tools/freeze.ts`)
+- [x] **Freeze Modes**:
+  - **Freeze Top Row**: Pins Row 1 at the top of the grid.
+  - **Freeze First Column**: Pins Column A at the left rail.
+  - **Freeze Panes at Selection**: Pins rows and columns above and to the left of the active cell.
+  - **Unfreeze Panes**: Restores full scrollability.
+- [x] **Virtualized Grid Pinned Viewports**:
+  - Frozen rows and columns are pinned in place during vertical and horizontal scrolling.
+  - Subtle divider line (`border-primary/70`) visually separates frozen regions from scrolling data.
+  - Persisted in `sheet.metadata.freezePanes`.
+
+### 2.5 Find and Replace (`src/engine/data-tools/find-replace.ts`, `FindReplaceDialog.tsx`)
+- [x] **Search Capabilities**:
+  - Match case and match entire cell contents options.
+  - Search in **Values** or **Formulas**.
+  - Scope: **Active Sheet** or **Entire Workbook**.
+- [x] **Stepping Navigation**:
+  - Step forward (`Next` / `Enter`) and backward (`Prev` / `Shift+Enter`).
+  - Automatically switches sheets and scrolls matching cells into view.
+  - Live result counter (e.g. `1 of 5 results`).
+- [x] **Replace & Replace All**:
+  - Replaces current match or all matches in scope with toast notifications.
+  - Keyboard shortcuts: `Ctrl+F` (Find) and `Ctrl+H` (Replace).
+
+### 2.6 Remove Duplicates (`src/engine/data-tools/remove-duplicates.ts`, `RemoveDuplicatesDialog.tsx`)
+- [x] **Column Selector**: Compare single column or multi-column combinations.
+- [x] **Header Detection**: "My data has headers" toggle.
+- [x] **Live Preview**: Displays duplicate row count and remaining unique row count before execution.
+- [x] **Upward Row Shifting**: Eliminates duplicate rows and shifts lower rows upward to keep data contiguous and clean.
+
+### 2.7 Data Validation & Dropdowns (`src/engine/data-tools/validation.ts`, `DataValidationDialog.tsx`, `CellValidationDropdown.tsx`)
+- [x] **Validation Criteria**:
+  - Whole Number, Decimal, List, Date, Text Length, and Custom Formulas.
+  - Comparison operators: between, not between, equal, not equal, greater than, less than, greater or equal, less or equal.
+  - "Ignore blank" checkbox.
+- [x] **In-Cell Dropdown List**:
+  - Interactive chevron button inside active/hovered cells with list rules.
+  - Popover menu allowing instant selection of valid choices.
+- [x] **Error Alerts**: Configurable styles (`stop`, `warning`, `info`), titles, and error messages.
+- [x] **Audit Highlight**: "Audit" button outlines invalid cells with a rose highlight ring.
+
+### 2.8 Text to Columns (`src/engine/data-tools/text-to-columns.ts`, `TextToColumnsDialog.tsx`)
+- [x] **Delimited Mode**: Comma, semicolon, tab, space, custom delimiters, and consecutive delimiter collapse.
+- [x] **Fixed Width Mode**: User-defined character offsets (e.g. `10, 20`).
+- [x] **Live Data Preview Table**: Shows columns generated by split settings.
+- [x] **Overwrite Protection**: Detects and warns users before overwriting populated cells in target destination columns.
+
+### 2.9 Trim Whitespace (`src/engine/data-tools/trim.ts`)
+- [x] **Cleaning Options**: Trims leading whitespace, trailing whitespace, and collapses repeated interior spaces.
+- [x] **Formula Protection**: Preserves formula definitions and numeric values untouched.
 
 ---
 
@@ -67,34 +117,36 @@ All worksheet changes persist immediately to browser IndexedDB without any loss 
 | Suite | Target | Status | Result |
 | :--- | :--- | :---: | :--- |
 | **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
-| **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors or warnings. |
-| **Vitest Test Suite** | `vitest run` | **PASS** | **38 test files, 252/252 tests passed (100%).** |
-| **Production Build** | `vite build` | **PASS** | Clean build with PWA service worker (587.05 kB JS, 44.44 kB CSS). |
-| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | All 8 visual deliverables verified in light and dark themes. |
+| **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors, 0 warnings. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **46 test files, 296/296 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean production build with PWA service worker in 2.99s. |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | All 9 visual deliverables captured and verified. |
 
 ---
 
 ## 4. Visual Verification Deliverables
 
-All 8 required visual verification screenshots have been captured and placed in the project artifact directory:
+All 9 required visual verification screenshots have been captured and placed in the project artifact directory:
 
-1. `omnisheet_stage8_tab_bar.png`: Worksheet tab bar at the bottom with multiple tabs, scroll buttons, all sheets quick jump button, '+' button, and status indicator.
-2. `omnisheet_stage8_create_rename.png`: Inline renaming of a worksheet tab with focused input and validation.
-3. `omnisheet_stage8_context_menu.png`: Right-click context menu open on a worksheet tab showing all actions (Insert Sheet, Rename, Duplicate, Delete, Move Left, Move Right, Tab Color, Hide Sheet, Unhide).
-4. `omnisheet_stage8_duplicate.png`: Duplicated worksheet active with data and formatting intact.
-5. `omnisheet_stage8_reordering.png`: Reordered worksheets showing modified sheet order.
-6. `omnisheet_stage8_tab_colors.png`: Worksheet tabs with colored accent bars along the bottom edge, and Tab Color picker popover open.
-7. `omnisheet_stage8_hide_unhide.png`: Unhide Worksheets dialog modal open showing hidden sheets to restore.
-8. `omnisheet_stage8_dark_theme.png`: Dark theme mode rendering worksheet tabs, tab color bars, active indicators, and context menu.
+1. `omnisheet_stage9_data_toolbar.png`: Data toolbar showing Sort, Filter, Cleanup, Validation, Freeze, and Search command groups.
+2. `omnisheet_stage9_custom_sort.png`: Custom multi-level sort dialog with sort levels, columns, order, and headers toggle.
+3. `omnisheet_stage9_active_filters.png`: Column filter popover on header cell with distinct values checklist, search, and condition filters.
+4. `omnisheet_stage9_freeze_panes.png`: Freeze panes active with pinned rows/columns and freeze boundary divider line.
+5. `omnisheet_stage9_find_replace.png`: Find and Replace dialog with query input, match counter, search options, and replace controls.
+6. `omnisheet_stage9_remove_duplicates.png`: Remove Duplicates dialog with column checkboxes, header toggle, and live duplicate count preview.
+7. `omnisheet_stage9_data_validation.png`: Data Validation dialog with criteria options, list/number rules, and in-cell dropdown list.
+8. `omnisheet_stage9_text_to_columns.png`: Convert Text to Columns dialog with delimited/fixed-width options, delimiters, and data preview table.
+9. `omnisheet_stage9_trim_whitespace.png`: Trim whitespace action in Data tab and cleaned cell feedback.
 
 ---
 
-## 5. Architectural Boundaries for Stage 8
+## 5. Architectural Boundaries for Stage 9
 
 As strictly mandated by the roadmap:
+- Conditional formatting rules, data bars, color scales: Scheduled for **Stage 10**.
+- Charts, sparklines, and data visualizations: Scheduled for **Stage 10**.
 - Cross-sheet formula references (e.g. `=Sheet1!A1 + Sheet2!B2`): Scheduled for **Stage 11**.
-- Conditional formatting rules, data bars, color scales: Scheduled for **Stage 9 / 10**.
-- Sorting, filtering, search/replace, and data validation: Scheduled for **Stage 9 / 10**.
-- Charts and graphs: Scheduled for **Stage 10**.
-- XLSX / CSV binary import and export: Scheduled for **Stage 12**.
-- Full undo/redo transaction history stack: **Future Stages**.
+- Pivot tables and data models: **Future Stages**.
+- Power Query, external databases, cloud sync: Strictly Out of Scope.
+- XLSX / CSV binary file import and export: Scheduled for **Stage 12**.
+- Competing undo/redo managers: Standard transaction model preserved.

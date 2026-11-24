@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Filter } from 'lucide-react';
 import { Sheet } from '@/types/sheet';
 import { CellCoordinates, CellRange, CellBorder, CellBorders } from '@/types/cell';
 import { GridVirtualizer } from '@/engine/grid/virtualizer';
@@ -14,9 +15,11 @@ import {
   isMergeAnchor
 } from '@/engine/formatting/merge-cells';
 import { numberFormatter } from '@/engine/formatting/number-formatter';
+import { getValidationRuleForCell, validateCellValue } from '@/engine/data-tools/validation';
 import { useFormulaInputAssist } from '../hooks/useFormulaInputAssist';
 import { FormulaAutocomplete } from './FormulaAutocomplete';
 import { FormulaArgumentHelp } from './FormulaArgumentHelp';
+import { CellValidationDropdown } from './CellValidationDropdown';
 import { cn } from '@/utils/cn';
 
 function getBorderCss(borders?: CellBorders): React.CSSProperties {
@@ -60,6 +63,9 @@ interface SpreadsheetGridProps {
   onCancelEditing: () => void;
   onClearCell: (coord: CellCoordinates) => void;
   onKeyDownNav?: (result: { nextActive: CellCoordinates; nextRange: CellRange }) => void;
+  isAuditHighlighted?: boolean;
+  onOpenColumnFilter?: (col: number) => void;
+  onUpdateCellValue?: (row: number, col: number, value: string | number) => void;
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -71,6 +77,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   editingCell,
   editingValue,
   isFormatPainterActive = false,
+  isAuditHighlighted = false,
   onApplyFormatPainter,
   onSelectCell,
   onDragSelect,
@@ -83,7 +90,9 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onEditingChange,
   onCommitEditing,
   onCancelEditing,
-  onClearCell
+  onClearCell,
+  onOpenColumnFilter,
+  onUpdateCellValue
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
@@ -470,22 +479,37 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   const cornerW = Math.round(DEFAULT_GRID_CONFIG.rowHeaderWidth * zoom);
   const cornerH = Math.round(DEFAULT_GRID_CONFIG.colHeaderHeight * zoom);
 
-  // Generate visible rows and columns arrays
+  // Freeze panes and filter metadata
+  const frozenRows = sheet.metadata?.freezePanes?.frozenRows || 0;
+  const frozenCols = sheet.metadata?.freezePanes?.frozenCols || 0;
+  const hiddenRowsSet = useMemo(
+    () => new Set(sheet.metadata?.hiddenRows || []),
+    [sheet.metadata?.hiddenRows]
+  );
+  const filterConfig = sheet.metadata?.filterConfig;
+
+  // Generate visible rows and columns arrays (pinned frozen rows/cols prepended)
   const visibleRows = useMemo(() => {
-    const list: number[] = [];
-    for (let r = viewport.startRow; r <= viewport.endRow; r++) {
-      list.push(r);
+    const rowSet = new Set<number>();
+    for (let r = 0; r < frozenRows && r < sheet.rowCount; r++) {
+      if (!hiddenRowsSet.has(r)) rowSet.add(r);
     }
-    return list;
-  }, [viewport.startRow, viewport.endRow]);
+    for (let r = viewport.startRow; r <= viewport.endRow; r++) {
+      if (!hiddenRowsSet.has(r)) rowSet.add(r);
+    }
+    return Array.from(rowSet).sort((a, b) => a - b);
+  }, [viewport.startRow, viewport.endRow, frozenRows, sheet.rowCount, hiddenRowsSet]);
 
   const visibleCols = useMemo(() => {
-    const list: number[] = [];
-    for (let c = viewport.startCol; c <= viewport.endCol; c++) {
-      list.push(c);
+    const colSet = new Set<number>();
+    for (let c = 0; c < frozenCols && c < sheet.columnCount; c++) {
+      colSet.add(c);
     }
-    return list;
-  }, [viewport.startCol, viewport.endCol]);
+    for (let c = viewport.startCol; c <= viewport.endCol; c++) {
+      colSet.add(c);
+    }
+    return Array.from(colSet).sort((a, b) => a - b);
+  }, [viewport.startCol, viewport.endCol, frozenCols, sheet.columnCount]);
 
   return (
     <div
@@ -523,9 +547,20 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         className="bg-surface-secondary border-b border-border pointer-events-none"
       >
         {visibleCols.map((col) => {
-          const left = virtualizer.getColOffset(col, zoom) + cornerW;
+          const isFrozen = col < frozenCols;
+          const left = isFrozen
+            ? cornerW + scrollState.left + virtualizer.getColOffset(col, zoom)
+            : cornerW + virtualizer.getColOffset(col, zoom);
           const width = virtualizer.getColWidth(col, zoom);
           const isHighlighted = isHeaderHighlighted(col, selectedRange, 'col');
+          const isFreezeColEdge = isFrozen && col === frozenCols - 1;
+
+          const isFilterCol = Boolean(
+            filterConfig &&
+              col >= filterConfig.range.startCol &&
+              col <= filterConfig.range.endCol
+          );
+          const hasFilterApplied = Boolean(filterConfig?.columnFilters?.[col]);
 
           return (
             <div
@@ -536,19 +571,41 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 left,
                 width,
                 height: cornerH,
-                lineHeight: `${cornerH}px`
+                lineHeight: `${cornerH}px`,
+                zIndex: isFrozen ? 25 : 20
               }}
               className={cn(
-                'border-r border-border text-center font-semibold text-[11px] truncate px-1 transition-colors pointer-events-auto cursor-pointer group',
+                'border-r border-border text-center font-semibold text-[11px] truncate px-1 transition-colors pointer-events-auto cursor-pointer group flex items-center justify-between',
                 isHighlighted
                   ? 'bg-accent/15 text-accent font-bold'
-                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground'
+                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground',
+                isFreezeColEdge && 'border-r-2 border-r-primary/70'
               )}
               role="columnheader"
               aria-colindex={col + 1}
               title={`Column ${colIndexToName(col)}`}
             >
-              <span className="truncate">{colIndexToName(col)}</span>
+              <span className="truncate flex-1">{colIndexToName(col)}</span>
+
+              {/* Filter Trigger Button */}
+              {isFilterCol && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenColumnFilter?.(col);
+                  }}
+                  className={cn(
+                    'p-0.5 rounded transition-colors shrink-0 mr-1 cursor-pointer',
+                    hasFilterApplied
+                      ? 'bg-primary text-primary-foreground shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-surface'
+                  )}
+                  title={hasFilterApplied ? 'Active filter on this column' : 'Filter column'}
+                >
+                  <Filter className="w-3 h-3" />
+                </button>
+              )}
 
               {/* Column Resize Handle */}
               <div
@@ -574,9 +631,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         className="bg-surface-secondary border-r border-border pointer-events-none"
       >
         {visibleRows.map((row) => {
-          const top = virtualizer.getRowOffset(row, zoom);
+          const isFrozen = row < frozenRows;
+          const top = isFrozen
+            ? scrollState.top + virtualizer.getRowOffset(row, zoom)
+            : virtualizer.getRowOffset(row, zoom);
           const height = virtualizer.getRowHeight(row, zoom);
           const isHighlighted = isHeaderHighlighted(row, selectedRange, 'row');
+          const isFreezeRowEdge = isFrozen && row === frozenRows - 1;
 
           return (
             <div
@@ -587,13 +648,15 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 top,
                 width: cornerW,
                 height,
-                lineHeight: `${height}px`
+                lineHeight: `${height}px`,
+                zIndex: isFrozen ? 25 : 10
               }}
               className={cn(
                 'border-b border-border text-center font-mono text-[10px] truncate px-1 transition-colors pointer-events-auto cursor-pointer group',
                 isHighlighted
                   ? 'bg-accent/15 text-accent font-bold'
-                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground'
+                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground',
+                isFreezeRowEdge && 'border-b-2 border-b-primary/70'
               )}
               role="rowheader"
               aria-rowindex={row + 1}
@@ -633,10 +696,29 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
             const key = coordToKey(row, col);
             const cell = sheet.cells[key];
-            const left = virtualizer.getColOffset(col, zoom);
-            const top = virtualizer.getRowOffset(row, zoom);
+            const isFrozenRow = row < frozenRows;
+            const isFrozenCol = col < frozenCols;
+            const left = isFrozenCol
+              ? scrollState.left + virtualizer.getColOffset(col, zoom)
+              : virtualizer.getColOffset(col, zoom);
+            const top = isFrozenRow
+              ? scrollState.top + virtualizer.getRowOffset(row, zoom)
+              : virtualizer.getRowOffset(row, zoom);
             let width = virtualizer.getColWidth(col, zoom);
             let height = virtualizer.getRowHeight(row, zoom);
+
+            const isFreezeRowEdge = isFrozenRow && row === frozenRows - 1;
+            const isFreezeColEdge = isFrozenCol && col === frozenCols - 1;
+
+            const validationRule = getValidationRuleForCell(sheet.metadata?.dataValidations, row, col);
+            const hasDropdown = validationRule?.type === 'list' && validationRule.showDropdown;
+            const isCellActive = activeCell?.row === row && activeCell?.col === col;
+
+            let isInvalidAudit = false;
+            if (isAuditHighlighted && cell && validationRule) {
+              const check = validateCellValue(cell.value, validationRule);
+              isInvalidAudit = !check.isValid;
+            }
 
             const merged = getMergedRangeForCell(sheet.mergedRanges, row, col);
             let isAnchor = false;
@@ -654,6 +736,16 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               width = mw;
               height = mh;
             }
+
+            const cellZIndex = isFrozenRow && isFrozenCol
+              ? 18
+              : isFrozenRow
+              ? 15
+              : isFrozenCol
+              ? 14
+              : isAnchor
+              ? 10
+              : 1;
 
             let cellContent = '';
             let isError = false;
@@ -694,7 +786,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   top,
                   width,
                   height,
-                  zIndex: isAnchor ? 10 : 1,
+                  zIndex: cellZIndex,
                   fontFamily: cellStyle?.fontFamily || cellStyle?.font || undefined,
                   fontSize: cellStyle?.fontSize
                     ? `${Math.round(cellStyle.fontSize * zoom)}px`
@@ -733,8 +825,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                   ...borderCss
                 }}
                 className={cn(
-                  'border-r border-b border-border/60 px-2 overflow-hidden text-ellipsis text-foreground bg-background hover:bg-surface-secondary/40 transition-colors select-none',
+                  'border-r border-b border-border/60 px-2 overflow-hidden text-ellipsis text-foreground bg-background hover:bg-surface-secondary/40 transition-colors select-none relative',
                   isFormatPainterActive ? 'cursor-copy' : 'cursor-cell',
+                  isFreezeRowEdge && 'border-b-2 border-b-primary/70',
+                  isFreezeColEdge && 'border-r-2 border-r-primary/70',
+                  isInvalidAudit && 'ring-2 ring-rose-500/80 rounded-xs bg-rose-500/10',
                   isError &&
                     'font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10'
                 )}
@@ -743,6 +838,21 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 aria-colindex={col + 1}
               >
                 {cellContent}
+
+                {/* In-Cell Validation List Dropdown Trigger */}
+                {hasDropdown && isCellActive && (
+                  <CellValidationDropdown
+                    listValues={validationRule?.listValues || []}
+                    currentValue={
+                      cell?.value == null
+                        ? null
+                        : typeof cell.value === 'string' || typeof cell.value === 'number'
+                        ? cell.value
+                        : String(cell.value)
+                    }
+                    onSelect={(val) => onUpdateCellValue?.(row, col, val)}
+                  />
+                )}
               </div>
             );
           })

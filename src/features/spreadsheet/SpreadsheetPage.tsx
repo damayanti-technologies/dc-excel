@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
-import { CellCoordinates, CellRange, CellStyle } from '@/types/cell';
+import { Cell, CellCoordinates, CellRange, CellStyle } from '@/types/cell';
 import { BorderPosition, BorderStyleType } from '@/types/formatting';
 import { PersistenceStatus } from '@/types/storage';
 import { workbookService } from '@/services';
@@ -11,7 +11,7 @@ import { useSelectionStore } from '@/stores/selection-store';
 import { useWorkbookStore } from '@/stores/workbook-store';
 import { useFormatPainterStore } from '@/stores/format-painter-store';
 import { toast } from '@/stores/toast-store';
-import { coordToKey } from '@/utils/coordinates';
+import { coordToKey, colIndexToName } from '@/utils/coordinates';
 import { formatRangeLabel } from '@/engine/grid/selection';
 import { copyRange, applyPasteData, getClipboardText } from '@/engine/grid/clipboard';
 import { calculationEngine } from '@/engine/calculation';
@@ -26,6 +26,16 @@ import {
   mergeRange,
   unmergeRange
 } from '@/engine/formatting/merge-cells';
+import { SortConfig, ColumnFilter, DataValidationRule } from '@/types/data-tools';
+import { detectTableRange, sortRange } from '@/engine/data-tools/sorting';
+import { evaluateFilters } from '@/engine/data-tools/filtering';
+import {
+  freezeTopRow,
+  freezeFirstColumn,
+  freezePanesAtCell,
+  unfreezePanes
+} from '@/engine/data-tools/freeze';
+import { trimWhitespace } from '@/engine/data-tools/trim';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
@@ -39,7 +49,14 @@ import {
   FormulaReferencePanel,
   MergeConfirmDialog,
   MobileFormattingPanel,
-  UnhideSheetsDialog
+  UnhideSheetsDialog,
+  DataToolbar,
+  CustomSortDialog,
+  ColumnFilterPopover,
+  FindReplaceDialog,
+  RemoveDuplicatesDialog,
+  DataValidationDialog,
+  TextToColumnsDialog
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -57,6 +74,7 @@ export const SpreadsheetPage: React.FC = () => {
   const setRowHeight = useSheetStore((state) => state.setRowHeight);
   const setColumnWidth = useSheetStore((state) => state.setColumnWidth);
   const setBatchCells = useSheetStore((state) => state.setBatchCells);
+  const updateMetadata = useSheetStore((state) => state.updateMetadata);
 
   const activeCell = useSelectionStore((state) => state.activeCell);
   const anchorCell = useSelectionStore((state) => state.anchorCell);
@@ -87,6 +105,17 @@ export const SpreadsheetPage: React.FC = () => {
   const [isMobileFormattingOpen, setIsMobileFormattingOpen] = useState(false);
   const [sheetToDelete, setSheetToDelete] = useState<Sheet | null>(null);
   const [isUnhideDialogOpen, setIsUnhideDialogOpen] = useState(false);
+
+  // Ribbon & Data Tools State
+  const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'data'>('home');
+  const [isCustomSortOpen, setIsCustomSortOpen] = useState(false);
+  const [isRemoveDuplicatesOpen, setIsRemoveDuplicatesOpen] = useState(false);
+  const [isDataValidationOpen, setIsDataValidationOpen] = useState(false);
+  const [isTextToColumnsOpen, setIsTextToColumnsOpen] = useState(false);
+  const [isFindReplaceOpen, setIsFindReplaceOpen] = useState(false);
+  const [findReplaceInitialMode, setFindReplaceInitialMode] = useState<'find' | 'replace'>('find');
+  const [activeFilterCol, setActiveFilterCol] = useState<number | null>(null);
+  const [isAuditHighlighted, setIsAuditHighlighted] = useState(false);
 
   // Format painter store
   const isFormatPainterActive = useFormatPainterStore((state) => state.isActive);
@@ -220,6 +249,306 @@ export const SpreadsheetPage: React.FC = () => {
       toast.info('Unmerged Cells', `Unmerged ${unmergedCount} cell range(s).`);
     }
   }, [activeSheet, getTargetRange, setActiveSheet]);
+
+  // Data Tools: Contiguous range or current selection
+  const getDataRange = useCallback((): CellRange => {
+    if (
+      selectedRange &&
+      (selectedRange.startRow !== selectedRange.endRow ||
+        selectedRange.startCol !== selectedRange.endCol)
+    ) {
+      return selectedRange;
+    }
+    if (activeCell && activeSheet) {
+      return detectTableRange(
+        activeSheet.cells,
+        activeCell,
+        activeSheet.rowCount,
+        activeSheet.columnCount
+      );
+    }
+    return {
+      startRow: 0,
+      startCol: 0,
+      endRow: Math.min(10, (activeSheet?.rowCount || 10) - 1),
+      endCol: Math.min(5, (activeSheet?.columnCount || 5) - 1)
+    };
+  }, [selectedRange, activeCell, activeSheet]);
+
+  // Data Tools: Quick Sort (Asc / Desc)
+  const handleQuickSort = useCallback(
+    (direction: 'asc' | 'desc', targetCol?: number) => {
+      if (!activeSheet) return;
+      const colToSort = targetCol !== undefined ? targetCol : (activeCell?.col ?? 0);
+      const range = getDataRange();
+      const sortConfig: SortConfig = {
+        range,
+        levels: [{ col: colToSort, direction }],
+        hasHeaders: true
+      };
+      const updatedCells = sortRange(activeSheet.cells, sortConfig);
+      const updatedSheet = { ...activeSheet, cells: updatedCells };
+      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      setActiveSheet({ ...updatedSheet, cells: recalcedCells });
+      toast.success(
+        'Sorted',
+        `Column ${colIndexToName(colToSort)} sorted ${direction === 'asc' ? 'A to Z' : 'Z to A'}.`
+      );
+    },
+    [activeSheet, activeCell, getDataRange, setActiveSheet]
+  );
+
+  // Data Tools: Custom Multi-Level Sort
+  const handleCustomSort = useCallback(
+    (config: SortConfig) => {
+      if (!activeSheet) return;
+      const updatedCells = sortRange(activeSheet.cells, config);
+      const updatedSheet = { ...activeSheet, cells: updatedCells };
+      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      setActiveSheet({ ...updatedSheet, cells: recalcedCells });
+      toast.success('Sorted', 'Custom multi-level sort applied successfully.');
+    },
+    [activeSheet, setActiveSheet]
+  );
+
+  // Data Tools: Filter Toggle
+  const handleToggleFilter = useCallback(() => {
+    if (!activeSheet) return;
+    const currentConfig = activeSheet.metadata?.filterConfig;
+    if (currentConfig) {
+      updateMetadata({ filterConfig: undefined, hiddenRows: [] });
+      toast.info('Filter Removed', 'All rows are now visible.');
+    } else {
+      const range = getDataRange();
+      updateMetadata({
+        filterConfig: { range, columnFilters: {} },
+        hiddenRows: []
+      });
+      toast.success('Filter Created', 'Use header filter buttons to filter records.');
+    }
+  }, [activeSheet, getDataRange, updateMetadata]);
+
+  // Data Tools: Apply Column Filter
+  const handleApplyColumnFilter = useCallback(
+    (col: number, filter: ColumnFilter | null) => {
+      if (!activeSheet) return;
+      const currentConfig = activeSheet.metadata?.filterConfig;
+      const range = currentConfig?.range || getDataRange();
+
+      const nextColumnFilters = { ...(currentConfig?.columnFilters || {}) };
+      if (filter) {
+        nextColumnFilters[col] = filter;
+      } else {
+        delete nextColumnFilters[col];
+      }
+
+      const updatedConfig = { range, columnFilters: nextColumnFilters };
+      const hiddenRows = evaluateFilters(activeSheet.cells, updatedConfig);
+
+      updateMetadata({
+        filterConfig: updatedConfig,
+        hiddenRows
+      });
+      toast.info('Filter Updated', `${hiddenRows.length} rows hidden by active filter.`);
+    },
+    [activeSheet, getDataRange, updateMetadata]
+  );
+
+  // Data Tools: Clear Filter
+  const handleClearFilter = useCallback(() => {
+    if (!activeSheet || !activeSheet.metadata?.filterConfig) return;
+    updateMetadata({
+      filterConfig: {
+        range: activeSheet.metadata.filterConfig.range,
+        columnFilters: {}
+      },
+      hiddenRows: []
+    });
+    toast.info('Filters Cleared', 'All column filters have been cleared.');
+  }, [activeSheet, updateMetadata]);
+
+  // Data Tools: Reapply Filter
+  const handleReapplyFilter = useCallback(() => {
+    if (!activeSheet || !activeSheet.metadata?.filterConfig) return;
+    const hiddenRows = evaluateFilters(activeSheet.cells, activeSheet.metadata.filterConfig);
+    updateMetadata({ hiddenRows });
+    toast.info('Filters Reapplied', `${hiddenRows.length} rows hidden.`);
+  }, [activeSheet, updateMetadata]);
+
+  // Data Tools: Freeze Panes
+  const handleFreezeTopRow = useCallback(() => {
+    const cfg = freezeTopRow();
+    updateMetadata({ freezePanes: cfg });
+    toast.success('Frozen', 'Top row pinned at top.');
+  }, [updateMetadata]);
+
+  const handleFreezeFirstColumn = useCallback(() => {
+    const cfg = freezeFirstColumn();
+    updateMetadata({ freezePanes: cfg });
+    toast.success('Frozen', 'First column pinned at left.');
+  }, [updateMetadata]);
+
+  const handleFreezeAtSelection = useCallback(() => {
+    if (!activeCell) return;
+    const cfg = freezePanesAtCell(activeCell.row, activeCell.col);
+    updateMetadata({ freezePanes: cfg });
+    toast.success(
+      'Frozen',
+      `Panes frozen at row ${activeCell.row + 1}, column ${colIndexToName(activeCell.col)}.`
+    );
+  }, [activeCell, updateMetadata]);
+
+  const handleUnfreezePanes = useCallback(() => {
+    const cfg = unfreezePanes();
+    updateMetadata({ freezePanes: cfg });
+    toast.info('Unfrozen', 'All panes unfrozen.');
+  }, [updateMetadata]);
+
+  // Data Tools: Remove Duplicates
+  const handleApplyRemoveDuplicates = useCallback(
+    (updatedCells: Sheet['cells'], removedCount: number, remainingCount: number) => {
+      if (!activeSheet) return;
+      setActiveSheet({
+        ...activeSheet,
+        cells: updatedCells
+      });
+      toast.success(
+        'Duplicates Removed',
+        `Removed ${removedCount} duplicate row${removedCount === 1 ? '' : 's'}; ${remainingCount} unique row${remainingCount === 1 ? '' : 's'} remain.`
+      );
+    },
+    [activeSheet, setActiveSheet]
+  );
+
+  // Data Tools: Text to Columns
+  const handleApplyTextToColumns = useCallback(
+    (newCells: Record<string, Cell>) => {
+      if (!activeSheet) return;
+      setBatchCells(newCells);
+      toast.success('Text to Columns', 'Text converted to columns successfully.');
+    },
+    [activeSheet, setBatchCells]
+  );
+
+  // Data Tools: Trim Whitespace
+  const handleTrimWhitespace = useCallback(() => {
+    if (!activeSheet) return;
+    const range = getTargetRange() || getDataRange();
+    const { updatedCells, modifiedCount } = trimWhitespace(activeSheet.cells, range);
+    if (modifiedCount > 0) {
+      setBatchCells(updatedCells);
+      toast.success(
+        'Whitespace Trimmed',
+        `Cleaned whitespace in ${modifiedCount} cell${modifiedCount === 1 ? '' : 's'}.`
+      );
+    } else {
+      toast.info('No Whitespace Found', 'All cells in selection are already trimmed.');
+    }
+  }, [activeSheet, getTargetRange, getDataRange, setBatchCells]);
+
+  // Data Tools: Data Validation
+  const handleApplyValidationRule = useCallback(
+    (rule: DataValidationRule) => {
+      if (!activeSheet) return;
+      const currentRules = activeSheet.metadata?.dataValidations || [];
+      const otherRules = currentRules.filter((r) => r.id !== rule.id);
+      updateMetadata({
+        dataValidations: [...otherRules, rule]
+      });
+      toast.success('Validation Applied', 'Validation criteria saved.');
+    },
+    [activeSheet, updateMetadata]
+  );
+
+  const handleClearValidation = useCallback(() => {
+    if (!activeSheet) return;
+    const target = getTargetRange();
+    if (!target) return;
+    const currentRules = activeSheet.metadata?.dataValidations || [];
+    const remaining = currentRules.filter((r) => {
+      const overlaps =
+        Math.max(r.range.startRow, target.startRow) <= Math.min(r.range.endRow, target.endRow) &&
+        Math.max(r.range.startCol, target.startCol) <= Math.min(r.range.endCol, target.endCol);
+      return !overlaps;
+    });
+    updateMetadata({ dataValidations: remaining });
+    toast.info('Validation Cleared', 'Validation rules removed from selection.');
+  }, [activeSheet, getTargetRange, updateMetadata]);
+
+  // Data Tools: Direct cell update from in-cell validation dropdown
+  const handleUpdateCellValue = useCallback(
+    (row: number, col: number, value: string | number) => {
+      if (!activeSheet) return;
+      const key = coordToKey(row, col);
+      const existing = activeSheet.cells[key];
+      const newCell: Cell = {
+        value,
+        dataType: typeof value === 'number' ? 'number' : 'string',
+        style: existing?.style
+      };
+      const updatedSheet = {
+        ...activeSheet,
+        cells: {
+          ...activeSheet.cells,
+          [key]: newCell
+        }
+      };
+      const { updatedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      setActiveSheet({ ...updatedSheet, cells: updatedCells });
+    },
+    [activeSheet, setActiveSheet]
+  );
+
+  // Data Tools: Find & Replace Navigation and Updates
+  const handleNavigateToMatch = useCallback(
+    (sheetId: string, row: number, col: number) => {
+      if (activeSheet?.id !== sheetId) {
+        const target = sheets.find((s) => s.id === sheetId);
+        if (target) {
+          setActiveSheet(target);
+        }
+      }
+      setActiveCell({ row, col });
+    },
+    [activeSheet, sheets, setActiveSheet, setActiveCell]
+  );
+
+  const handleUpdateFindSheet = useCallback(
+    (updatedSheet: Sheet) => {
+      setActiveSheet(updatedSheet);
+      setSheets((prev) => prev.map((s) => (s.id === updatedSheet.id ? updatedSheet : s)));
+    },
+    [setActiveSheet]
+  );
+
+  const handleUpdateFindSheets = useCallback(
+    (updatedSheetsList: Sheet[]) => {
+      setSheets(updatedSheetsList);
+      const current = updatedSheetsList.find((s) => s.id === activeSheet?.id);
+      if (current) {
+        setActiveSheet(current);
+      }
+    },
+    [activeSheet, setActiveSheet]
+  );
+
+  // Keyboard shortcut listener for Ctrl+F and Ctrl+H
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        setFindReplaceInitialMode('find');
+        setIsFindReplaceOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        setFindReplaceInitialMode('replace');
+        setIsFindReplaceOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialLoadRef = useRef(true);
@@ -823,7 +1152,33 @@ export const SpreadsheetPage: React.FC = () => {
         onRename={handleRenameWorkbook}
       />
 
-      {/* 2. Spreadsheet Toolbar */}
+      {/* 2. Ribbon Tabs Switcher */}
+      <div className="flex items-center gap-1 px-3 pt-1 border-b border-border bg-surface-secondary text-xs font-medium">
+        <button
+          type="button"
+          onClick={() => setActiveRibbonTab('home')}
+          className={`px-3 py-1 rounded-t-md transition-colors ${
+            activeRibbonTab === 'home'
+              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Home
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveRibbonTab('data')}
+          className={`px-3 py-1 rounded-t-md transition-colors ${
+            activeRibbonTab === 'data'
+              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Data
+        </button>
+      </div>
+
+      {/* 2b. Spreadsheet Toolbar */}
       <SpreadsheetToolbar
         rangeLabel={rangeDisplayLabel}
         zoom={zoom}
@@ -840,18 +1195,55 @@ export const SpreadsheetPage: React.FC = () => {
         onDeleteCol={handleDeleteCol}
       />
 
-      {/* 3. Formatting Toolbar */}
-      <FormattingToolbar
-        activeStyle={currentCellData?.style}
-        isFormatPainterActive={isFormatPainterActive}
-        onApplyStyle={handleApplyStyle}
-        onApplyBorders={handleApplyBorders}
-        onClearFormatting={handleClearFormatting}
-        onToggleFormatPainter={handleToggleFormatPainter}
-        onMerge={handleMerge}
-        onUnmerge={handleUnmerge}
-        onOpenMobilePanel={() => setIsMobileFormattingOpen(true)}
-      />
+      {/* 3. Conditional Ribbon Toolbar: Home vs Data */}
+      {activeRibbonTab === 'home' ? (
+        <FormattingToolbar
+          activeStyle={currentCellData?.style}
+          isFormatPainterActive={isFormatPainterActive}
+          onApplyStyle={handleApplyStyle}
+          onApplyBorders={handleApplyBorders}
+          onClearFormatting={handleClearFormatting}
+          onToggleFormatPainter={handleToggleFormatPainter}
+          onMerge={handleMerge}
+          onUnmerge={handleUnmerge}
+          onOpenMobilePanel={() => setIsMobileFormattingOpen(true)}
+        />
+      ) : (
+        <DataToolbar
+          isFilterActive={Boolean(activeSheet.metadata?.filterConfig)}
+          hasFilterConditions={Boolean(
+            activeSheet.metadata?.filterConfig &&
+              Object.keys(activeSheet.metadata.filterConfig.columnFilters || {}).length > 0
+          )}
+          frozenRows={activeSheet.metadata?.freezePanes?.frozenRows || 0}
+          frozenCols={activeSheet.metadata?.freezePanes?.frozenCols || 0}
+          isAuditHighlighted={isAuditHighlighted}
+          onQuickSortAsc={() => handleQuickSort('asc')}
+          onQuickSortDesc={() => handleQuickSort('desc')}
+          onOpenCustomSort={() => setIsCustomSortOpen(true)}
+          onToggleFilter={handleToggleFilter}
+          onClearFilter={handleClearFilter}
+          onReapplyFilter={handleReapplyFilter}
+          onOpenRemoveDuplicates={() => setIsRemoveDuplicatesOpen(true)}
+          onOpenTextToColumns={() => setIsTextToColumnsOpen(true)}
+          onTrimWhitespace={handleTrimWhitespace}
+          onOpenDataValidation={() => setIsDataValidationOpen(true)}
+          onClearDataValidation={handleClearValidation}
+          onToggleCircleInvalid={() => setIsAuditHighlighted(!isAuditHighlighted)}
+          onFreezeTopRow={handleFreezeTopRow}
+          onFreezeFirstColumn={handleFreezeFirstColumn}
+          onFreezeAtSelection={handleFreezeAtSelection}
+          onUnfreezePanes={handleUnfreezePanes}
+          onOpenFind={() => {
+            setFindReplaceInitialMode('find');
+            setIsFindReplaceOpen(true);
+          }}
+          onOpenReplace={() => {
+            setFindReplaceInitialMode('replace');
+            setIsFindReplaceOpen(true);
+          }}
+        />
+      )}
 
       {/* 4. Formula Bar */}
       <FormulaBar
@@ -877,6 +1269,7 @@ export const SpreadsheetPage: React.FC = () => {
           editingCell={editingCell}
           editingValue={editingValue}
           isFormatPainterActive={isFormatPainterActive}
+          isAuditHighlighted={isAuditHighlighted}
           onApplyFormatPainter={handleApplyFormatPainter}
           onSelectCell={handleSelectCell}
           onDragSelect={selectRangeFromAnchor}
@@ -890,6 +1283,8 @@ export const SpreadsheetPage: React.FC = () => {
           onCommitEditing={handleCommitEditing}
           onCancelEditing={stopEditing}
           onClearCell={handleClearCell}
+          onOpenColumnFilter={(col) => setActiveFilterCol(col)}
+          onUpdateCellValue={handleUpdateCellValue}
         />
       </div>
 
@@ -955,6 +1350,75 @@ export const SpreadsheetPage: React.FC = () => {
         onClose={() => setIsUnhideDialogOpen(false)}
         hiddenSheets={sheets.filter((s) => s.metadata?.isHidden)}
         onUnhide={(sheetId) => void handleUnhideSheet(sheetId)}
+      />
+
+      {/* 12. Custom Multi-Level Sort Dialog */}
+      <CustomSortDialog
+        isOpen={isCustomSortOpen}
+        onClose={() => setIsCustomSortOpen(false)}
+        onSort={handleCustomSort}
+        sheet={activeSheet}
+        range={getDataRange()}
+      />
+
+      {/* 13. Column Filter Popover */}
+      {activeFilterCol !== null && (
+        <ColumnFilterPopover
+          isOpen={activeFilterCol !== null}
+          onClose={() => setActiveFilterCol(null)}
+          col={activeFilterCol}
+          sheet={activeSheet}
+          range={activeSheet.metadata?.filterConfig?.range || getDataRange()}
+          currentFilter={activeSheet.metadata?.filterConfig?.columnFilters?.[activeFilterCol]}
+          onApplyFilter={handleApplyColumnFilter}
+          onQuickSort={(dir) => handleQuickSort(dir, activeFilterCol)}
+        />
+      )}
+
+      {/* 14. Find and Replace Dialog */}
+      <FindReplaceDialog
+        isOpen={isFindReplaceOpen}
+        onClose={() => setIsFindReplaceOpen(false)}
+        activeSheet={activeSheet}
+        sheets={sheets}
+        initialMode={findReplaceInitialMode}
+        onNavigateToCell={handleNavigateToMatch}
+        onUpdateSheet={handleUpdateFindSheet}
+        onUpdateSheets={handleUpdateFindSheets}
+      />
+
+      {/* 15. Remove Duplicates Dialog */}
+      <RemoveDuplicatesDialog
+        isOpen={isRemoveDuplicatesOpen}
+        onClose={() => setIsRemoveDuplicatesOpen(false)}
+        sheet={activeSheet}
+        range={getDataRange()}
+        onApplyRemoveDuplicates={handleApplyRemoveDuplicates}
+      />
+
+      {/* 16. Data Validation Dialog */}
+      <DataValidationDialog
+        isOpen={isDataValidationOpen}
+        onClose={() => setIsDataValidationOpen(false)}
+        range={getTargetRange() || getDataRange()}
+        existingRule={activeSheet.metadata?.dataValidations?.find((r) => {
+          const target = getTargetRange() || getDataRange();
+          return (
+            Math.max(r.range.startRow, target.startRow) <= Math.min(r.range.endRow, target.endRow) &&
+            Math.max(r.range.startCol, target.startCol) <= Math.min(r.range.endCol, target.endCol)
+          );
+        })}
+        onApplyRule={handleApplyValidationRule}
+        onClearRule={handleClearValidation}
+      />
+
+      {/* 17. Convert Text to Columns Dialog */}
+      <TextToColumnsDialog
+        isOpen={isTextToColumnsOpen}
+        onClose={() => setIsTextToColumnsOpen(false)}
+        sheet={activeSheet}
+        range={getTargetRange() || getDataRange()}
+        onApplyTextToColumns={handleApplyTextToColumns}
       />
     </div>
   );
