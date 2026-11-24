@@ -1,61 +1,64 @@
 # Project Status: OmniSheet
 
-**Current Stage:** **Stage 7: Professional Cell Formatting & Styling Engine**  
+**Current Stage:** **Stage 8: Workbook & Worksheet Management**  
 **Status:** **Completed & Verified**  
-**Version:** `0.7.0`  
+**Version:** `0.8.0`  
 **Date:** November 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Stage 7 implements a comprehensive spreadsheet cell formatting and styling engine for OmniSheet, comparable to the formatting capabilities of Microsoft Excel and Google Sheets. Users can select individual cells or contiguous rectangular ranges and apply visual and numerical styles with instantaneous feedback on the virtualized grid, backed by sparse local persistence in IndexedDB.
+Stage 8 delivers complete, desktop-grade worksheet management for OmniSheet, enabling users to seamlessly manage multiple worksheets inside a single workbook. The implementation features an Excel-inspired bottom worksheet tab bar supporting creation, inline renaming with validation, deep-copy duplication, safe deletion with single-sheet guard rails, drag-and-drop reordering, accessible keyboard navigation, vibrant tab color accents, and hiding/unhiding capabilities.
 
-The formatting engine strictly maintains separation between raw stored data and formatted display representation. Empty cells formatted for visual presentation (e.g. background fills, borders) do not bloat memory, and clearing formatting prunes unpopulated cells from the sparse map. Merged cells are fully integrated into grid virtualization, suppressing covered cells while cleanly expanding the top-left anchor cell across spanned columns and rows.
-
-All features are local-first, privacy-preserving, and rigorously verified across light and dark themes.
+All worksheet changes persist immediately to browser IndexedDB without any loss of cell data, formulas, formatting, or dimensions. All previous stage capabilities (92 calculation functions, autocomplete, virtualized grid, cell editing, and formatting engine) are 100% preserved.
 
 ---
 
-## 2. Completed Features in Stage 7
+## 2. Completed Features in Stage 8
 
-### 2.1 Formatting Toolbar (`FormattingToolbar.tsx`)
-- [x] **Font Controls**:
-  - Font Family dropdown: Calibri, Arial, Inter, Times New Roman, Courier New, Segoe UI, Roboto, Consolas.
-  - Font Size dropdown: 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36 pt.
-  - Increase/Decrease font size quick buttons.
-  - Bold (`Ctrl+B`), Italic (`Ctrl+I`), Underline (`Ctrl+U`), Strikethrough toggle buttons with active state highlighting.
-- [x] **Color Management**:
-  - `ColorPickerPopover`: 5-row color palette matrix (light tints, midtones, vibrant shades, dark shades), "No Fill" / "Automatic" default reset button, and custom native hex color picker with live synchronization.
-  - Text color picker with font icon indicator bar.
-  - Cell background fill color picker with paint bucket icon indicator bar.
-- [x] **Border Styling Engine**:
-  - `BorderPickerPopover`: All borders, outside borders, thick outside borders, top, bottom, left, right borders, inside borders, and no borders.
-  - Border line style picker: Thin, Medium, Thick, Double, Dashed.
-  - Custom border line color selector.
-- [x] **Alignment & Text Flow**:
-  - Horizontal alignment: Left, Center, Right.
-  - Vertical alignment: Top, Middle, Bottom.
-  - Increase Indent / Decrease Indent (12px per indent step).
-  - Wrap Text toggle with automatic multi-line layout and custom text overflow handling (`clip`, `overflow`, `wrap`).
-- [x] **Merged Cells Engine**:
-  - Merge All, Merge Across (per row), Merge & Center, and Unmerge.
-  - Non-anchor populated cell detection with `MergeConfirmDialog` warning modal to prevent accidental data loss.
-  - Virtualized rendering: covered cells are suppressed from the DOM; anchor cells expand dynamically across spanned column widths and row heights with elevated z-index.
-  - Selection bounding box dynamically expands over the full merged range.
-- [x] **Number Formatting Engine**:
-  - Categories: General, Number (integer and 2-decimal with thousands comma grouping), Currency (USD `$`, EUR `€`, GBP `£`, INR `₹`, JPY `¥`), Percentage (0% and 0.00%), Date (ISO `YYYY-MM-DD`, UK `DD/MM/YYYY`, US `MM/DD/YYYY`, Medium `DD-MMM-YYYY`, Long `MMM DD, YYYY`), Time (24h `HH:MM:SS`, 12h `hh:mm A`), Scientific (`0.00E+00`), and Plain Text (`@`).
-  - Custom 4-section pattern evaluation: `positive;negative;zero;text` (e.g. `$#,##0.00;($#,##0.00);"-";"Text: "@`).
-- [x] **Format Painter**:
-  - Single-click activation: applies formatting once to destination cell or range and auto-deactivates.
-  - Double-click activation: locks Format Painter mode for continuous repeated application across multiple target cells.
-  - `Escape` key cancellation and visual toolbar button highlighting.
-  - Strictly preserves target cell values, data types, and formulas while transferring visual styles.
-- [x] **Clear Formatting & Built-in Cell Styles**:
-  - Clear Formatting button: strips visual styles and borders from selection while retaining cell values and formulas. Automatically prunes empty placeholder cells from the sparse map.
-  - `CellStylesMenu`: Built-in presets for Normal, Title, Heading 1, Heading 2, Total, Good, Bad, Warning, and Accent Header.
-- [x] **Mobile Formatting Panel (`MobileFormattingPanel.tsx`)**:
-  - Bottom-sheet drawer accessible on mobile viewports with Font, Alignment, Color, and Number format tabs.
+### 2.1 Worksheet Tab Bar (`SheetTabsBar.tsx`)
+- [x] **Tab Bar Layout & Navigation**:
+  - Horizontal scroll controls: Previous (`<`) and Next (`>`) scroll buttons.
+  - `AllSheetsMenu`: Dropdown menu showing all workbook sheets, active checkmark, tab colors, and hidden indicators for fast jumping.
+  - `+` button: One-click creation of new worksheets.
+  - Active tab indicator: Elevated background with accent top bar and bold typography.
+  - Color bar: 3.5px colored accent strip along the bottom edge of tabs.
+  - Status indicator: Displays visible sheet count, hidden sheet count, and "Ready" state.
+
+### 2.2 Worksheet Operations (`src/engine/worksheet/sheet-operations.ts`)
+- [x] **Name Validation (`validateSheetName`)**:
+  - Rejects empty strings and whitespace.
+  - Enforces 31-character maximum limit.
+  - Rejects forbidden characters (`\ / ? * : [ ]`).
+  - Enforces case-insensitive uniqueness across sheets in the same workbook.
+- [x] **Conflict-Free Name Generation (`generateUniqueSheetName`)**:
+  - Generates `Sheet1`, `Sheet2`, `Sheet3`... intelligently reusing any deleted or missing gap indices.
+- [x] **Inline Renaming**:
+  - Double-click tab or context menu "Rename" to edit name in place.
+  - Auto-focuses and selects all text.
+  - `Enter` commits; `Escape` cancels; `Blur` commits with validation error toasts.
+- [x] **Deep-Copy Duplication (`duplicateSheet`, `cloneSheet`)**:
+  - Duplicates sparse cells, formatting styles, borders, number formats, row heights, column widths, and merged ranges.
+  - Auto-generates unique copy names (e.g. `Original (Copy)` or `Original (Copy 2)`).
+  - Inserts duplicated sheet immediately adjacent to the source sheet and makes it active.
+  - Intended formula behavior: intra-sheet relative references (`A1`, `SUM(B1:B10)`) continue referencing the identical relative coordinates within the new sheet.
+- [x] **Worksheet Deletion (`deleteSheet`)**:
+  - Confirmation modal (`ConfirmationDialog`) with destructive action styling.
+  - Single-sheet guard rail: Strictly prevents deleting the only sheet in a workbook.
+  - Automatic neighbor selection: Switches active sheet to an adjacent sheet upon deletion.
+  - Storage cleanup: Purges sheet record from IndexedDB preventing orphaned data.
+- [x] **Reordering & Drag-and-Drop (`reorderSheets`, `moveSheet`)**:
+  - Drag and drop tabs left/right with visual insertion line indicator.
+  - Accessible "Move Left" and "Move Right" context menu options.
+  - Updates `workbook.sheetIds` and `sheet.index` order in IndexedDB.
+- [x] **Tab Colors (`setSheetTabColor`, `TabColorPickerPopover.tsx`)**:
+  - 16-color curated palette + custom hex picker + "No Color" reset.
+  - Persists in `sheet.metadata.tabColor`.
+- [x] **Hide and Unhide Worksheets (`hideSheet`, `unhideSheet`, `UnhideSheetsDialog.tsx`)**:
+  - Context menu "Hide Sheet" hides tab from tab bar while preserving all data.
+  - Single visible sheet guard rail: Prevents hiding the only visible sheet in a workbook.
+  - "Unhide Worksheets..." dialog modal displaying hidden worksheets with one-click restoration.
 
 ---
 
@@ -65,32 +68,33 @@ All features are local-first, privacy-preserving, and rigorously verified across
 | :--- | :--- | :---: | :--- |
 | **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
 | **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors or warnings. |
-| **Vitest Test Suite** | `vitest run` | **PASS** | **36 test files, 225/225 tests passed (100%).** |
-| **Production Build** | `vite build` | **PASS** | Clean build with PWA service worker (559.69 kB JS, 43.70 kB CSS). |
-| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Verified toolbar, font/colors, borders/align, number formats, merged cells, format painter, and dark theme. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **38 test files, 252/252 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean build with PWA service worker (587.05 kB JS, 44.44 kB CSS). |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | All 8 visual deliverables verified in light and dark themes. |
 
 ---
 
 ## 4. Visual Verification Deliverables
 
-All 7 required visual verification screenshots have been captured and placed in the project artifact directory:
+All 8 required visual verification screenshots have been captured and placed in the project artifact directory:
 
-1. `omnisheet_stage7_toolbar.png`: Complete formatting toolbar with all font, color, border, alignment, merge, number format, format painter, and preset controls.
-2. `omnisheet_stage7_font_color.png`: Font styling (Bold, custom font size 14/16pt, custom text colors, background fills).
-3. `omnisheet_stage7_borders_align.png`: Cell borders (all borders, thick bottom borders) and horizontal/vertical alignments with wrap text.
-4. `omnisheet_stage7_number_format.png`: Number formats applied (Currency `$1,250,000.50`, Percentage `18.50%` and `24.00%`).
-5. `omnisheet_stage7_merged_cells.png`: Merged header cell spanning multiple columns with centered title and expanded selection outline.
-6. `omnisheet_stage7_format_painter.png`: Format Painter in action copying styles between cells while preserving cell values.
-7. `omnisheet_stage7_dark_theme.png`: Dark theme mode rendering formatted text, fills, borders, merged cells, and toolbar with high contrast and legibility.
+1. `omnisheet_stage8_tab_bar.png`: Worksheet tab bar at the bottom with multiple tabs, scroll buttons, all sheets quick jump button, '+' button, and status indicator.
+2. `omnisheet_stage8_create_rename.png`: Inline renaming of a worksheet tab with focused input and validation.
+3. `omnisheet_stage8_context_menu.png`: Right-click context menu open on a worksheet tab showing all actions (Insert Sheet, Rename, Duplicate, Delete, Move Left, Move Right, Tab Color, Hide Sheet, Unhide).
+4. `omnisheet_stage8_duplicate.png`: Duplicated worksheet active with data and formatting intact.
+5. `omnisheet_stage8_reordering.png`: Reordered worksheets showing modified sheet order.
+6. `omnisheet_stage8_tab_colors.png`: Worksheet tabs with colored accent bars along the bottom edge, and Tab Color picker popover open.
+7. `omnisheet_stage8_hide_unhide.png`: Unhide Worksheets dialog modal open showing hidden sheets to restore.
+8. `omnisheet_stage8_dark_theme.png`: Dark theme mode rendering worksheet tabs, tab color bars, active indicators, and context menu.
 
 ---
 
-## 5. Architectural Boundaries for Stage 7
+## 5. Architectural Boundaries for Stage 8
 
 As strictly mandated by the roadmap:
-- Conditional formatting rules, data bars, color scales, icon sets: **Stage 8**.
-- Sorting, filtering, search/replace, and data validation: **Stage 8 / 9**.
-- Charts and graphs: **Stage 10**.
-- Cross-sheet formulas and 3D references: **Stage 11**.
-- XLSX / CSV binary import and export: **Stage 12**.
+- Cross-sheet formula references (e.g. `=Sheet1!A1 + Sheet2!B2`): Scheduled for **Stage 11**.
+- Conditional formatting rules, data bars, color scales: Scheduled for **Stage 9 / 10**.
+- Sorting, filtering, search/replace, and data validation: Scheduled for **Stage 9 / 10**.
+- Charts and graphs: Scheduled for **Stage 10**.
+- XLSX / CSV binary import and export: Scheduled for **Stage 12**.
 - Full undo/redo transaction history stack: **Future Stages**.

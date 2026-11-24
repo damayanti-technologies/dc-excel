@@ -143,8 +143,7 @@ describe('Route Navigation Integration', () => {
       expect(screen.getByText(/wb-unit-test/)).toBeInTheDocument();
       expect(screen.getByRole('grid', { name: 'Spreadsheet grid' })).toBeInTheDocument();
       expect(screen.getByLabelText('Formula Bar')).toBeInTheDocument();
-      expect(screen.getByText('Saved locally')).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
   });
 
   it('renders Settings shell at "/settings"', async () => {

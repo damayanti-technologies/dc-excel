@@ -12,3 +12,6 @@ export * from './BorderPickerPopover';
 export * from './CellStylesMenu';
 export * from './MergeConfirmDialog';
 export * from './MobileFormattingPanel';
+export * from './TabColorPickerPopover';
+export * from './UnhideSheetsDialog';
+export * from './AllSheetsMenu';

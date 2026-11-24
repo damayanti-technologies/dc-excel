@@ -28,6 +28,7 @@ import {
 } from '@/engine/formatting/merge-cells';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import {
   WorkbookHeader,
   SpreadsheetToolbar,
@@ -37,7 +38,8 @@ import {
   SheetTabsBar,
   FormulaReferencePanel,
   MergeConfirmDialog,
-  MobileFormattingPanel
+  MobileFormattingPanel,
+  UnhideSheetsDialog
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -83,6 +85,8 @@ export const SpreadsheetPage: React.FC = () => {
   const [pendingMergeMode, setPendingMergeMode] = useState<'all' | 'across' | 'center'>('all');
   const [pendingMergeRange, setPendingMergeRange] = useState<CellRange | null>(null);
   const [isMobileFormattingOpen, setIsMobileFormattingOpen] = useState(false);
+  const [sheetToDelete, setSheetToDelete] = useState<Sheet | null>(null);
+  const [isUnhideDialogOpen, setIsUnhideDialogOpen] = useState(false);
 
   // Format painter store
   const isFormatPainterActive = useFormatPainterStore((state) => state.isActive);
@@ -309,21 +313,222 @@ export const SpreadsheetPage: React.FC = () => {
   };
 
   // 4. Add new sheet
-  const handleAddSheet = async () => {
+  const handleAddSheet = async (insertAfterSheetId?: string) => {
     if (!workbook) return;
     try {
       if (activeSheet) {
         await workbookService.saveSheet(activeSheet);
       }
 
-      const newSheet = await workbookService.addSheet(workbook.id);
+      const newSheet = await workbookService.addSheet(workbook.id, undefined, insertAfterSheetId);
       const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
       setSheets(updatedSheets);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+
       setActiveSheet(newSheet);
       setActiveCell({ row: 0, col: 0 });
       toast.success('Sheet Added', `Created "${newSheet.name}".`);
-    } catch {
-      toast.error('Error', 'Could not add new sheet.');
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'Could not add new sheet.');
+    }
+  };
+
+  // 4b. Rename sheet
+  const handleRenameSheet = async (sheetId: string, newName: string) => {
+    if (!workbook) return;
+    try {
+      const renamed = await workbookService.renameSheet(workbook.id, sheetId, newName);
+      const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
+      setSheets(updatedSheets);
+
+      if (activeSheet && activeSheet.id === sheetId) {
+        setActiveSheet({ ...activeSheet, name: renamed.name });
+      }
+      toast.success('Sheet Renamed', `Renamed to "${renamed.name}".`);
+    } catch (err) {
+      toast.error('Rename Failed', err instanceof Error ? err.message : 'Could not rename sheet.');
+      throw err;
+    }
+  };
+
+  // 4c. Duplicate sheet
+  const handleDuplicateSheet = async (sheetId: string) => {
+    if (!workbook) return;
+    try {
+      if (activeSheet) {
+        await workbookService.saveSheet(activeSheet);
+      }
+
+      const duplicated = await workbookService.duplicateSheet(workbook.id, sheetId);
+      const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
+      setSheets(updatedSheets);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+
+      const { updatedCells } = calculationEngine.recalculateSheet(duplicated);
+      const target = { ...duplicated, cells: updatedCells };
+      setActiveSheet(target);
+      setActiveCell({ row: 0, col: 0 });
+      toast.success('Sheet Duplicated', `Created "${duplicated.name}".`);
+    } catch (err) {
+      toast.error('Duplicate Failed', err instanceof Error ? err.message : 'Could not duplicate sheet.');
+    }
+  };
+
+  // 4d. Confirm and delete sheet
+  const handleConfirmDeleteSheet = async () => {
+    if (!workbook || !sheetToDelete) return;
+    try {
+      const deletedName = sheetToDelete.name;
+      const { remainingSheets, nextActiveSheetId } = await workbookService.deleteSheet(
+        workbook.id,
+        sheetToDelete.id
+      );
+
+      setSheets(remainingSheets);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+
+      if (activeSheet && activeSheet.id === sheetToDelete.id) {
+        let next = remainingSheets.find((s) => s.id === nextActiveSheetId) || remainingSheets[0];
+        if (next) {
+          const { updatedCells } = calculationEngine.recalculateSheet(next);
+          next = { ...next, cells: updatedCells };
+          setActiveSheet(next);
+          setActiveCell({ row: 0, col: 0 });
+        }
+      }
+
+      setSheetToDelete(null);
+      toast.success('Sheet Deleted', `Deleted "${deletedName}".`);
+    } catch (err) {
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Could not delete sheet.');
+    }
+  };
+
+  // 4e. Move sheet left/right
+  const handleMoveSheet = async (sheetId: string, direction: 'left' | 'right') => {
+    if (!workbook) return;
+    try {
+      const updated = await workbookService.moveSheet(workbook.id, sheetId, direction);
+      setSheets(updated);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+    } catch (err) {
+      toast.error('Move Failed', err instanceof Error ? err.message : 'Could not reorder sheet.');
+    }
+  };
+
+  // 4f. Drag & Drop reorder sheets
+  const handleReorderSheets = async (reorderedIds: string[]) => {
+    if (!workbook) return;
+    try {
+      const updated = await workbookService.reorderSheets(workbook.id, reorderedIds);
+      setSheets(updated);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+    } catch (err) {
+      toast.error('Reorder Failed', err instanceof Error ? err.message : 'Could not reorder sheets.');
+    }
+  };
+
+  // 4g. Set tab color
+  const handleSetTabColor = async (sheetId: string, color: string | null) => {
+    try {
+      const updated = await workbookService.setSheetTabColor(sheetId, color);
+      setSheets((prev) => prev.map((s) => (s.id === sheetId ? updated : s)));
+
+      if (activeSheet && activeSheet.id === sheetId) {
+        setActiveSheet({
+          ...activeSheet,
+          metadata: {
+            ...(activeSheet.metadata || {}),
+            tabColor: color || undefined
+          }
+        });
+      }
+      toast.success('Tab Color', color ? 'Worksheet tab color updated.' : 'Tab color reset.');
+    } catch (err) {
+      toast.error('Color Failed', err instanceof Error ? err.message : 'Could not set tab color.');
+    }
+  };
+
+  // 4h. Hide sheet
+  const handleHideSheet = async (sheetId: string) => {
+    if (!workbook) return;
+    try {
+      const { updatedSheet, nextActiveSheetId } = await workbookService.hideSheet(
+        workbook.id,
+        sheetId
+      );
+
+      const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
+      setSheets(updatedSheets);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+
+      if (activeSheet && activeSheet.id === sheetId) {
+        let next = updatedSheets.find((s) => s.id === nextActiveSheetId);
+        if (next) {
+          const { updatedCells } = calculationEngine.recalculateSheet(next);
+          next = { ...next, cells: updatedCells };
+          setActiveSheet(next);
+          setActiveCell({ row: 0, col: 0 });
+        }
+      }
+
+      toast.success('Sheet Hidden', `"${updatedSheet.name}" is now hidden.`);
+    } catch (err) {
+      toast.error('Hide Failed', err instanceof Error ? err.message : 'Could not hide sheet.');
+    }
+  };
+
+  // 4i. Unhide sheet
+  const handleUnhideSheet = async (sheetId: string) => {
+    if (!workbook) return;
+    try {
+      const unhidden = await workbookService.unhideSheet(workbook.id, sheetId);
+      const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
+      setSheets(updatedSheets);
+
+      const updatedWb = await workbookService.getWorkbook(workbook.id);
+      if (updatedWb) {
+        setWorkbook(updatedWb);
+        setCurrentWorkbook(updatedWb);
+      }
+
+      const { updatedCells } = calculationEngine.recalculateSheet(unhidden);
+      const target = { ...unhidden, cells: updatedCells };
+      setActiveSheet(target);
+      setActiveCell({ row: 0, col: 0 });
+      toast.success('Sheet Restored', `"${unhidden.name}" is now visible.`);
+    } catch (err) {
+      toast.error('Unhide Failed', err instanceof Error ? err.message : 'Could not unhide sheet.');
     }
   };
 
@@ -341,6 +546,18 @@ export const SpreadsheetPage: React.FC = () => {
         target = { ...target, cells: updatedCells };
         setActiveSheet(target);
         setActiveCell({ row: 0, col: 0 });
+
+        // Update activeSheetId on workbook in store/storage
+        if (workbook) {
+          const updatedWb: Workbook = {
+            ...workbook,
+            activeSheetId: sheetId,
+            updatedAt: Date.now()
+          };
+          await workbookService.saveSheet(target);
+          setWorkbook(updatedWb);
+          setCurrentWorkbook(updatedWb);
+        }
       }
     } catch {
       toast.error('Error', 'Could not switch sheet.');
@@ -681,7 +898,15 @@ export const SpreadsheetPage: React.FC = () => {
         sheets={sheets}
         activeSheetId={activeSheet.id}
         onSelectSheet={(sheetId) => void handleSelectSheet(sheetId)}
-        onAddSheet={() => void handleAddSheet()}
+        onAddSheet={(insertAfterSheetId) => void handleAddSheet(insertAfterSheetId)}
+        onRenameSheet={handleRenameSheet}
+        onDuplicateSheet={handleDuplicateSheet}
+        onDeleteSheetRequest={(sheet) => setSheetToDelete(sheet)}
+        onMoveSheet={handleMoveSheet}
+        onReorderSheets={handleReorderSheets}
+        onSetTabColor={handleSetTabColor}
+        onHideSheet={handleHideSheet}
+        onOpenUnhideDialog={() => setIsUnhideDialogOpen(true)}
       />
 
       {/* 7. Formula Reference Panel Modal */}
@@ -705,6 +930,31 @@ export const SpreadsheetPage: React.FC = () => {
         activeStyle={currentCellData?.style}
         onApplyStyle={handleApplyStyle}
         onClearFormatting={handleClearFormatting}
+      />
+
+      {/* 10. Delete Worksheet Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={Boolean(sheetToDelete)}
+        onClose={() => setSheetToDelete(null)}
+        onConfirm={handleConfirmDeleteSheet}
+        title="Delete Worksheet"
+        message={
+          <span>
+            Are you sure you want to permanently delete{' '}
+            <strong className="text-foreground">{sheetToDelete?.name}</strong>?
+            All data, cells, and formatting in this sheet will be permanently removed.
+          </span>
+        }
+        confirmLabel="Delete"
+        isDestructive={true}
+      />
+
+      {/* 11. Unhide Worksheets Dialog */}
+      <UnhideSheetsDialog
+        isOpen={isUnhideDialogOpen}
+        onClose={() => setIsUnhideDialogOpen(false)}
+        hiddenSheets={sheets.filter((s) => s.metadata?.isHidden)}
+        onUnhide={(sheetId) => void handleUnhideSheet(sheetId)}
       />
     </div>
   );
