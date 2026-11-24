@@ -21,6 +21,9 @@ import { FormulaAutocomplete } from './FormulaAutocomplete';
 import { FormulaArgumentHelp } from './FormulaArgumentHelp';
 import { CellValidationDropdown } from './CellValidationDropdown';
 import { evaluateConditionalFormatting } from '@/engine/analysis/conditional-formatting';
+import { NamedRange, PivotTableConfig } from '@/types/analysis';
+import { ChartConfig, ChartPositionConfig } from '@/types/chart';
+import { ChartOverlay } from './ChartOverlay';
 import { cn } from '@/utils/cn';
 
 function getBorderCss(borders?: CellBorders): React.CSSProperties {
@@ -68,6 +71,18 @@ interface SpreadsheetGridProps {
   onOpenColumnFilter?: (col: number) => void;
   onUpdateCellValue?: (row: number, col: number, value: string | number) => void;
   onToggleRowGroup?: (groupIndex: number) => void;
+  // Chart integration (Stage 11)
+  selectedChartId?: string | null;
+  onSelectChart?: (chartId: string | null) => void;
+  onEditChart?: (chart: ChartConfig) => void;
+  onDeleteChart?: (chartId: string) => void;
+  onDuplicateChart?: (chartId: string) => void;
+  onBringForwardChart?: (chartId: string) => void;
+  onSendBackwardChart?: (chartId: string) => void;
+  onUpdateChartPosition?: (chartId: string, position: ChartPositionConfig) => void;
+  onExportChart?: (chart: ChartConfig) => void;
+  namedRangeResolver?: (name: string) => NamedRange | null;
+  pivotTables?: PivotTableConfig[];
 }
 
 export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
@@ -95,7 +110,18 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onClearCell,
   onOpenColumnFilter,
   onUpdateCellValue,
-  onToggleRowGroup
+  onToggleRowGroup,
+  selectedChartId,
+  onSelectChart,
+  onEditChart,
+  onDeleteChart,
+  onDuplicateChart,
+  onBringForwardChart,
+  onSendBackwardChart,
+  onUpdateChartPosition,
+  onExportChart,
+  namedRangeResolver,
+  pivotTables,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
@@ -1105,6 +1131,27 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
               height: 2
             }}
             className="bg-accent shadow-xs z-30 pointer-events-none border-b border-dashed border-accent"
+          />
+        )}
+
+        {/* 9. Floating Chart Object Layer (Stage 11) */}
+        {sheet.metadata?.charts && sheet.metadata.charts.length > 0 && (
+          <ChartOverlay
+            sheet={sheet}
+            zoom={zoom}
+            selectedChartId={selectedChartId || null}
+            onSelectChart={onSelectChart || (() => {})}
+            onEditChart={onEditChart || (() => {})}
+            onDeleteChart={onDeleteChart || (() => {})}
+            onDuplicateChart={onDuplicateChart || (() => {})}
+            onBringForward={onBringForwardChart || (() => {})}
+            onSendBackward={onSendBackwardChart || (() => {})}
+            onUpdatePosition={onUpdateChartPosition || (() => {})}
+            onExportChart={onExportChart || (() => {})}
+            namedRangeResolver={namedRangeResolver}
+            pivotTables={pivotTables}
+            getColOffset={(col, z) => virtualizer.getColOffset(col, z)}
+            getRowOffset={(row, z) => virtualizer.getRowOffset(row, z)}
           />
         )}
       </div>

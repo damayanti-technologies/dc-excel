@@ -7,3 +7,4 @@ export * from './storage';
 export * from './engine';
 export * from './data-tools';
 export * from './analysis';
+export * from './chart';

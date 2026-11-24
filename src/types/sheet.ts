@@ -1,6 +1,7 @@
 import { CellRange, SparseCellMap } from './cell';
 import { FreezePaneConfig, FilterConfig, DataValidationRule } from './data-tools';
 import { ConditionalFormatRule, RowGroup, SubtotalConfig, PivotTableConfig } from './analysis';
+import { ChartConfig } from './chart';
 
 export type { CellRange, SparseCellMap };
 
@@ -22,6 +23,7 @@ export interface SheetMetadata {
   rowGroups?: RowGroup[];
   subtotals?: SubtotalConfig;
   pivotTables?: PivotTableConfig[];
+  charts?: ChartConfig[];
 }
 
 /**

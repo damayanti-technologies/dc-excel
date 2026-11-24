@@ -8,6 +8,7 @@ import {
   SubtotalConfig,
   PivotTableConfig,
 } from '@/types/analysis';
+import { ChartConfig } from '@/types/chart';
 import {
   insertRow as insertRowOp,
   deleteRow as deleteRowOp,
@@ -47,6 +48,14 @@ interface SheetState {
   addPivotTable: (pivot: PivotTableConfig) => void;
   updatePivotTable: (pivot: PivotTableConfig) => void;
   deletePivotTable: (id: string) => void;
+
+  // Chart actions (Stage 11)
+  addChart: (chart: ChartConfig) => void;
+  updateChart: (chartId: string, updates: Partial<ChartConfig>) => void;
+  deleteChart: (chartId: string) => void;
+  duplicateChart: (chartId: string) => void;
+  bringChartForward: (chartId: string) => void;
+  sendChartBackward: (chartId: string) => void;
 
   clearSheet: () => void;
 }
@@ -330,6 +339,138 @@ export const useSheetStore = create<SheetState>((set) => ({
           metadata: {
             ...(state.activeSheet.metadata || {}),
             pivotTables: currentPivots.filter((p) => p.id !== id),
+          },
+        },
+      };
+    }),
+
+  // Chart Actions (Stage 11)
+  addChart: (chart) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: [...currentCharts, chart],
+          },
+        },
+      };
+    }),
+
+  updateChart: (chartId, updates) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: currentCharts.map((c) =>
+              c.id === chartId ? { ...c, ...updates, updatedAt: Date.now() } : c
+            ),
+          },
+        },
+      };
+    }),
+
+  deleteChart: (chartId) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: currentCharts.filter((c) => c.id !== chartId),
+          },
+        },
+      };
+    }),
+
+  duplicateChart: (chartId) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      const target = currentCharts.find((c) => c.id === chartId);
+      if (!target) return state;
+
+      const maxZ = currentCharts.reduce((max, c) => Math.max(max, c.position.zIndex || 10), 10);
+      const duplicate: ChartConfig = {
+        ...target,
+        id: `chart_${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`,
+        title: {
+          ...target.title,
+          text: `${target.title.text || 'Chart'} (Copy)`,
+        },
+        position: {
+          ...target.position,
+          offsetX: target.position.offsetX + 24,
+          offsetY: target.position.offsetY + 24,
+          zIndex: maxZ + 1,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: [...currentCharts, duplicate],
+          },
+        },
+      };
+    }),
+
+  bringChartForward: (chartId) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      const maxZ = currentCharts.reduce((max, c) => Math.max(max, c.position.zIndex || 10), 10);
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: currentCharts.map((c) =>
+              c.id === chartId
+                ? {
+                    ...c,
+                    position: { ...c.position, zIndex: maxZ + 1 },
+                    updatedAt: Date.now(),
+                  }
+                : c
+            ),
+          },
+        },
+      };
+    }),
+
+  sendChartBackward: (chartId) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const currentCharts = state.activeSheet.metadata?.charts || [];
+      const minZ = currentCharts.reduce((min, c) => Math.min(min, c.position.zIndex || 10), 10);
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          metadata: {
+            ...(state.activeSheet.metadata || {}),
+            charts: currentCharts.map((c) =>
+              c.id === chartId
+                ? {
+                    ...c,
+                    position: { ...c.position, zIndex: Math.max(1, minZ - 1) },
+                    updatedAt: Date.now(),
+                  }
+                : c
+            ),
           },
         },
       };

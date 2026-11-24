@@ -30,3 +30,8 @@ export * from './PivotTableDialog';
 export * from './SubtotalsDialog';
 export * from './GoalSeekDialog';
 export * from './ScenarioManagerDialog';
+export * from './ChartView';
+export * from './ChartOverlay';
+export * from './InsertChartDialog';
+export * from './ChartEditorDialog';
+export * from './InsertToolbar';

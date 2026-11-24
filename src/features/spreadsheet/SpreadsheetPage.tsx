@@ -34,6 +34,7 @@ import {
   SubtotalConfig,
   Scenario,
 } from '@/types/analysis';
+import { ChartConfig, ChartPositionConfig } from '@/types/chart';
 import {
   resolveNamedRange,
   generatePivotTable,
@@ -79,6 +80,9 @@ import {
   SubtotalsDialog,
   GoalSeekDialog,
   ScenarioManagerDialog,
+  InsertToolbar,
+  InsertChartDialog,
+  ChartEditorDialog,
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -103,6 +107,12 @@ export const SpreadsheetPage: React.FC = () => {
   const toggleRowGroupCollapse = useSheetStore((state) => state.toggleRowGroupCollapse);
   const setSubtotals = useSheetStore((state) => state.setSubtotals);
   const addPivotTable = useSheetStore((state) => state.addPivotTable);
+  const addChart = useSheetStore((state) => state.addChart);
+  const updateChart = useSheetStore((state) => state.updateChart);
+  const deleteChart = useSheetStore((state) => state.deleteChart);
+  const duplicateChart = useSheetStore((state) => state.duplicateChart);
+  const bringChartForward = useSheetStore((state) => state.bringChartForward);
+  const sendChartBackward = useSheetStore((state) => state.sendChartBackward);
 
   const activeCell = useSelectionStore((state) => state.activeCell);
   const anchorCell = useSelectionStore((state) => state.anchorCell);
@@ -142,7 +152,7 @@ export const SpreadsheetPage: React.FC = () => {
   const [isUnhideDialogOpen, setIsUnhideDialogOpen] = useState(false);
 
   // Ribbon & Data Tools State
-  const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'data'>('home');
+  const [activeRibbonTab, setActiveRibbonTab] = useState<'home' | 'insert' | 'data'>('home');
   const [isCustomSortOpen, setIsCustomSortOpen] = useState(false);
   const [isRemoveDuplicatesOpen, setIsRemoveDuplicatesOpen] = useState(false);
   const [isDataValidationOpen, setIsDataValidationOpen] = useState(false);
@@ -160,6 +170,12 @@ export const SpreadsheetPage: React.FC = () => {
   const [isSubtotalsOpen, setIsSubtotalsOpen] = useState(false);
   const [isGoalSeekOpen, setIsGoalSeekOpen] = useState(false);
   const [isScenarioManagerOpen, setIsScenarioManagerOpen] = useState(false);
+
+  // Stage 11 Charts State
+  const [isInsertChartOpen, setIsInsertChartOpen] = useState(false);
+  const [isChartEditorOpen, setIsChartEditorOpen] = useState(false);
+  const [selectedChartId, setSelectedChartId] = useState<string | null>(null);
+  const [editingChart, setEditingChart] = useState<ChartConfig | null>(null);
 
   const namedRangeResolver = useCallback(
     (name: string) => {
@@ -1417,6 +1433,81 @@ export const SpreadsheetPage: React.FC = () => {
     deactivateFormatPainter
   ]);
 
+  // Stage 11: Chart Handlers
+  const handleInsertChart = useCallback(
+    (chart: ChartConfig) => {
+      addChart(chart);
+      setSelectedChartId(chart.id);
+      toast.success('Chart Inserted', `Added ${chart.title.text || chart.chartType} to sheet.`);
+    },
+    [addChart]
+  );
+
+  const handleUpdateChartPosition = useCallback(
+    (chartId: string, position: ChartPositionConfig) => {
+      updateChart(chartId, { position });
+    },
+    [updateChart]
+  );
+
+  const handleEditChart = useCallback((chart: ChartConfig) => {
+    setEditingChart(chart);
+    setIsChartEditorOpen(true);
+  }, []);
+
+  const handleDeleteChart = useCallback(
+    (chartId: string) => {
+      deleteChart(chartId);
+      if (selectedChartId === chartId) setSelectedChartId(null);
+      toast.info('Chart Deleted', 'Chart removed from worksheet.');
+    },
+    [deleteChart, selectedChartId]
+  );
+
+  const handleDuplicateChart = useCallback(
+    (chartId: string) => {
+      duplicateChart(chartId);
+      toast.success('Chart Duplicated', 'Created copy of chart.');
+    },
+    [duplicateChart]
+  );
+
+  const handleBringForwardChart = useCallback(
+    (chartId: string) => {
+      bringChartForward(chartId);
+    },
+    [bringChartForward]
+  );
+
+  const handleSendBackwardChart = useCallback(
+    (chartId: string) => {
+      sendChartBackward(chartId);
+    },
+    [sendChartBackward]
+  );
+
+  const handleExportChart = useCallback((chart: ChartConfig) => {
+    setEditingChart(chart);
+    setIsChartEditorOpen(true);
+  }, []);
+
+  // Keyboard shortcut: Delete selected chart with Delete/Backspace key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedChartId && !editingCell) {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          const activeTag = document.activeElement?.tagName;
+          if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+            e.preventDefault();
+            handleDeleteChart(selectedChartId);
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedChartId, editingCell, handleDeleteChart]);
+
   if (isLoading) {
     return <LoadingState message="Loading spreadsheet grid..." />;
   }
@@ -1462,6 +1553,17 @@ export const SpreadsheetPage: React.FC = () => {
         </button>
         <button
           type="button"
+          onClick={() => setActiveRibbonTab('insert')}
+          className={`px-3 py-1 rounded-t-md transition-colors ${
+            activeRibbonTab === 'insert'
+              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Insert
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveRibbonTab('data')}
           className={`px-3 py-1 rounded-t-md transition-colors ${
             activeRibbonTab === 'data'
@@ -1490,7 +1592,7 @@ export const SpreadsheetPage: React.FC = () => {
         onDeleteCol={handleDeleteCol}
       />
 
-      {/* 3. Conditional Ribbon Toolbar: Home vs Data */}
+      {/* 3. Conditional Ribbon Toolbar: Home vs Insert vs Data */}
       {activeRibbonTab === 'home' ? (
         <FormattingToolbar
           activeStyle={currentCellData?.style}
@@ -1502,6 +1604,12 @@ export const SpreadsheetPage: React.FC = () => {
           onMerge={handleMerge}
           onUnmerge={handleUnmerge}
           onOpenMobilePanel={() => setIsMobileFormattingOpen(true)}
+        />
+      ) : activeRibbonTab === 'insert' ? (
+        <InsertToolbar
+          onOpenInsertChart={() => setIsInsertChartOpen(true)}
+          onOpenPivotTable={() => setIsPivotTableOpen(true)}
+          onOpenFormulaReference={() => setIsReferenceOpen(true)}
         />
       ) : (
         <DataToolbar
@@ -1592,6 +1700,17 @@ export const SpreadsheetPage: React.FC = () => {
           onOpenColumnFilter={(col) => setActiveFilterCol(col)}
           onUpdateCellValue={handleUpdateCellValue}
           onToggleRowGroup={handleToggleRowGroup}
+          selectedChartId={selectedChartId}
+          onSelectChart={setSelectedChartId}
+          onEditChart={handleEditChart}
+          onDeleteChart={handleDeleteChart}
+          onDuplicateChart={handleDuplicateChart}
+          onBringForwardChart={handleBringForwardChart}
+          onSendBackwardChart={handleSendBackwardChart}
+          onUpdateChartPosition={handleUpdateChartPosition}
+          onExportChart={handleExportChart}
+          namedRangeResolver={namedRangeResolver}
+          pivotTables={activeSheet.metadata?.pivotTables}
         />
       </div>
 
@@ -1802,6 +1921,33 @@ export const SpreadsheetPage: React.FC = () => {
         onApplyScenario={handleApplyScenario}
         onComputeScenarioResults={handleComputeScenarioResults}
         onClose={() => setIsScenarioManagerOpen(false)}
+      />
+
+      {/* 25. Insert Chart Dialog (Stage 11) */}
+      <InsertChartDialog
+        isOpen={isInsertChartOpen}
+        onClose={() => setIsInsertChartOpen(false)}
+        onInsert={handleInsertChart}
+        activeSheet={activeSheet}
+        activeCell={activeCell}
+        selectedRange={selectedRange}
+        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
+        pivotTables={activeSheet.metadata?.pivotTables || []}
+        namedRangeResolver={namedRangeResolver}
+      />
+
+      {/* 26. Chart Editor Dialog (Stage 11) */}
+      <ChartEditorDialog
+        isOpen={isChartEditorOpen}
+        onClose={() => {
+          setIsChartEditorOpen(false);
+          setEditingChart(null);
+        }}
+        chart={editingChart}
+        onUpdateChart={(chartId, updates) => updateChart(chartId, updates)}
+        activeSheet={activeSheet}
+        namedRangeResolver={namedRangeResolver}
+        pivotTables={activeSheet.metadata?.pivotTables || []}
       />
     </div>
   );
