@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Upload, Sparkles, Database, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { ImportDialog } from '@/features/spreadsheet/components/ImportDialog';
+import { toast } from '@/stores/toast-store';
 
 export const DashboardWelcome: React.FC = () => {
+  const navigate = useNavigate();
   const openCreateWorkbook = useWorkspaceStore((state) => state.openCreateWorkbook);
-  const [isOpenInfoModalOpen, setIsOpenInfoModalOpen] = useState(false);
+  const loadWorkspaceData = useWorkspaceStore((state) => state.loadWorkspaceData);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+
+  const handleImportSuccess = (result: any) => {
+    toast.success(`Imported "${result.workbookName}" (${result.sheetCount} sheet${result.sheetCount === 1 ? '' : 's'})`);
+    loadWorkspaceData();
+    if (result.workbookId) {
+      navigate(`/workbook/${result.workbookId}`);
+    }
+  };
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border bg-linear-to-b from-surface-elevated to-surface p-6 sm:p-8 shadow-xs">
@@ -55,37 +67,19 @@ export const DashboardWelcome: React.FC = () => {
             variant="outline"
             size="md"
             leftIcon={<Upload className="w-4 h-4" />}
-            onClick={() => setIsOpenInfoModalOpen(true)}
+            onClick={() => setIsImportDialogOpen(true)}
           >
-            Open Existing Workbook
+            Import File (.xlsx / .csv)
           </Button>
         </div>
       </div>
 
-      {/* Excel Import Information Modal (Stage 12 Placeholder) */}
-      <Modal
-        isOpen={isOpenInfoModalOpen}
-        onClose={() => setIsOpenInfoModalOpen(false)}
-        title="Open Existing Workbook File"
-        description="Local XLSX and CSV import capabilities"
-        footer={
-          <Button variant="accent" size="sm" onClick={() => setIsOpenInfoModalOpen(false)}>
-            Understood
-          </Button>
-        }
-      >
-        <div className="space-y-3 py-1">
-          <p className="text-xs sm:text-sm text-foreground-secondary leading-relaxed">
-            Direct parsing of local <strong>.xlsx</strong> and <strong>.csv</strong> files is scheduled for
-            <strong> Stage 12: Import & Export</strong>.
-          </p>
-          <div className="p-3 rounded-lg bg-surface-secondary border border-border text-xs text-foreground-muted space-y-1.5">
-            <div className="font-semibold text-foreground">Currently Available:</div>
-            <div>• All workbooks created here are persistently stored locally in your browser’s IndexedDB.</div>
-            <div>• You can create unlimited workbooks, organize them into folders, duplicate, and rename them right now.</div>
-          </div>
-        </div>
-      </Modal>
+      {/* Import Spreadsheet Modal */}
+      <ImportDialog
+        isOpen={isImportDialogOpen}
+        onClose={() => setIsImportDialogOpen(false)}
+        onImportSuccess={handleImportSuccess}
+      />
     </div>
   );
 };

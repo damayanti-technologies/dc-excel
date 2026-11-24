@@ -35,3 +35,5 @@ export * from './ChartOverlay';
 export * from './InsertChartDialog';
 export * from './ChartEditorDialog';
 export * from './InsertToolbar';
+export * from './ImportDialog';
+export * from './ExportDialog';

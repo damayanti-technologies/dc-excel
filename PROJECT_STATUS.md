@@ -1,100 +1,66 @@
 # Project Status: OmniSheet
 
-**Current Stage:** **Stage 11: Charts & Data Visualization**  
+**Current Stage:** **Stage 12: Excel & CSV Import/Export**  
 **Status:** **Completed & Verified**  
-**Version:** `0.11.0`  
+**Version:** `0.12.0`  
 **Date:** November 2026  
 
 ---
 
 ## 1. Executive Summary
 
-Stage 11 brings desktop-class charting and visual analytics to OmniSheet using Apache ECharts. Users can select arbitrary cell ranges, named ranges, or pivot table outputs to generate live charts that exist as floating spreadsheet canvas objects.
+Stage 12 delivers professional Microsoft Excel (.xlsx, .xls) and delimited text (.csv, .tsv) import and export functionality to OmniSheet. Users can open external spreadsheet workbooks, preview multi-sheet structures, inspect live sample rows and compatibility reports, import sheets directly into local IndexedDB, and export entire workbooks or individual sheets to `.xlsx`, `.csv`, or `.tsv` files downloaded directly to their device.
 
-Charts stay reactive to underlying spreadsheet data changes, support interactive selection, move, resize, layer ordering (bring forward / send backward), and duplication. A full-featured Insert Chart dialog and Chart Editor dialog provide comprehensive customization across 18 chart variations, professional color palettes, template styles, custom series types for combination charts, and high-resolution PNG / SVG image export.
-
-All chart models and configurations are persisted in IndexedDB under worksheet metadata.
+All processing occurs 100% in-browser in client memory with zero server uploads or external telemetry, backed by a prominent Local-First Privacy Guarantee.
 
 ---
 
-## 2. Completed Features in Stage 11
+## 2. Completed Features in Stage 12
 
-### 2.1 Dedicated "Insert" Ribbon Toolbar (`InsertToolbar.tsx`)
-- [x] **Ribbon Tabs Switcher**:
-  - Expanded top navigation to: `Home` (Formatting Toolbar), `Insert` (Chart & Object Toolbar), and `Data` (Data Management & Analysis Toolbar).
-- [x] **Insert Ribbon Controls**:
-  - Primary **"Insert Chart"** action button.
-  - Quick chart type buttons: Column, Bar, Line, Area, Pie, Scatter, Combination.
-  - Direct shortcuts to Pivot Table and Formula Reference documentation.
+### 2.1 File Format Support
+- [x] **Microsoft Excel Import & Export (`.xlsx`, `.xls`)**:
+  - Full binary workbook parsing and generation powered by `exceljs`.
+  - Comprehensive cell styling: font family, font size, bold, italic, underline, strikethrough, textColor, fill background color, horizontal/vertical alignment, and text wrapping.
+  - Border style mapping: thin, medium, double, dashed with custom colors.
+  - Merged cell ranges preservation.
+  - Custom column widths and row heights.
+  - Freeze panes (`frozenRows`, `frozenCols`) preservation.
+  - Defined/Named ranges export and preservation.
+  - Formula preservation with re-evaluation on import via `CalculationEngine.recalculateSheet`.
+  - Informative compatibility warnings for external XLSX tools when sheets contain visual objects like charts or pivot tables.
 
-### 2.2 Comprehensive Chart Type Support (18 Variations)
-- [x] **Column Charts**:
-  - Clustered Columns
-  - Stacked Columns (`stack: 'total'`)
-  - 100% Stacked Columns (per-category percentage normalized)
-- [x] **Bar Charts**:
-  - Clustered Horizontal Bars
-  - Stacked Horizontal Bars
-  - 100% Stacked Horizontal Bars
-- [x] **Line Charts**:
-  - Standard Line
-  - Line with Data Markers
-  - Smooth Line (spline interpolation)
-- [x] **Area Charts**:
-  - Standard Area with translucent fill
-  - Stacked Area
-  - 100% Stacked Area
-- [x] **Pie & Doughnut Charts**:
-  - Standard Pie with percentage callout labels
-  - Modern Hollow Ring Doughnut
-- [x] **Scatter Charts**:
-  - Scatter Point XY correlation
-  - Scatter with Connecting Lines
-- [x] **Specialized Charts**:
-  - **Radar Chart**: Multi-variable spider chart with polygon area fills and indicator limits.
-  - **Combination Chart**: Dual-type series (Bar + Line) with optional secondary Y-axis.
-  - **Waterfall Chart**: Cumulative positive/negative delta tracking with transparent floating base bars.
-  - **Histogram**: Automatic frequency distribution binning.
-  - **Funnel Chart**: Pipeline stage conversion with sorted drop-offs.
-  - **Treemap Chart**: Hierarchical nested rectangles.
+### 2.2 RFC 4180 CSV & TSV Engine
+- [x] **Delimited Text Parser (`src/engine/io/csv-parser.ts`)**:
+  - RFC 4180 compliant parsing supporting custom delimiters (comma `,`, tab `\t`, semicolon `;`, pipe `|`).
+  - Quoted fields, escaped quotes (`""`), and embedded multiline newlines within quotes.
+  - Automatic delimiter detection based on character frequency analysis in header rows.
+  - Automatic type inference (numbers, booleans, dates) while safely preserving leading zeros (e.g. `"01234"` remains string to protect postal codes and identifiers).
+  - Native Unicode and Telugu text preservation (e.g., `రాష్ట్రం`, `నగరం`, `హైదరాబాద్`).
+- [x] **Formula Injection Protection (`serializeToCsv`)**:
+  - Text cells starting with dangerous DDE prefixes (`=`, `+`, `-`, `@`) are sanitized by prepending a single quote `'` on export.
+  - Genuine negative numbers (e.g. `-42`) are preserved without unnecessary quote prefixing.
+- [x] **UTF-8 Byte Order Mark (BOM)**:
+  - Optional `\uFEFF` BOM inclusion on CSV/TSV export so Microsoft Excel opens Unicode without mojibake.
 
-### 2.3 Chart Data Adapter (`src/engine/chart/chart-data-adapter.ts`)
-- [x] **Intelligent Range Detection (`detectChartDataRange`)**: Auto-detects tables from active cell or multi-cell selection.
-- [x] **Data Orientation**: Full support for Row-based and Column-based orientation.
-- [x] **Headers & Labels**: Configurable first row headers and first column category labels.
-- [x] **Value Normalization & Clean Parsing**: Strips currency symbols, handles commas, booleans, and null/empty cells.
-- [x] **Named Ranges Integration**: Resolves named ranges directly into coordinate matrices.
-- [x] **Pivot Table Integration**: Extracts aggregated multidimensional cross-tabulation metrics from pivot table definitions.
-
-### 2.4 Floating Canvas Object Layer (`ChartOverlay.tsx`, `SpreadsheetGrid.tsx`)
-- [x] **Spreadsheet Object Mechanics**:
-  - Anchored to worksheet grid coordinates (`anchorCell: { row, col }`, `offsetX`, `offsetY`).
-  - Stays accurately aligned during scrolling, zooming, resizing, and column/row height changes.
-- [x] **Direct Canvas Interactions**:
-  - Selection outline and 8-point resize handles (NW, N, NE, E, SE, S, SW, W).
-  - Drag-to-move header rail with real-time coordinate updates.
-  - Floating action toolbar: Edit, Bring Forward, Send Backward, Duplicate, Delete, and Export.
-  - Keyboard shortcut: `Delete` or `Backspace` deletes selected chart.
-
-### 2.5 Chart Editor & Customization (`ChartEditorDialog.tsx`)
-- [x] **Setup Tab**: Live chart type switcher, source range editing, orientation toggle, series list reordering, rename, and combination type assignment.
-- [x] **Customize Tab**:
-  - Preset Chart Styles: Professional, Minimal, Corporate, Modern, Monochrome, Presentation.
-  - Color Palettes: 6 curated high-contrast palettes with theme awareness.
-  - Title: Text, font size, bold, alignment (Left, Center, Right).
-  - Legend: Show/Hide, Position (Top, Bottom, Left, Right).
-  - Axes: Horizontal and Vertical titles, min/max bounds, gridlines, label rotation, and zoom slider.
-  - Series Styling: Custom series color pickers, markers, data labels, and line widths.
-- [x] **Export Tab**:
-  - PNG export at 1x, 2x (Retina), and 3x (Print 300 DPI) resolution.
-  - SVG scalable vector export.
-  - Transparent background toggle.
-  - One-click file download.
-
-### 2.6 Local-First Persistence & Dark Mode
-- [x] Stored in IndexedDB (`sheets` store under `sheet.metadata.charts`).
-- [x] Zero cloud dependencies or telemetry.
-- [x] Light and Dark theme support with automatic high-contrast axis, text, and tooltip adaptation.
+### 2.3 User Interface Modals
+- [x] **Import Dialog (`ImportDialog.tsx`)**:
+  - Drag-and-drop dropzone with format badges (`.XLSX`, `.CSV`, `.TSV`).
+  - Green Local-First Privacy Guarantee banner.
+  - File metadata & size inspection.
+  - Multi-sheet selection checklist with "Select All" and "Reset" controls.
+  - Live 10-row sample data preview table with sheet switcher.
+  - Delimited file controls: Delimiter dropdown, "First row contains headers", "Detect numbers & dates".
+  - Feature compatibility breakdown report (Cell values, formulas, styles, freeze panes) and warning notices.
+- [x] **Export Dialog (`ExportDialog.tsx`)**:
+  - Format selection cards: Excel (.xlsx), CSV (.csv), TSV (.tsv).
+  - Sheet selection checklist with "Select All" and "Include hidden sheets".
+  - Range scope toggle: "Export selected range only" when a range is active.
+  - Delimited options: Delimiter picker, "Include column headers", "Export raw formula expressions", "Formula injection protection", and "Include UTF-8 BOM".
+  - One-click file generation and browser download trigger with memory cleanup (`URL.revokeObjectURL`).
+- [x] **Integration Entry Points**:
+  - Dashboard hero banner (`DashboardWelcome`): Replaced placeholder with direct "Import File (.xlsx / .csv)" trigger.
+  - Application header (`WorkbookHeader`): Added "Import" and "Export" quick action buttons.
+  - Ribbon Data tab (`DataToolbar`): Added dedicated "Import" and "Export" action buttons.
 
 ---
 
@@ -103,32 +69,24 @@ All chart models and configurations are persisted in IndexedDB under worksheet m
 | Suite | Target | Status | Result |
 | :--- | :--- | :---: | :--- |
 | **TypeScript Strict Compilation** | `tsc --noEmit` | **PASS** | 0 errors across entire application and test suite. |
-| **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors, 0 warnings. |
-| **Vitest Test Suite** | `vitest run` | **PASS** | **57 test files, 385/385 tests passed (100%).** |
-| **Production Build** | `vite build` | **PASS** | Clean production build with PWA service worker in 5.95s. |
-| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | All 8 visual deliverables captured and verified. |
+| **ESLint 9** | `eslint "src/**/*.{ts,tsx}"` | **PASS** | 0 lint errors, 21 non-blocking any warnings. |
+| **Vitest Test Suite** | `vitest run` | **PASS** | **60 test files, 403/403 tests passed (100%).** |
+| **Production Build** | `vite build` | **PASS** | Clean production build with PWA service worker precaching (6 MB workbox limit). |
+| **Live Browser Verification** | `http://localhost:5173/` | **PASS** | Visual verification of ImportDialog, ExportDialog (Excel & CSV), and toolbar integration. |
 
 ---
 
 ## 4. Visual Verification Deliverables
 
-All 8 required visual verification screenshots have been captured and placed in the project artifact directory:
-
-1. `omnisheet_stage11_insert_chart_dialog.png`: Insert Chart dialog showing data range detection, chart categories, and live ECharts preview.
-2. `omnisheet_stage11_column_chart.png`: Clustered column chart rendered as a floating canvas card over worksheet data.
-3. `omnisheet_stage11_line_chart.png`: Line chart tracking multiple series trends over time.
-4. `omnisheet_stage11_pie_doughnut_chart.png`: Doughnut chart displaying proportional breakdown with percentages and legend.
-5. `omnisheet_stage11_chart_editor.png`: Comprehensive Chart Editor modal with Setup, Customize, and Export tabs.
-6. `omnisheet_stage11_chart_export.png`: High-resolution PNG and SVG export controls with resolution scale selector.
-7. `omnisheet_stage11_chart_move_resize.png`: Moving and resizing multiple charts concurrently on the sheet canvas.
-8. `omnisheet_stage11_dark_theme.png`: High-contrast dark theme rendering with dark background and crisp vector axes.
+1. `omnisheet_stage12_import_dialog.png`: Import modal showing dropzone, supported formats badges, and privacy guarantee banner.
+2. `omnisheet_stage12_export_excel.png`: Export modal in Excel (.xlsx) mode with multi-sheet checklist and filename customization.
+3. `omnisheet_stage12_export_csv.png`: Export modal in CSV mode showing delimiter selection, formula injection protection, and UTF-8 BOM controls.
 
 ---
 
-## 5. Architectural Boundaries for Stage 11
+## 5. Architectural Boundaries Maintained
 
-Strictly enforced out-of-scope boundaries:
-- Full XLSX binary file export: Scheduled for **Stage 12**.
-- Full CSV binary file export: Scheduled for **Stage 12**.
-- External database connections and cloud collaboration: Strictly out of scope.
-- Macros / VBA scripting: Strictly out of scope.
+- **Strictly In-Browser:** Zero server uploads, cloud sync (Google Drive / OneDrive), or telemetry.
+- **Pure Local-First:** All files parsed and generated in client RAM and persisted to IndexedDB.
+- **No VBA/Macros:** Macro execution blocked for security.
+- **Next Stage Preparation:** Stage 13 (Printing, PDF Export & Page Setup) is ready to begin upon explicit authorization.

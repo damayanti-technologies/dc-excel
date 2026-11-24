@@ -12,7 +12,9 @@ import {
   Table2,
   Sun,
   Moon,
-  Laptop
+  Laptop,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { Workbook } from '@/types/workbook';
 import { PersistenceStatus } from '@/types/storage';
@@ -27,12 +29,16 @@ interface WorkbookHeaderProps {
   workbook: Workbook | null;
   saveStatus: PersistenceStatus;
   onRename: (newName: string) => Promise<void>;
+  onOpenImport?: () => void;
+  onOpenExport?: () => void;
 }
 
 export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
   workbook,
   saveStatus,
-  onRename
+  onRename,
+  onOpenImport,
+  onOpenExport,
 }) => {
   const theme = useUIPreferencesStore((state) => state.theme);
   const setTheme = useUIPreferencesStore((state) => state.setTheme);
@@ -177,6 +183,35 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
                 <RotateCw className="w-3.5 h-3.5" />
               </button>
             </Tooltip>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          {/* Import & Export Quick Actions */}
+          <div className="flex items-center gap-1.5">
+            {onOpenImport && (
+              <button
+                type="button"
+                onClick={onOpenImport}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                title="Import Excel (.xlsx) or CSV"
+              >
+                <Upload className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline">Import</span>
+              </button>
+            )}
+
+            {onOpenExport && (
+              <button
+                type="button"
+                onClick={onOpenExport}
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-surface-secondary transition-colors"
+                title="Export as Excel (.xlsx), CSV, or TSV"
+              >
+                <Download className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline">Export</span>
+              </button>
+            )}
           </div>
 
           <div className="h-4 w-px bg-border" />

@@ -26,6 +26,8 @@ import {
   FolderTree,
   FolderMinus,
   Palette,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
@@ -67,6 +69,8 @@ interface DataToolbarProps {
   onUngroupSelectedRows: () => void;
   onOpenGoalSeek: () => void;
   onOpenScenarioManager: () => void;
+  onOpenImport?: () => void;
+  onOpenExport?: () => void;
 }
 
 export const DataToolbar: React.FC<DataToolbarProps> = ({
@@ -104,6 +108,8 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
   onUngroupSelectedRows,
   onOpenGoalSeek,
   onOpenScenarioManager,
+  onOpenImport,
+  onOpenExport,
 }) => {
   const isPanesFrozen = frozenRows > 0 || frozenCols > 0;
 
@@ -496,6 +502,41 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
             }
             items={whatIfMenuItems}
           />
+
+          {(onOpenImport || onOpenExport) && (
+            <>
+              <div className="h-4 w-px bg-border my-auto mx-0.5" />
+              <div className="flex items-center gap-1">
+                {onOpenImport && (
+                  <Tooltip content="Import Spreadsheet (Excel .xlsx, CSV, TSV)">
+                    <button
+                      type="button"
+                      onClick={onOpenImport}
+                      className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-primary transition-colors flex items-center gap-1"
+                      aria-label="Import File"
+                    >
+                      <Upload className="w-4 h-4 text-primary" />
+                      <span className="hidden lg:inline text-[11px] font-medium">Import</span>
+                    </button>
+                  </Tooltip>
+                )}
+
+                {onOpenExport && (
+                  <Tooltip content="Export Spreadsheet (Excel .xlsx, CSV, TSV)">
+                    <button
+                      type="button"
+                      onClick={onOpenExport}
+                      className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-primary transition-colors flex items-center gap-1"
+                      aria-label="Export File"
+                    >
+                      <Download className="w-4 h-4 text-primary" />
+                      <span className="hidden lg:inline text-[11px] font-medium">Export</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

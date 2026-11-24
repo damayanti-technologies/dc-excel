@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
 import { Cell, CellCoordinates, CellRange, CellStyle, CellValue } from '@/types/cell';
@@ -83,6 +83,8 @@ import {
   InsertToolbar,
   InsertChartDialog,
   ChartEditorDialog,
+  ImportDialog,
+  ExportDialog,
 } from './components';
 
 export const SpreadsheetPage: React.FC = () => {
@@ -176,6 +178,23 @@ export const SpreadsheetPage: React.FC = () => {
   const [isChartEditorOpen, setIsChartEditorOpen] = useState(false);
   const [selectedChartId, setSelectedChartId] = useState<string | null>(null);
   const [editingChart, setEditingChart] = useState<ChartConfig | null>(null);
+
+  // Stage 12 Import / Export State
+  const navigate = useNavigate();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
+  const handleImportSuccess = useCallback(
+    (result: any) => {
+      toast.success(
+        `Imported "${result.workbookName}" (${result.sheetCount} sheet${result.sheetCount === 1 ? '' : 's'})`
+      );
+      if (result.workbookId) {
+        navigate(`/workbook/${result.workbookId}`);
+      }
+    },
+    [navigate]
+  );
 
   const namedRangeResolver = useCallback(
     (name: string) => {
@@ -1536,6 +1555,8 @@ export const SpreadsheetPage: React.FC = () => {
         workbook={workbook}
         saveStatus={saveStatus}
         onRename={handleRenameWorkbook}
+        onOpenImport={() => setIsImportOpen(true)}
+        onOpenExport={() => setIsExportOpen(true)}
       />
 
       {/* 2. Ribbon Tabs Switcher */}
@@ -1656,6 +1677,8 @@ export const SpreadsheetPage: React.FC = () => {
           onUngroupSelectedRows={handleUngroupSelectedRows}
           onOpenGoalSeek={() => setIsGoalSeekOpen(true)}
           onOpenScenarioManager={() => setIsScenarioManagerOpen(true)}
+          onOpenImport={() => setIsImportOpen(true)}
+          onOpenExport={() => setIsExportOpen(true)}
         />
       )}
 
@@ -1949,6 +1972,25 @@ export const SpreadsheetPage: React.FC = () => {
         namedRangeResolver={namedRangeResolver}
         pivotTables={activeSheet.metadata?.pivotTables || []}
       />
+
+      {/* 27. Import Dialog (Stage 12) */}
+      <ImportDialog
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImportSuccess={handleImportSuccess}
+      />
+
+      {/* 28. Export Dialog (Stage 12) */}
+      {workbook && (
+        <ExportDialog
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          workbook={workbook}
+          sheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
+          activeSheetId={activeSheet.id}
+          selectedRange={selectedRange || undefined}
+        />
+      )}
     </div>
   );
 };
