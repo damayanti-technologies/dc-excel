@@ -37,7 +37,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <div className="max-w-md w-full bg-background-elevated border border-border p-6 rounded-xl shadow-lg space-y-4">
           <h2 className="text-lg font-bold text-red-600">Storage Initialization Failed</h2>
           <p className="text-sm text-foreground-muted">
-            OmniSheet was unable to open the local IndexedDB database. Please verify that your
+            DC Excel was unable to open the local IndexedDB database. Please verify that your
             browser supports IndexedDB and does not block storage in private/incognito mode.
           </p>
           <div className="text-xs font-mono bg-background-secondary p-2 rounded text-red-500">
@@ -57,7 +57,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <LoadingSpinner message="Initializing OmniSheet local engine..." />
+        <LoadingSpinner message="Initializing DC Excel local engine..." />
       </div>
     );
   }

@@ -29,7 +29,7 @@ export const DashboardPlaceholder: React.FC = () => {
   const handleTestToast = (type: 'success' | 'info' | 'warning' | 'error') => {
     switch (type) {
       case 'success':
-        toast.success('Action Completed', 'OmniSheet verified local storage state.');
+        toast.success('Action Completed', 'DC Excel verified local storage state.');
         break;
       case 'info':
         toast.info('Workspace Update', 'Stage 2 Design System is fully active.');

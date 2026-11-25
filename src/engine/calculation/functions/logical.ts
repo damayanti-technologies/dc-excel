@@ -1,6 +1,6 @@
 import { FunctionDefinition } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
-import { coerceBoolean, resolveTo1DArray } from './helpers';
+import { coerceBoolean, coerceNumber, resolveTo1DArray } from './helpers';
 
 export const logicalFunctions: FunctionDefinition[] = [
   // 1. IF
@@ -205,6 +205,118 @@ export const logicalFunctions: FunctionDefinition[] = [
         }
       }
       return trueCount % 2 === 1;
+    }
+  },
+
+  // 10. IFS
+  {
+    name: 'IFS',
+    category: 'Logical',
+    description: 'Checks whether one or more conditions are met and returns a value that corresponds to the first TRUE condition.',
+    minArgs: 2,
+    maxArgs: 254,
+    returnType: 'any',
+    args: [
+      { name: 'logical_test1', description: 'The first condition to test.', type: 'boolean' },
+      { name: 'value_if_true1', description: 'Result if logical_test1 is TRUE.', type: 'any' }
+    ],
+    examples: ['=IFS(A1>89, "A", A1>79, "B", A1>69, "C", TRUE, "F")'],
+    handler: (args, context, evaluate) => {
+      if (args.length % 2 !== 0) {
+        return FormulaError.VALUE;
+      }
+
+      for (let i = 0; i < args.length; i += 2) {
+        const testVal = evaluate(args[i]!, context);
+        if (isFormulaError(testVal)) return testVal;
+        if (coerceBoolean(testVal)) {
+          return evaluate(args[i + 1]!, context);
+        }
+      }
+
+      return FormulaError.NA;
+    }
+  },
+
+  // 11. SWITCH
+  {
+    name: 'SWITCH',
+    category: 'Logical',
+    description: 'Evaluates an expression against a list of values and returns the result corresponding to the first matching value, with optional default.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'any',
+    args: [
+      { name: 'expression', description: 'The expression or value to evaluate.', type: 'any' },
+      { name: 'val1', description: 'The first value to compare against expression.', type: 'any' },
+      { name: 'result1', description: 'Result if expression equals val1.', type: 'any' }
+    ],
+    examples: ['=SWITCH(A1, 1, "Sunday", 2, "Monday", "Other")'],
+    handler: (args, context, evaluate) => {
+      const exprVal = evaluate(args[0]!, context);
+      if (isFormulaError(exprVal)) return exprVal;
+
+      const remaining = args.length - 1;
+      const hasDefault = remaining % 2 === 1;
+      const numPairs = Math.floor(remaining / 2);
+
+      for (let i = 0; i < numPairs; i++) {
+        const valArg = args[1 + i * 2]!;
+        const resArg = args[2 + i * 2]!;
+
+        const v = evaluate(valArg, context);
+        if (isFormulaError(v)) return v;
+
+        // Compare values
+        let matches = false;
+        if (typeof exprVal === 'number' && typeof v === 'number') {
+          matches = exprVal === v;
+        } else if (typeof exprVal === 'string' && typeof v === 'string') {
+          matches = exprVal.toUpperCase() === v.toUpperCase();
+        } else {
+          matches = exprVal === v;
+        }
+
+        if (matches) {
+          return evaluate(resArg, context);
+        }
+      }
+
+      if (hasDefault) {
+        return evaluate(args[args.length - 1]!, context);
+      }
+
+      return FormulaError.NA;
+    }
+  },
+
+  // 12. CHOOSE
+  {
+    name: 'CHOOSE',
+    category: 'Logical',
+    description: 'Uses index_num to return a value from the list of value arguments.',
+    minArgs: 2,
+    maxArgs: 255,
+    returnType: 'any',
+    args: [
+      { name: 'index_num', description: 'Specifies which value argument is selected (1-based integer).', type: 'number' },
+      { name: 'value1', description: 'The first value from which to choose.', type: 'any' },
+      { name: 'value2', description: 'Additional values to choose from.', type: 'any', optional: true, repeating: true }
+    ],
+    examples: ['=CHOOSE(2, "First", "Second", "Third")', '=CHOOSE(A1, 10, 20, 30)'],
+    handler: (args, context, evaluate) => {
+      const idxVal = evaluate(args[0]!, context);
+      if (isFormulaError(idxVal)) return idxVal;
+
+      const { num, error } = coerceNumber(idxVal);
+      if (error) return error;
+
+      const index = Math.trunc(num);
+      if (index < 1 || index > args.length - 1) {
+        return FormulaError.VALUE;
+      }
+
+      return evaluate(args[index]!, context);
     }
   }
 ];

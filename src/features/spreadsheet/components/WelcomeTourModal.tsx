@@ -31,7 +31,7 @@ export const WelcomeTourModal: React.FC<WelcomeTourModalProps> = ({
 
   const slides = [
     {
-      title: 'Welcome to OmniSheet',
+      title: 'Welcome to DC Excel',
       subtitle: 'The modern, 100% local-first spreadsheet engineered for performance, precision, and privacy.',
       icon: <FileSpreadsheet className="w-12 h-12 text-accent" />,
       features: [
@@ -88,7 +88,7 @@ export const WelcomeTourModal: React.FC<WelcomeTourModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleFinish}
-      title="OmniSheet Quick Tour"
+      title="DC Excel Quick Tour"
       className="max-w-xl"
     >
       <div className="space-y-6">

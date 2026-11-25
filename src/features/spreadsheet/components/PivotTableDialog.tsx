@@ -181,7 +181,7 @@ export const PivotTableDialog: React.FC<PivotTableDialogProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-secondary/40">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <Table className="w-5 h-5" />
             </div>
             <div>

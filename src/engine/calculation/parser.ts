@@ -50,7 +50,7 @@ export class FormulaParser {
 
   // 1. Comparison: =, <>, <, <=, >, >=
   private parseComparison(): ASTNode {
-    let expr = this.parseAdditive();
+    let expr = this.parseConcat();
 
     while (
       this.matchOperator('=') ||
@@ -67,7 +67,7 @@ export class FormulaParser {
         | '<='
         | '>'
         | '>=';
-      const right = this.parseAdditive();
+      const right = this.parseConcat();
       expr = {
         type: 'BinaryOp',
         operator: op,
@@ -79,12 +79,29 @@ export class FormulaParser {
     return expr;
   }
 
-  // 2. Additive & Concatenation: +, -, &
+  // 1.5. Text Concatenation: &
+  private parseConcat(): ASTNode {
+    let expr = this.parseAdditive();
+
+    while (this.matchOperator('&')) {
+      const right = this.parseAdditive();
+      expr = {
+        type: 'BinaryOp',
+        operator: '&',
+        left: expr,
+        right
+      };
+    }
+
+    return expr;
+  }
+
+  // 2. Additive: +, -
   private parseAdditive(): ASTNode {
     let expr = this.parseMultiplicative();
 
-    while (this.matchOperator('+') || this.matchOperator('-') || this.matchOperator('&')) {
-      const op = this.previous().value as '+' | '-' | '&';
+    while (this.matchOperator('+') || this.matchOperator('-')) {
+      const op = this.previous().value as '+' | '-';
       const right = this.parseMultiplicative();
       expr = {
         type: 'BinaryOp',

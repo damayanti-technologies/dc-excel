@@ -32,14 +32,14 @@ describe('Application Startup & Shell Components', () => {
     expect(screen.getByText(/Test crash in component/)).toBeInTheDocument();
   });
 
-  it('renders Header with OmniSheet logo, status pills, and theme control', () => {
+  it('renders Header with DC Excel logo, status pills, and theme control', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <Header />
       </MemoryRouter>
     );
 
-    expect(screen.getByText('OmniSheet')).toBeInTheDocument();
+    expect(screen.getByText('DC Excel')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /select color theme/i })).toBeInTheDocument();
     expect(screen.getByTitle('Application Settings')).toBeInTheDocument();

@@ -1,4 +1,4 @@
-# OmniSheet: Professional Local-First Spreadsheet Application
+# DC Excel: Professional Local-First Spreadsheet Application
 
 > A private, high-performance, offline-first spreadsheet application inspired by Microsoft Excel and Google Sheets. Designed with zero cloud dependencies, zero mandatory user accounts, and 100% client-side privacy.
 

@@ -19,6 +19,9 @@ import { CalculationEngine } from '@/engine/calculation/engine';
 import { generateId } from '@/utils/id';
 import { Logger } from '@/utils/logger';
 
+export const MAX_EXCEL_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+export const MAX_CSV_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
 /**
  * Strips file extension from a filename.
  */
@@ -134,9 +137,20 @@ export class ImportExportService {
     const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
 
     if (ext === '.xlsx' || ext === '.xls') {
+      if (file.size > MAX_EXCEL_FILE_SIZE) {
+        throw new Error(
+          `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the maximum allowed Excel import size of 25 MB. Please reduce file size to prevent browser memory exhaustion.`
+        );
+      }
       const buffer = await readFileAsArrayBuffer(file);
       const { summary } = await parseExcelWorkbook(buffer, file.name);
       return summary;
+    }
+
+    if (file.size > MAX_CSV_FILE_SIZE) {
+      throw new Error(
+        `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the maximum allowed CSV import size of 50 MB. Please reduce file size to prevent browser memory exhaustion.`
+      );
     }
 
     // CSV / TSV file

@@ -41,7 +41,7 @@ export const HelpShortcutsDialog: React.FC<HelpShortcutsDialogProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="OmniSheet Help & Shortcut Reference"
+      title="DC Excel Help & Shortcut Reference"
       className="max-w-2xl max-h-[85vh] flex flex-col"
     >
       <div className="space-y-4">
@@ -241,7 +241,7 @@ export const HelpShortcutsDialog: React.FC<HelpShortcutsDialogProps> = ({
                 <span>100% Client-Side Privacy Guarantee</span>
               </h4>
               <p className="text-foreground-muted">
-                OmniSheet operates entirely inside your web browser. No workbook data, formulas, cell values, or personal identifiers are ever sent to remote servers or cloud databases.
+                DC Excel operates entirely inside your web browser. No workbook data, formulas, cell values, or personal identifiers are ever sent to remote servers or cloud databases.
               </p>
             </div>
 

@@ -12,7 +12,7 @@ import {
 } from './chart-data-adapter';
 
 /**
- * Built-in Color Palettes for OmniSheet Charts.
+ * Built-in Color Palettes for DC Excel Charts.
  */
 export const CHART_PALETTES: Record<ChartPaletteId, string[]> = {
   professional: [
@@ -131,7 +131,7 @@ function normalizeTo100Percent(
 }
 
 /**
- * Builds a complete EChartsOption matching OmniSheet specifications.
+ * Builds a complete EChartsOption matching DC Excel specifications.
  */
 export function buildEChartsOption(
   config: ChartConfig,

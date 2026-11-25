@@ -1,13 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('OmniSheet Stage 2 Design System & Navigation E2E', () => {
-  test('loads home dashboard application shell with correct Stage 2 brand and tokens', async ({ page }) => {
+test.describe('DC Excel Navigation & Design System E2E', () => {
+  test('loads home dashboard application shell with correct brand and tokens', async ({ page }) => {
     await page.goto('/');
 
     // Validate title and brand
-    await expect(page).toHaveTitle(/OmniSheet/);
-    await expect(page.getByText('OmniSheet').first()).toBeVisible();
-    await expect(page.getByText('Stage 2 Design System')).toBeVisible();
+    await expect(page).toHaveTitle(/DC Excel/);
+    await expect(page.getByText('DC Excel').first()).toBeVisible();
   });
 
   test('navigates cleanly between Home, Settings, and Workbook Editor', async ({ page }) => {

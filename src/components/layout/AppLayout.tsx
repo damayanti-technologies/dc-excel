@@ -56,7 +56,7 @@ export const AppLayout: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 font-mono text-[10px] text-foreground-subtle">
           <span>{APP_CONFIG.name} v{APP_CONFIG.version}</span>
-          <span className="hidden md:inline">• Stage 4 Grid Engine</span>
+          <span className="hidden md:inline">• Local-First Engine</span>
         </div>
       </footer>
     </div>

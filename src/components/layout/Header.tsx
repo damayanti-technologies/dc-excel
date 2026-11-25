@@ -189,7 +189,7 @@ export const Header: React.FC = () => {
             type="button"
             onClick={() => void triggerInstall()}
             className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-surface-secondary border border-border text-foreground hover:bg-surface-elevated transition-colors shadow-xs"
-            title="Install OmniSheet as desktop or mobile PWA"
+            title="Install DC Excel as desktop or mobile PWA"
           >
             <Download className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Install App</span>

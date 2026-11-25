@@ -7,7 +7,7 @@ interface LoadingSpinnerProps {
 }
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  message = 'Loading OmniSheet...',
+  message = 'Loading DC Excel...',
   className = ''
 }) => {
   return (

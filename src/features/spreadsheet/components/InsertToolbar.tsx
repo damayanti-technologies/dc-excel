@@ -69,7 +69,7 @@ export const InsertToolbar: React.FC<InsertToolbarProps> = ({
           title="Line Chart"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors"
         >
-          <LineChart className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          <LineChart className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           <span>Line</span>
         </button>
 

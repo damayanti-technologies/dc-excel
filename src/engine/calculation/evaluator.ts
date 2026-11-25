@@ -7,7 +7,7 @@ import { CellValue } from '@/types/cell';
  * Coerces an evaluated spreadsheet value to a JavaScript number.
  */
 function coerceToNumber(val: CellValue): { num: number; error?: string } {
-  if (isFormulaError(val)) return { num: 0, error: val };
+  if (isFormulaError(val)) return { num: 0, error: val as string };
   if (val === null || val === undefined || val === '') return { num: 0 };
   if (typeof val === 'number') {
     if (Number.isNaN(val) || !Number.isFinite(val)) {
@@ -18,9 +18,17 @@ function coerceToNumber(val: CellValue): { num: number; error?: string } {
   if (typeof val === 'boolean') {
     return { num: val ? 1 : 0 };
   }
-  if (typeof val === 'string') {
-    const parsed = Number(val);
-    if (Number.isNaN(parsed)) {
+  if (typeof val === 'string' || val instanceof String) {
+    const trimmed = String(val).trim();
+    if (
+      trimmed.toLowerCase() === 'infinity' ||
+      trimmed.toLowerCase() === '-infinity' ||
+      trimmed.toLowerCase() === '+infinity'
+    ) {
+      return { num: 0, error: FormulaError.VALUE };
+    }
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
       return { num: 0, error: FormulaError.VALUE };
     }
     return { num: parsed };
@@ -46,8 +54,14 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
     case 'NumberLiteral':
       return node.value;
 
-    case 'StringLiteral':
+    case 'StringLiteral': {
+      if (isFormulaError(node.value)) {
+        const boxed = new String(node.value);
+        (boxed as any).__isLiteralText = true;
+        return boxed as any;
+      }
       return node.value;
+    }
 
     case 'BooleanLiteral':
       return node.value;
@@ -121,33 +135,82 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
         const rightVal = evaluateAST(node.right, context);
         if (isFormulaError(rightVal)) return rightVal;
 
-        // Numeric or mixed comparisons
-        const leftIsNum = typeof leftVal === 'number' || (typeof leftVal === 'string' && leftVal.trim() !== '' && !Number.isNaN(Number(leftVal)));
-        const rightIsNum = typeof rightVal === 'number' || (typeof rightVal === 'string' && rightVal.trim() !== '' && !Number.isNaN(Number(rightVal)));
+        // Excel comparison semantics
+        let l = leftVal;
+        let r = rightVal;
+        if (l === null || l === undefined) {
+          if (typeof r === 'number') l = 0;
+          else if (typeof r === 'string' || r instanceof String) l = '';
+          else if (typeof r === 'boolean') l = false;
+        }
+        if (r === null || r === undefined) {
+          if (typeof l === 'number') r = 0;
+          else if (typeof l === 'string' || l instanceof String) r = '';
+          else if (typeof l === 'boolean') r = false;
+        }
 
-        if (leftIsNum && rightIsNum) {
-          const lNum = Number(leftVal);
-          const rNum = Number(rightVal);
+        if (l === null && r === null) {
           switch (node.operator) {
-            case '=': return lNum === rNum;
-            case '<>': return lNum !== rNum;
-            case '<': return lNum < rNum;
-            case '<=': return lNum <= rNum;
-            case '>': return lNum > rNum;
-            case '>=': return lNum >= rNum;
+            case '=':
+            case '<=':
+            case '>=':
+              return true;
+            case '<>':
+            case '<':
+            case '>':
+              return false;
           }
         }
 
-        // Case-insensitive string comparison
-        const lStr = coerceToString(leftVal).toUpperCase();
-        const rStr = coerceToString(rightVal).toUpperCase();
+        // 1. Both numbers
+        if (typeof l === 'number' && typeof r === 'number') {
+          switch (node.operator) {
+            case '=': return l === r;
+            case '<>': return l !== r;
+            case '<': return l < r;
+            case '<=': return l <= r;
+            case '>': return l > r;
+            case '>=': return l >= r;
+          }
+        }
+
+        // 2. Both strings
+        if ((typeof l === 'string' || l instanceof String) && (typeof r === 'string' || r instanceof String)) {
+          const lStr = String(l).toUpperCase();
+          const rStr = String(r).toUpperCase();
+          switch (node.operator) {
+            case '=': return lStr === rStr;
+            case '<>': return lStr !== rStr;
+            case '<': return lStr < rStr;
+            case '<=': return lStr <= rStr;
+            case '>': return lStr > rStr;
+            case '>=': return lStr >= rStr;
+          }
+        }
+
+        // 3. Both booleans
+        if (typeof l === 'boolean' && typeof r === 'boolean') {
+          switch (node.operator) {
+            case '=': return l === r;
+            case '<>': return l !== r;
+            case '<': return !l && r;
+            case '<=': return l === r || (!l && r);
+            case '>': return l && !r;
+            case '>=': return l === r || (l && !r);
+          }
+        }
+
+        // 4. Mixed types (e.g. ="10"=10 or ="a">5):
+        // In Excel, equality across different types is FALSE (inequality is TRUE),
+        // and cross-type relational comparisons between string and number return FALSE.
         switch (node.operator) {
-          case '=': return lStr === rStr;
-          case '<>': return lStr !== rStr;
-          case '<': return lStr < rStr;
-          case '<=': return lStr <= rStr;
-          case '>': return lStr > rStr;
-          case '>=': return lStr >= rStr;
+          case '=': return false;
+          case '<>': return true;
+          case '<':
+          case '<=':
+          case '>':
+          case '>=':
+            return false;
         }
       }
 

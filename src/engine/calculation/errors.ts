@@ -14,6 +14,9 @@ export const FormulaError = {
 export type FormulaErrorType = (typeof FormulaError)[keyof typeof FormulaError];
 
 export function isFormulaError(val: unknown): val is FormulaErrorType {
+  if (val instanceof String || (val && typeof val === 'object' && (val as any).__isLiteralText)) {
+    return false;
+  }
   return (
     typeof val === 'string' &&
     Object.values(FormulaError).includes(val as FormulaErrorType)

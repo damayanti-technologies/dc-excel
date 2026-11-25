@@ -6,6 +6,7 @@ import { evaluateAST } from './evaluator';
 import { DependencyGraph, extractReferencesFromAST } from './dependency-graph';
 import { FormulaError, isFormulaError } from './errors';
 import { coordToKey, keyToCoord } from '@/utils/coordinates';
+import { dateToSerial } from './date-utils';
 
 /**
  * Creates an EvaluationContext backed by a cells map, with cross-sheet resolution
@@ -31,7 +32,13 @@ export function createEvaluationContext(
       const target = getTargetCells(sheetName);
       const key = coordToKey(coord.row, coord.col);
       const cell = target[key];
-      return cell?.value ?? null;
+      if (!cell) return null;
+      if (cell.dataType === 'string' && typeof cell.value === 'string' && isFormulaError(cell.value)) {
+        const boxed = new String(cell.value);
+        (boxed as any).__isLiteralText = true;
+        return boxed as any;
+      }
+      return cell.value ?? null;
     },
     getCellRawOrFormula: (coord: CellCoordinates, sheetName?: string) => {
       const target = getTargetCells(sheetName);
@@ -60,7 +67,13 @@ export function createEvaluationContext(
         for (let c = range.startCol; c <= effectiveEndCol; c++) {
           const key = coordToKey(r, c);
           const cell = target[key];
-          rowVals.push(cell?.value ?? null);
+          let val = cell?.value ?? null;
+          if (cell?.dataType === 'string' && typeof val === 'string' && isFormulaError(val)) {
+            const boxed = new String(val);
+            (boxed as any).__isLiteralText = true;
+            val = boxed as any;
+          }
+          rowVals.push(val);
         }
         result.push(rowVals);
       }
@@ -77,6 +90,7 @@ export function parseRawCellValue(input: string): {
   value: CellValue;
   formula?: string;
   dataType: Cell['dataType'];
+  format?: string;
 } {
   const trimmed = input.trim();
 
@@ -102,10 +116,24 @@ export function parseRawCellValue(input: string): {
     return { value: false, dataType: 'boolean' };
   }
 
-  // 4. Number (standard integer, float, or scientific notation e.g. 1E5, 2.5e-3)
+  // 4. Percentage e.g. 50%, 12.5%, -5%
+  if (/^[+-]?[0-9]+(\.[0-9]+)?\s*%$|^[+-]?[0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?\s*%$/.test(trimmed)) {
+    const rawNum = trimmed.replace(/%/g, '').replace(/,/g, '').trim();
+    const num = Number(rawNum);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+      const hasDecimals = rawNum.includes('.');
+      return {
+        value: num / 100,
+        dataType: 'number',
+        format: hasDecimals ? '0.00%' : '0%'
+      };
+    }
+  }
+
+  // 5. Standard integer, float, scientific notation (e.g. 1E5, 1e3, 2.5e-3, +5, -42)
   if (
-    /^-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(trimmed) ||
-    /^-?\.[0-9]+([eE][+-]?[0-9]+)?$/.test(trimmed)
+    /^[+-]?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(trimmed) ||
+    /^[+-]?\.[0-9]+([eE][+-]?[0-9]+)?$/.test(trimmed)
   ) {
     const num = Number(trimmed);
     if (!Number.isNaN(num) && Number.isFinite(num)) {
@@ -113,7 +141,37 @@ export function parseRawCellValue(input: string): {
     }
   }
 
-  // 5. String
+  // 6. Number with thousands commas (e.g. 1,000 or 1,234,567.89 or +1,000)
+  if (/^[+-]?[0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?$/.test(trimmed)) {
+    const cleanNum = trimmed.replace(/,/g, '');
+    const num = Number(cleanNum);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+      const hasDecimals = cleanNum.includes('.');
+      return {
+        value: num,
+        dataType: 'number',
+        format: hasDecimals ? '#,##0.00' : '#,##0'
+      };
+    }
+  }
+
+  // 7. ISO Date e.g. 2024-01-05
+  const dateMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    const y = parseInt(dateMatch[1]!, 10);
+    const m = parseInt(dateMatch[2]!, 10);
+    const d = parseInt(dateMatch[3]!, 10);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const serial = dateToSerial(y, m, d);
+      return {
+        value: serial,
+        dataType: 'date',
+        format: 'YYYY-MM-DD'
+      };
+    }
+  }
+
+  // 8. String
   return { value: input, dataType: 'string' };
 }
 
@@ -137,7 +195,8 @@ export class CalculationEngine {
   ): CellValue {
     const ast = parseFormula(formula);
     const context = createEvaluationContext(cells, namedRangeResolver, getCrossSheetCells, currentSheetName);
-    return evaluateAST(ast, context);
+    const evalResult = evaluateAST(ast, context);
+    return evalResult instanceof String ? evalResult.valueOf() : evalResult;
   }
 
   /**
@@ -199,11 +258,13 @@ export class CalculationEngine {
       if (!fInfo) continue;
 
       const evalResult = evaluateAST(fInfo.ast, context);
-      const isErr = isFormulaError(evalResult);
+      const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+      const unwrappedResult = evalResult instanceof String ? evalResult.valueOf() : evalResult;
+      const isErr = !isLiteral && isFormulaError(unwrappedResult);
 
       cellsCopy[key] = {
         ...cellsCopy[key]!,
-        value: evalResult,
+        value: unwrappedResult,
         formula: fInfo.formula,
         dataType: isErr ? 'error' : 'formula'
       };
@@ -254,9 +315,12 @@ export class CalculationEngine {
       } else {
         const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName);
         const evalResult = evaluateAST(ast, context);
-        const isErr = isFormulaError(evalResult);
+        const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+        const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
+        const isErr = !isLiteral && isFormulaError(unwrapped);
         updatedCells[key] = {
-          value: evalResult,
+          ...(updatedCells[key] || {}),
+          value: unwrapped,
           formula: parsed.formula,
           dataType: isErr ? 'error' : 'formula'
         };
@@ -265,9 +329,15 @@ export class CalculationEngine {
       // Cell contains literal value
       this.dependencyGraph.removeCell(key);
       this.astCache.delete(key);
+      const existingCell = updatedCells[key];
       updatedCells[key] = {
+        ...(existingCell || {}),
         value: parsed.value,
-        dataType: parsed.dataType
+        dataType: parsed.dataType,
+        formula: undefined,
+        style: parsed.format
+          ? { ...(existingCell?.style || {}), numberFormat: parsed.format }
+          : existingCell?.style
       };
     }
 
@@ -311,10 +381,12 @@ export class CalculationEngine {
         };
       } else {
         const evalResult = evaluateAST(ast, context);
-        const isErr = isFormulaError(evalResult);
+        const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+        const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
+        const isErr = !isLiteral && isFormulaError(unwrapped);
         updatedCells[depKey] = {
           ...cell,
-          value: evalResult,
+          value: unwrapped,
           dataType: isErr ? 'error' : 'formula'
         };
       }

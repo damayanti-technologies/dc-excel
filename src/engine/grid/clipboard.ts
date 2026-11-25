@@ -4,10 +4,21 @@ import { coordToKey } from '@/utils/coordinates';
 import { normalizeRange } from './selection';
 import { ClipboardPayload, PasteResult } from './types';
 import { shiftFormulaReferences } from '@/engine/calculation/formula-shifter';
+import { numberFormatter } from '@/engine/formatting/number-formatter';
 import { Logger } from '@/utils/logger';
 
 // In-memory fallback clipboard cache
 let memoryClipboard: ClipboardPayload | null = null;
+
+/**
+ * Escapes a field for TSV format following RFC-4180 rules (quotes fields with tabs, newlines, or quotes).
+ */
+export function escapeTSVField(val: string): string {
+  if (val.includes('\t') || val.includes('\n') || val.includes('\r') || val.includes('"')) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+}
 
 /**
  * Serializes a selected range of cells into Tab-Separated Values (TSV) and structured payload.
@@ -35,6 +46,8 @@ export function serializeRangeToClipboard(range: CellRange, cells: SparseCellMap
         copiedCells[coordToKey(relR, relC)] = { ...cell };
         if (cell.formula) {
           cellText = cell.formula;
+        } else if (cell.style?.numberFormat) {
+          cellText = numberFormatter.format(cell.value, cell.style.numberFormat);
         } else if (cell.value !== null && cell.value !== undefined) {
           cellText = String(cell.value);
         }
@@ -44,7 +57,7 @@ export function serializeRangeToClipboard(range: CellRange, cells: SparseCellMap
     }
 
     matrix.push(rowValues);
-    tsvRows.push(rowValues.join('\t'));
+    tsvRows.push(rowValues.map(escapeTSVField).join('\t'));
   }
 
   const rawText = tsvRows.join('\n');
@@ -80,16 +93,69 @@ export async function copyRange(range: CellRange, cells: SparseCellMap): Promise
 }
 
 /**
- * Parses TSV text into a 2D string matrix.
+ * Parses TSV text into a 2D string matrix according to RFC-4180 rules, correctly preserving
+ * quotes, internal tabs, and newlines.
  */
 export function parseTSV(tsv: string): string[][] {
   const normalized = tsv.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  // If ends with a newline, strip trailing one
-  const clean = normalized.endsWith('\n') ? normalized.slice(0, -1) : normalized;
-  if (!clean) return [[]];
+  if (!normalized) return [[]];
 
-  const lines = clean.split('\n');
-  return lines.map((line) => line.split('\t'));
+  const result: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < normalized.length) {
+    const char = normalized[i]!;
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (i + 1 < normalized.length && normalized[i + 1] === '"') {
+          currentField += '"';
+          i += 2;
+          continue;
+        } else {
+          inQuotes = false;
+          i++;
+          continue;
+        }
+      } else {
+        currentField += char;
+        i++;
+        continue;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+        i++;
+        continue;
+      } else if (char === '\t') {
+        currentRow.push(currentField);
+        currentField = '';
+        i++;
+        continue;
+      } else if (char === '\n') {
+        currentRow.push(currentField);
+        result.push(currentRow);
+        currentRow = [];
+        currentField = '';
+        i++;
+        continue;
+      } else {
+        currentField += char;
+        i++;
+        continue;
+      }
+    }
+  }
+
+  if (currentField !== '' || currentRow.length > 0) {
+    currentRow.push(currentField);
+    result.push(currentRow);
+  }
+
+  return result.length > 0 ? result : [[]];
 }
 
 /**

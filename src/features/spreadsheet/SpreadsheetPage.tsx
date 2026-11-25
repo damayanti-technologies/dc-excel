@@ -283,10 +283,10 @@ export const SpreadsheetPage: React.FC = () => {
         setIsWelcomeTourOpen(true);
       }
     }
-  }, []);
+  }, [preferences.applicationPreferences, setShowGridlines, setShowFormulaBar, setZoom]);
 
   const handleImportSuccess = useCallback(
-    (result: any) => {
+    (result: { workbookName: string; sheetCount: number; workbookId?: string }) => {
       toast.success(
         `Imported "${result.workbookName}" (${result.sheetCount} sheet${result.sheetCount === 1 ? '' : 's'})`
       );
@@ -404,7 +404,7 @@ export const SpreadsheetPage: React.FC = () => {
     });
 
     toast.info('Formatting Cleared', 'Cell formatting has been reset to default.');
-  }, [activeSheet, getTargetRange, setBatchCells]);
+  }, [activeSheet, getTargetRange, setAllCells]);
 
   const handleToggleFormatPainter = useCallback(() => {
     if (isFormatPainterActive) {
@@ -1110,10 +1110,24 @@ export const SpreadsheetPage: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Stage 13: Prompt on tab close / reload if dirty & attempt emergency flush
+  // Stage 13: Prompt on tab close / reload if dirty & attempt emergency synchronous backup
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (saveQueue.currentStatus === 'dirty') {
+        if (workbook && activeSheet) {
+          try {
+            localStorage.setItem(
+              `omnisheet_emergency_draft_${workbook.id}`,
+              JSON.stringify({
+                workbook,
+                sheet: activeSheet,
+                timestamp: Date.now()
+              })
+            );
+          } catch {
+            // Storage quota full or private browsing
+          }
+        }
         void saveQueue.flush();
         e.preventDefault();
         e.returnValue = '';
@@ -1121,15 +1135,28 @@ export const SpreadsheetPage: React.FC = () => {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  }, [workbook, activeSheet]);
 
-  // 2. Debounced auto-save via SaveQueue
+  // Clear emergency draft when workbook is successfully persisted
+  useEffect(() => {
+    const unsubscribe = saveQueue.subscribe((state) => {
+      if (state.status === 'saved' && workbook) {
+        try {
+          localStorage.removeItem(`omnisheet_emergency_draft_${workbook.id}`);
+        } catch {
+          // Ignore
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [workbook]);
+
+  // 2. Debounced auto-save via SaveQueue (only persists the modified dirty sheet)
   useEffect(() => {
     if (isInitialLoadRef.current || !activeSheet || !workbook) return;
 
-    const updatedSheets = sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s));
-    saveQueue.enqueue(workbook, updatedSheets, false);
-  }, [activeSheet, workbook, sheets]);
+    saveQueue.enqueue(workbook, [activeSheet], false);
+  }, [activeSheet, workbook]);
 
   // Stage 13: Manual Save handler
   const handleManualSave = useCallback(async () => {
@@ -1187,30 +1214,33 @@ export const SpreadsheetPage: React.FC = () => {
   };
 
   // 4. Add new sheet
-  const handleAddSheet = async (insertAfterSheetId?: string) => {
-    if (!workbook) return;
-    try {
-      if (activeSheet) {
-        await workbookService.saveSheet(activeSheet);
+  const handleAddSheet = useCallback(
+    async (insertAfterSheetId?: string) => {
+      if (!workbook) return;
+      try {
+        if (activeSheet) {
+          await workbookService.saveSheet(activeSheet);
+        }
+
+        const newSheet = await workbookService.addSheet(workbook.id, undefined, insertAfterSheetId);
+        const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
+        setSheets(updatedSheets);
+
+        const updatedWb = await workbookService.getWorkbook(workbook.id);
+        if (updatedWb) {
+          setWorkbook(updatedWb);
+          setCurrentWorkbook(updatedWb);
+        }
+
+        setActiveSheet(newSheet);
+        setActiveCell({ row: 0, col: 0 });
+        toast.success('Sheet Added', `Created "${newSheet.name}".`);
+      } catch (err) {
+        toast.error('Error', err instanceof Error ? err.message : 'Could not add new sheet.');
       }
-
-      const newSheet = await workbookService.addSheet(workbook.id, undefined, insertAfterSheetId);
-      const updatedSheets = await workbookService.getSheetsForWorkbook(workbook.id);
-      setSheets(updatedSheets);
-
-      const updatedWb = await workbookService.getWorkbook(workbook.id);
-      if (updatedWb) {
-        setWorkbook(updatedWb);
-        setCurrentWorkbook(updatedWb);
-      }
-
-      setActiveSheet(newSheet);
-      setActiveCell({ row: 0, col: 0 });
-      toast.success('Sheet Added', `Created "${newSheet.name}".`);
-    } catch (err) {
-      toast.error('Error', err instanceof Error ? err.message : 'Could not add new sheet.');
-    }
-  };
+    },
+    [workbook, activeSheet, setCurrentWorkbook, setActiveSheet, setActiveCell]
+  );
 
   // 4b. Rename sheet
   const handleRenameSheet = async (sheetId: string, newName: string) => {
@@ -1407,36 +1437,39 @@ export const SpreadsheetPage: React.FC = () => {
   };
 
   // 5. Switch active sheet tab
-  const handleSelectSheet = async (sheetId: string) => {
-    if (sheetId === activeSheet?.id) return;
-    try {
-      if (activeSheet) {
-        await workbookService.saveSheet(activeSheet);
-      }
-
-      let target = sheets.find((s) => s.id === sheetId);
-      if (target) {
-        const { updatedCells } = calculationEngine.recalculateSheet(target);
-        target = { ...target, cells: updatedCells };
-        setActiveSheet(target);
-        setActiveCell({ row: 0, col: 0 });
-
-        // Update activeSheetId on workbook in store/storage
-        if (workbook) {
-          const updatedWb: Workbook = {
-            ...workbook,
-            activeSheetId: sheetId,
-            updatedAt: Date.now()
-          };
-          await workbookService.saveSheet(target);
-          setWorkbook(updatedWb);
-          setCurrentWorkbook(updatedWb);
+  const handleSelectSheet = useCallback(
+    async (sheetId: string) => {
+      if (sheetId === activeSheet?.id) return;
+      try {
+        if (activeSheet) {
+          await workbookService.saveSheet(activeSheet);
         }
+
+        let target = sheets.find((s) => s.id === sheetId);
+        if (target) {
+          const { updatedCells } = calculationEngine.recalculateSheet(target);
+          target = { ...target, cells: updatedCells };
+          setActiveSheet(target);
+          setActiveCell({ row: 0, col: 0 });
+
+          // Update activeSheetId on workbook in store/storage
+          if (workbook) {
+            const updatedWb: Workbook = {
+              ...workbook,
+              activeSheetId: sheetId,
+              updatedAt: Date.now()
+            };
+            await workbookService.saveSheet(target);
+            setWorkbook(updatedWb);
+            setCurrentWorkbook(updatedWb);
+          }
+        }
+      } catch {
+        toast.error('Error', 'Could not switch sheet.');
       }
-    } catch {
-      toast.error('Error', 'Could not switch sheet.');
-    }
-  };
+    },
+    [activeSheet, sheets, workbook, setActiveSheet, setActiveCell, setCurrentWorkbook]
+  );
 
   // 6. Cell Editing Commit & Recalculation Handler
   const handleCommitEditing = useCallback(
@@ -1516,7 +1549,7 @@ export const SpreadsheetPage: React.FC = () => {
         });
       }
     },
-    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell, namedRangeResolver, getCrossSheetCells]
+    [activeSheet, editingCell, editingValue, setAllCells, stopEditing, setActiveCell, namedRangeResolver, getCrossSheetCells]
   );
 
   // 7. Clear Cell Contents (Delete / Backspace)
@@ -1570,7 +1603,7 @@ export const SpreadsheetPage: React.FC = () => {
         });
       }
     },
-    [activeSheet, setBatchCells, namedRangeResolver, getCrossSheetCells]
+    [activeSheet, setAllCells, namedRangeResolver, getCrossSheetCells]
   );
 
   // 8. Clipboard: Copy

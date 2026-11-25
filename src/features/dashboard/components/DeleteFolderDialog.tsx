@@ -57,7 +57,7 @@ export const DeleteFolderDialog: React.FC = () => {
               <strong>
                 {workbookCount} {workbookCount === 1 ? 'workbook' : 'workbooks'}
               </strong>
-              . Choose how you want OmniSheet to handle them:
+              . Choose how you want DC Excel to handle them:
             </div>
           </div>
         ) : (

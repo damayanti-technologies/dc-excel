@@ -17,14 +17,86 @@ export function coerceNumber(val: CellValue): { num: number; error?: string } {
   if (typeof val === 'boolean') {
     return { num: val ? 1 : 0 };
   }
-  if (typeof val === 'string') {
-    const num = Number(val);
-    if (Number.isNaN(num)) {
+  if (typeof val === 'string' || val instanceof String) {
+    const trimmed = String(val).trim();
+    if (
+      trimmed.toLowerCase() === 'infinity' ||
+      trimmed.toLowerCase() === '-infinity' ||
+      trimmed.toLowerCase() === '+infinity'
+    ) {
+      return { num: 0, error: FormulaError.VALUE };
+    }
+    const num = Number(trimmed);
+    if (Number.isNaN(num) || !Number.isFinite(num)) {
       return { num: 0, error: FormulaError.VALUE };
     }
     return { num };
   }
   return { num: 0, error: FormulaError.VALUE };
+}
+
+/**
+ * Evaluates whether a cell value satisfies an Excel-style criteria expression.
+ * Handles comparison prefixes (>=, <=, <>, >, <, =), wildcards (*, ?, ~), and literal equality.
+ */
+export function matchesCriteria(val: CellValue, criteria: CellValue): boolean {
+  if (criteria === null || criteria === undefined) {
+    return val === null || val === undefined || val === '';
+  }
+
+  if (typeof criteria === 'boolean') {
+    return val === criteria;
+  }
+
+  if (typeof criteria === 'number') {
+    return val === criteria;
+  }
+
+  const critStr = String(criteria).trim();
+
+  // Check comparison operator prefix: >=, <=, <>, >, <, =
+  const match = critStr.match(/^(>=|<=|<>|>|<|=)(.*)$/);
+  if (match) {
+    const op = match[1]!;
+    const targetRaw = match[2]!.trim();
+    const targetNum = Number(targetRaw);
+    const targetIsNum = targetRaw !== '' && !Number.isNaN(targetNum) && Number.isFinite(targetNum);
+
+    if (targetIsNum && typeof val === 'number') {
+      switch (op) {
+        case '=': return val === targetNum;
+        case '<>': return val !== targetNum;
+        case '>': return val > targetNum;
+        case '>=': return val >= targetNum;
+        case '<': return val < targetNum;
+        case '<=': return val <= targetNum;
+      }
+    }
+
+    const valStr = coerceString(val);
+    switch (op) {
+      case '=': return valStr.toUpperCase() === targetRaw.toUpperCase();
+      case '<>': return valStr.toUpperCase() !== targetRaw.toUpperCase();
+      case '>': return valStr.toUpperCase() > targetRaw.toUpperCase();
+      case '>=': return valStr.toUpperCase() >= targetRaw.toUpperCase();
+      case '<': return valStr.toUpperCase() < targetRaw.toUpperCase();
+      case '<=': return valStr.toUpperCase() <= targetRaw.toUpperCase();
+    }
+  }
+
+  // Numeric equality
+  const numCrit = Number(critStr);
+  if (typeof val === 'number' && !Number.isNaN(numCrit) && Number.isFinite(numCrit)) {
+    return val === numCrit;
+  }
+
+  // Wildcard string matching
+  const valStr = coerceString(val);
+  if (critStr.includes('*') || critStr.includes('?') || critStr.includes('~')) {
+    return matchWildcard(valStr, critStr);
+  }
+
+  return valStr.toUpperCase() === critStr.toUpperCase();
 }
 
 /**

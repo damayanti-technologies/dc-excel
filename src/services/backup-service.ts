@@ -10,7 +10,7 @@ import { Logger } from '@/utils/logger';
 
 export class BackupService {
   private readonly BACKUP_FORMAT_VERSION = '1.0.0';
-  private readonly APP_VERSION = 'OmniSheet 0.13.0';
+  private readonly APP_VERSION = 'DC Excel 1.0.0';
 
   /**
    * Generates a portable ZIP backup archive containing selected workbooks and sheets.
@@ -62,7 +62,7 @@ export class BackupService {
     const defaultName =
       workbooks.length === 1 && workbooks[0]
         ? `${workbooks[0].name.replace(/[^a-zA-Z0-9_-]/g, '_')}_backup_${timestampStr}.omni`
-        : `OmniSheet_Workspace_Backup_${timestampStr}.omni`;
+        : `DC_Excel_Workspace_Backup_${timestampStr}.omni`;
 
     let finalName = (customFileName?.trim() || defaultName).replace(/\.(omni|zip)$/i, '');
     finalName += '.omni';
@@ -91,7 +91,7 @@ export class BackupService {
     // 1. Validate manifest.json
     const manifestFile = zip.file('manifest.json');
     if (!manifestFile) {
-      throw new Error('Invalid OmniSheet backup archive: missing "manifest.json".');
+      throw new Error('Invalid DC Excel backup archive: missing "manifest.json".');
     }
 
     let manifest: BackupManifest;
@@ -108,7 +108,7 @@ export class BackupService {
     // 2. Validate workbooks.json
     const workbooksFile = zip.file('workbooks.json');
     if (!workbooksFile) {
-      throw new Error('Invalid OmniSheet backup archive: missing "workbooks.json".');
+      throw new Error('Invalid DC Excel backup archive: missing "workbooks.json".');
     }
 
     let workbooks: Workbook[];
@@ -125,7 +125,7 @@ export class BackupService {
     // 3. Validate sheets.json
     const sheetsFile = zip.file('sheets.json');
     if (!sheetsFile) {
-      throw new Error('Invalid OmniSheet backup archive: missing "sheets.json".');
+      throw new Error('Invalid DC Excel backup archive: missing "sheets.json".');
     }
 
     let sheets: Sheet[];

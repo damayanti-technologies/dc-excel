@@ -269,7 +269,7 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
                     type="text"
                     value={customFileName}
                     onChange={(e) => setCustomFileName(e.target.value)}
-                    placeholder="e.g. My_OmniSheet_Backup"
+                    placeholder="e.g. My_DC_Excel_Backup"
                     className="w-full h-8 px-3 rounded-l-md border border-border bg-surface text-foreground text-xs focus:ring-1 focus:ring-primary outline-hidden"
                   />
                   <span className="h-8 px-3 rounded-r-md border border-l-0 border-border bg-surface-secondary text-xs text-muted-foreground flex items-center font-mono">
@@ -282,7 +282,7 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
               <div className="flex items-start gap-2.5 p-3 rounded-lg border border-border bg-surface-secondary/30 text-xs text-muted-foreground">
                 <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
                 <p className="leading-relaxed">
-                  Backups are generated completely in your browser as compressed archives containing manifest, workbooks, and sheets. They contain zero proprietary cloud lock-in and can be restored on any device running OmniSheet.
+                  Backups are generated completely in your browser as compressed archives containing manifest, workbooks, and sheets. They contain zero proprietary cloud lock-in and can be restored on any device running DC Excel.
                 </p>
               </div>
 
@@ -327,7 +327,7 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
                     )}
                   </div>
                   <h4 className="text-xs font-semibold text-foreground">
-                    {isInspecting ? 'Validating backup archive...' : 'Click to select an OmniSheet backup file (.omni / .zip)'}
+                    {isInspecting ? 'Validating backup archive...' : 'Click to select a DC Excel backup file (.omni / .zip)'}
                   </h4>
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Select a previously exported portable archive

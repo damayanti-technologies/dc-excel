@@ -27,9 +27,11 @@ export class SaveQueue {
 
   private pendingWorkbook: Workbook | null = null;
   private pendingSheets: Sheet[] = [];
+  private pendingSheetsMap = new Map<string, Sheet>();
   private enqueuedGeneration = 0;
   private isPaused = false;
   private debounceTimer: any = null;
+  private checkpointTimer: any = null;
   private debounceMs = 600;
   private isProcessing = false;
   private onCrashRecoverySave?: (workbook: Workbook, sheets: Sheet[]) => Promise<void>;
@@ -86,17 +88,34 @@ export class SaveQueue {
       revision: (workbook.revision || this.currentRevision) + 1,
       updatedAt: Date.now(),
     };
-    this.pendingSheets = [...sheets];
+    for (const sheet of sheets) {
+      this.pendingSheetsMap.set(sheet.id, sheet);
+    }
+    this.pendingSheets = Array.from(this.pendingSheetsMap.values());
 
     this.status = 'dirty';
     this.errorMessage = null;
     this.notify();
 
-    // Trigger background recovery checkpoint
-    void recoveryService.saveCheckpoint(this.pendingWorkbook, this.pendingSheets);
-
-    if (this.onCrashRecoverySave) {
-      void this.onCrashRecoverySave(this.pendingWorkbook, this.pendingSheets);
+    // Debounced background recovery checkpoint (avoids expensive full writes on every keystroke)
+    if (this.checkpointTimer) {
+      clearTimeout(this.checkpointTimer);
+      this.checkpointTimer = null;
+    }
+    if (immediate) {
+      void recoveryService.saveCheckpoint(this.pendingWorkbook, this.pendingSheets);
+      if (this.onCrashRecoverySave) {
+        void this.onCrashRecoverySave(this.pendingWorkbook, this.pendingSheets);
+      }
+    } else {
+      this.checkpointTimer = setTimeout(() => {
+        if (this.pendingWorkbook) {
+          void recoveryService.saveCheckpoint(this.pendingWorkbook, this.pendingSheets);
+          if (this.onCrashRecoverySave) {
+            void this.onCrashRecoverySave(this.pendingWorkbook, this.pendingSheets);
+          }
+        }
+      }, 1500);
     }
 
     if (this.isPaused) {
@@ -164,6 +183,7 @@ export class SaveQueue {
       // If no new pending edits arrived while saving, mark clean
       if (this.enqueuedGeneration === currentGeneration) {
         this.pendingWorkbook = null;
+        this.pendingSheetsMap.clear();
         this.pendingSheets = [];
         this.status = 'saved';
         this.lastSavedAt = Date.now();
@@ -176,7 +196,11 @@ export class SaveQueue {
         }
       }
 
-      // Clean recovery record on successful persistence
+      // Clean recovery record and timers on successful persistence
+      if (this.checkpointTimer) {
+        clearTimeout(this.checkpointTimer);
+        this.checkpointTimer = null;
+      }
       if (wbToSave) {
         void recoveryService.discardRecovery(wbToSave.id);
       }

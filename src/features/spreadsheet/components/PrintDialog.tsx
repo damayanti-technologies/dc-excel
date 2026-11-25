@@ -316,7 +316,7 @@ export const PrintDialog: React.FC<PrintDialogProps> = ({
 
               {/* Footer */}
               <div className="flex items-center justify-between pt-1 mt-1 border-t border-zinc-200 text-zinc-400 font-sans">
-                <span>OmniSheet</span>
+                <span>DC Excel</span>
                 <span>Page 1 of 1</span>
               </div>
             </div>

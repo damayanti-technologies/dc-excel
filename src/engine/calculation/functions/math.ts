@@ -1,16 +1,29 @@
 import { FunctionDefinition } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
-import { coerceNumber, resolveTo1DArray, resolveTo2DArray } from './helpers';
+import { coerceNumber, resolveTo1DArray, resolveTo2DArray, matchesCriteria } from './helpers';
+import { CellValue } from '@/types/cell';
 
 function roundWithDigits(num: number, digits: number, mode: 'round' | 'up' | 'down'): number {
-  const factor = Math.pow(10, digits);
+  if (!Number.isFinite(num)) return num;
+  const sign = num < 0 ? -1 : 1;
+  const abs = Math.abs(num);
+
+  const expPos = digits >= 0 ? `e+${digits}` : `e-${Math.abs(digits)}`;
+  const expNeg = digits >= 0 ? `e-${digits}` : `e+${Math.abs(digits)}`;
+
   if (mode === 'round') {
-    return Math.round(num * factor) / factor;
+    const shifted = Number(`${abs}${expPos}`);
+    const rounded = Math.round(shifted + Number.EPSILON);
+    return sign * Number(`${rounded}${expNeg}`);
   } else if (mode === 'up') {
-    return (num >= 0 ? Math.ceil(num * factor) : Math.floor(num * factor)) / factor;
+    const shifted = Number(`${abs}${expPos}`);
+    const rounded = Math.ceil(shifted - Number.EPSILON);
+    return sign * Number(`${rounded}${expNeg}`);
   } else {
     // down (towards zero)
-    return (num >= 0 ? Math.floor(num * factor) : Math.ceil(num * factor)) / factor;
+    const shifted = Number(`${abs}${expPos}`);
+    const rounded = Math.floor(shifted + Number.EPSILON);
+    return sign * Number(`${rounded}${expNeg}`);
   }
 }
 
@@ -532,6 +545,286 @@ export const mathFunctions: FunctionDefinition[] = [
       }
 
       return sum;
+    }
+  },
+
+  // 17. SUMIF
+  {
+    name: 'SUMIF',
+    category: 'Mathematical',
+    description: 'Adds the cells specified by a given condition or criteria.',
+    minArgs: 2,
+    maxArgs: 3,
+    returnType: 'number',
+    args: [
+      { name: 'range', description: 'The range of cells you want evaluated by the criteria.', type: 'range' },
+      { name: 'criteria', description: 'The condition that determines which cells will be added.', type: 'any' },
+      { name: 'sum_range', description: 'The actual cells to add if different from range.', type: 'range', optional: true }
+    ],
+    examples: ['=SUMIF(A1:A10, ">5")', '=SUMIF(A1:A10, "Apples", B1:B10)'],
+    handler: (args, context, evaluate) => {
+      const criteriaVal = evaluate(args[1]!, context);
+      if (isFormulaError(criteriaVal)) return criteriaVal;
+
+      const critGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof critGrid === 'string') return critGrid;
+
+      const sumGrid = args[2] ? resolveTo2DArray(args[2], context, evaluate) : critGrid;
+      if (typeof sumGrid === 'string') return sumGrid;
+
+      let total = 0;
+      for (let r = 0; r < critGrid.length; r++) {
+        const critRow = critGrid[r] || [];
+        const sumRow = sumGrid[r] || [];
+        for (let c = 0; c < critRow.length; c++) {
+          const cVal = critRow[c] ?? null;
+          if (isFormulaError(cVal)) return cVal;
+          if (matchesCriteria(cVal, criteriaVal)) {
+            const sVal = sumRow[c] ?? null;
+            if (isFormulaError(sVal)) return sVal;
+            if (typeof sVal === 'number') {
+              total += sVal;
+            } else if (sVal !== null && sVal !== undefined && sVal !== '') {
+              const { num } = coerceNumber(sVal);
+              total += num;
+            }
+          }
+        }
+      }
+      return total;
+    }
+  },
+
+  // 18. SUMIFS
+  {
+    name: 'SUMIFS',
+    category: 'Mathematical',
+    description: 'Adds the cells in a range that meet multiple criteria.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'sum_range', description: 'The range of cells to sum.', type: 'range' },
+      { name: 'criteria_range1', description: 'The first range to evaluate.', type: 'range' },
+      { name: 'criteria1', description: 'The first condition.', type: 'any' }
+    ],
+    examples: ['=SUMIFS(B1:B10, A1:A10, ">0", C1:C10, "Yes")'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 3 || (args.length - 1) % 2 !== 0) {
+        return FormulaError.VALUE;
+      }
+      const sumGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof sumGrid === 'string') return sumGrid;
+
+      const criteriaPairs: { grid: CellValue[][]; crit: CellValue }[] = [];
+      for (let i = 1; i < args.length; i += 2) {
+        const grid = resolveTo2DArray(args[i]!, context, evaluate);
+        if (typeof grid === 'string') return grid;
+        const crit = evaluate(args[i + 1]!, context);
+        if (isFormulaError(crit)) return crit;
+        criteriaPairs.push({ grid, crit });
+      }
+
+      let total = 0;
+      for (let r = 0; r < sumGrid.length; r++) {
+        const sumRow = sumGrid[r] || [];
+        for (let c = 0; c < sumRow.length; c++) {
+          let matchesAll = true;
+          for (const pair of criteriaPairs) {
+            const val = pair.grid[r]?.[c] ?? null;
+            if (isFormulaError(val)) return val;
+            if (!matchesCriteria(val, pair.crit)) {
+              matchesAll = false;
+              break;
+            }
+          }
+          if (matchesAll) {
+            const sVal = sumRow[c];
+            if (isFormulaError(sVal)) return sVal;
+            if (typeof sVal === 'number') {
+              total += sVal;
+            } else if (sVal !== null && sVal !== undefined && sVal !== '') {
+              const { num } = coerceNumber(sVal);
+              total += num;
+            }
+          }
+        }
+      }
+      return total;
+    }
+  },
+
+  // 19. CEILING
+  {
+    name: 'CEILING',
+    category: 'Mathematical',
+    description: 'Rounds a number up, to the nearest multiple of significance.',
+    minArgs: 1,
+    maxArgs: 2,
+    returnType: 'number',
+    args: [
+      { name: 'number', description: 'The number you want to round.', type: 'number' },
+      { name: 'significance', description: 'The multiple to round up to.', type: 'number', optional: true }
+    ],
+    examples: ['=CEILING(2.5, 1)', '=CEILING(4.42, 0.05)'],
+    handler: (args, context, evaluate) => {
+      const numVal = evaluate(args[0]!, context);
+      if (isFormulaError(numVal)) return numVal;
+      const { num, error: err1 } = coerceNumber(numVal);
+      if (err1) return err1;
+
+      let sig = 1;
+      if (args[1]) {
+        const sigVal = evaluate(args[1], context);
+        if (isFormulaError(sigVal)) return sigVal;
+        const { num: s, error: err2 } = coerceNumber(sigVal);
+        if (err2) return err2;
+        sig = s;
+      }
+
+      if (sig === 0) return 0;
+      if (num > 0 && sig < 0) return FormulaError.NUM;
+      return Math.ceil(num / sig) * sig;
+    }
+  },
+
+  // 20. FLOOR
+  {
+    name: 'FLOOR',
+    category: 'Mathematical',
+    description: 'Rounds a number down, toward zero, to the nearest multiple of significance.',
+    minArgs: 1,
+    maxArgs: 2,
+    returnType: 'number',
+    args: [
+      { name: 'number', description: 'The numeric value you want to round.', type: 'number' },
+      { name: 'significance', description: 'The multiple to round down to.', type: 'number', optional: true }
+    ],
+    examples: ['=FLOOR(2.5, 1)', '=FLOOR(3.7, 0.5)'],
+    handler: (args, context, evaluate) => {
+      const numVal = evaluate(args[0]!, context);
+      if (isFormulaError(numVal)) return numVal;
+      const { num, error: err1 } = coerceNumber(numVal);
+      if (err1) return err1;
+
+      let sig = 1;
+      if (args[1]) {
+        const sigVal = evaluate(args[1], context);
+        if (isFormulaError(sigVal)) return sigVal;
+        const { num: s, error: err2 } = coerceNumber(sigVal);
+        if (err2) return err2;
+        sig = s;
+      }
+
+      if (sig === 0) return 0;
+      if (num > 0 && sig < 0) return FormulaError.NUM;
+      return Math.floor(num / sig) * sig;
+    }
+  },
+
+  // 21. RAND
+  {
+    name: 'RAND',
+    category: 'Mathematical',
+    description: 'Returns an evenly distributed random real number greater than or equal to 0 and less than 1.',
+    minArgs: 0,
+    maxArgs: 0,
+    returnType: 'number',
+    args: [],
+    examples: ['=RAND()'],
+    handler: () => Math.random()
+  },
+
+  // 22. RANDBETWEEN
+  {
+    name: 'RANDBETWEEN',
+    category: 'Mathematical',
+    description: 'Returns a random integer number between the numbers you specify.',
+    minArgs: 2,
+    maxArgs: 2,
+    returnType: 'number',
+    args: [
+      { name: 'bottom', description: 'The smallest integer RANDBETWEEN will return.', type: 'number' },
+      { name: 'top', description: 'The largest integer RANDBETWEEN will return.', type: 'number' }
+    ],
+    examples: ['=RANDBETWEEN(1, 100)'],
+    handler: (args, context, evaluate) => {
+      const bVal = evaluate(args[0]!, context);
+      if (isFormulaError(bVal)) return bVal;
+      const { num: bottom, error: err1 } = coerceNumber(bVal);
+      if (err1) return err1;
+
+      const tVal = evaluate(args[1]!, context);
+      if (isFormulaError(tVal)) return tVal;
+      const { num: top, error: err2 } = coerceNumber(tVal);
+      if (err2) return err2;
+
+      if (bottom > top) return FormulaError.NUM;
+      const min = Math.ceil(bottom);
+      const max = Math.floor(top);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+  },
+
+  // 23. SUBTOTAL
+  {
+    name: 'SUBTOTAL',
+    category: 'Mathematical',
+    description: 'Returns a subtotal in a list or database.',
+    minArgs: 2,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'function_num', description: 'Number 1-11 or 101-111 specifying the function to use.', type: 'number' },
+      { name: 'ref1', description: 'First range or reference to subtotal.', type: 'range' },
+      { name: 'ref2', description: 'Additional ranges to subtotal.', type: 'range', optional: true, repeating: true }
+    ],
+    examples: ['=SUBTOTAL(9, A1:A10)', '=SUBTOTAL(1, B1:B10)'],
+    handler: (args, context, evaluate) => {
+      const fnNumVal = evaluate(args[0]!, context);
+      if (isFormulaError(fnNumVal)) return fnNumVal;
+      const { num: fnCode, error } = coerceNumber(fnNumVal);
+      if (error) return error;
+
+      // Extract all numbers
+      const numbers: number[] = [];
+      for (let i = 1; i < args.length; i++) {
+        const flat = resolveTo1DArray(args[i]!, context, evaluate);
+        if (typeof flat === 'string') return flat;
+        for (const v of flat) {
+          if (isFormulaError(v)) return v;
+          if (typeof v === 'number') {
+            numbers.push(v);
+          } else if (v !== null && v !== undefined && v !== '') {
+            const { num, error: numErr } = coerceNumber(v);
+            if (!numErr) numbers.push(num);
+          }
+        }
+      }
+
+      const code = fnCode > 100 ? fnCode - 100 : fnCode;
+      switch (code) {
+        case 1: // AVERAGE
+          if (numbers.length === 0) return FormulaError.DIV_ZERO;
+          return numbers.reduce((a, b) => a + b, 0) / numbers.length;
+        case 2: // COUNT
+          return numbers.length;
+        case 3: // COUNTA
+          return numbers.length;
+        case 4: // MAX
+          if (numbers.length === 0) return 0;
+          return Math.max(...numbers);
+        case 5: // MIN
+          if (numbers.length === 0) return 0;
+          return Math.min(...numbers);
+        case 6: // PRODUCT
+          if (numbers.length === 0) return 0;
+          return numbers.reduce((a, b) => a * b, 1);
+        case 9: // SUM
+          return numbers.reduce((a, b) => a + b, 0);
+        default:
+          return numbers.reduce((a, b) => a + b, 0);
+      }
     }
   }
 ];

@@ -68,7 +68,7 @@ describe('Route Navigation Integration', () => {
     render(<RouterProvider router={memoryRouter} />);
 
     await waitFor(() => {
-      expect(screen.getByText('Welcome to OmniSheet')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to DC Excel')).toBeInTheDocument();
       expect(screen.getByText('Create New Workbook')).toBeInTheDocument();
       expect(screen.getByText('Blank Workbook')).toBeInTheDocument();
       expect(screen.getByText('Recent Workbooks')).toBeInTheDocument();

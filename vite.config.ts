@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'icons/*.png', 'icons/*.svg'],
       manifest: {
-        name: 'OmniSheet - Local-First Spreadsheet',
-        short_name: 'OmniSheet',
+        name: 'DC Excel - Local-First Spreadsheet',
+        short_name: 'DC Excel',
         description: 'Professional, offline-capable local-first spreadsheet web application',
         theme_color: '#0f766e',
         background_color: '#ffffff',
@@ -59,6 +59,17 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
+    }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'echarts-vendor': ['echarts'],
+          'exceljs-vendor': ['exceljs'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom', 'zustand']
+        }
+      }
     }
   },
   server: {

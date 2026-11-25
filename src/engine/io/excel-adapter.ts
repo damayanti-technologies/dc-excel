@@ -344,7 +344,7 @@ export async function generateExcelWorkbook(
   config: ExcelExportConfig = { fileName: `${workbook.name}.xlsx` }
 ): Promise<{ buffer: ArrayBuffer; warnings: string[] }> {
   const excelWorkbook = new ExcelJS.Workbook();
-  excelWorkbook.creator = 'OmniSheet Spreadsheet Engine';
+  excelWorkbook.creator = 'DC Excel Spreadsheet Engine';
   excelWorkbook.created = new Date(workbook.createdAt || Date.now());
   excelWorkbook.modified = new Date();
 
@@ -359,7 +359,7 @@ export async function generateExcelWorkbook(
     // Check for advanced objects and note compatibility
     if (sheet.metadata?.charts && sheet.metadata.charts.length > 0) {
       warnings.push(
-        `Worksheet "${sheet.name}" contains ${sheet.metadata.charts.length} chart(s). OmniSheet retains chart configurations, but external XLSX viewers will only see cell data.`
+        `Worksheet "${sheet.name}" contains ${sheet.metadata.charts.length} chart(s). DC Excel retains chart configurations, but external XLSX viewers will only see cell data.`
       );
     }
     if (sheet.metadata?.pivotTables && sheet.metadata.pivotTables.length > 0) {

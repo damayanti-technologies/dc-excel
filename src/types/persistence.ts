@@ -37,11 +37,11 @@ export interface CrashRecoveryRecord {
 }
 
 /**
- * Manifest included inside portable OmniSheet (.omni / .zip) backup archives.
+ * Manifest included inside portable DC Excel (.omni / .zip) backup archives.
  */
 export interface BackupManifest {
   version: string; // e.g. '1.0.0'
-  appVersion: string; // e.g. 'OmniSheet 0.13.0'
+  appVersion: string; // e.g. 'DC Excel 1.0.0'
   createdAt: number;
   workbookCount: number;
   sheetCount: number;

@@ -7,6 +7,7 @@ import {
   matchWildcard,
   resolveTo1DArray
 } from './helpers';
+import { numberFormatter } from '@/engine/formatting/number-formatter';
 
 export const textFunctions: FunctionDefinition[] = [
   // 1. LEFT
@@ -547,6 +548,69 @@ export const textFunctions: FunctionDefinition[] = [
       // Remove characters in ASCII range 0-31
       // eslint-disable-next-line no-control-regex
       return str.replace(/[\x00-\x1F]/g, '');
+    }
+  },
+
+  // 19. TEXT
+  {
+    name: 'TEXT',
+    category: 'Text',
+    description: 'Formats a number and converts it to text.',
+    minArgs: 2,
+    maxArgs: 2,
+    returnType: 'string',
+    args: [
+      { name: 'value', description: 'A numeric value, a formula that evaluates to a numeric value, or a reference to a cell containing a numeric value.', type: 'any' },
+      { name: 'format_text', description: 'A numeric format as a text string enclosed in quotation marks.', type: 'string' }
+    ],
+    examples: ['=TEXT(1234.567, "$#,##0.00")', '=TEXT(TODAY(), "YYYY-MM-DD")'],
+    handler: (args, context, evaluate) => {
+      const val = evaluate(args[0]!, context);
+      if (isFormulaError(val)) return val;
+
+      const fmtVal = evaluate(args[1]!, context);
+      if (isFormulaError(fmtVal)) return fmtVal;
+      const fmtStr = coerceString(fmtVal);
+
+      return numberFormatter.format(val, fmtStr);
+    }
+  },
+
+  // 20. VALUE
+  {
+    name: 'VALUE',
+    category: 'Text',
+    description: 'Converts a text string that represents a number to a number.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'number',
+    args: [
+      { name: 'text', description: 'The text enclosed in quotation marks or a reference to a cell containing the text you want to convert.', type: 'string' }
+    ],
+    examples: ['=VALUE("$1,000")', '=VALUE("16:00:00") - VALUE("12:00:00")'],
+    handler: (args, context, evaluate) => {
+      const textEval = evaluate(args[0]!, context);
+      if (isFormulaError(textEval)) return textEval;
+      if (typeof textEval === 'number') return textEval;
+
+      const raw = coerceString(textEval).trim();
+      if (raw === '') return 0;
+
+      // Check percentage
+      if (raw.endsWith('%')) {
+        const withoutPct = raw.slice(0, -1).replace(/[$€£¥,]/g, '').trim();
+        const num = Number(withoutPct);
+        if (Number.isNaN(num) || !Number.isFinite(num)) return FormulaError.VALUE;
+        return num / 100;
+      }
+
+      // Clean currency symbols and commas
+      const clean = raw.replace(/[$€£¥]/g, '').replace(/,/g, '').trim();
+      const num = Number(clean);
+      if (Number.isNaN(num) || !Number.isFinite(num)) {
+        return FormulaError.VALUE;
+      }
+      return num;
     }
   }
 ];

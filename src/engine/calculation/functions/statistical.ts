@@ -1,6 +1,6 @@
 import { FunctionDefinition, ASTNode, EvaluationContext } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
-import { coerceNumber, resolveTo1DArray, resolveTo2DArray } from './helpers';
+import { coerceNumber, resolveTo1DArray, resolveTo2DArray, matchesCriteria } from './helpers';
 import { CellValue } from '@/types/cell';
 
 function extractNumericValues(
@@ -509,6 +509,238 @@ export const statisticalFunctions: FunctionDefinition[] = [
       const weight = rank - low;
 
       return nums[low]! + weight * (nums[high]! - nums[low]!);
+    }
+  },
+
+  // 13. COUNTIF
+  {
+    name: 'COUNTIF',
+    category: 'Statistical',
+    description: 'Counts the number of cells within a range that meet the given condition.',
+    minArgs: 2,
+    maxArgs: 2,
+    returnType: 'number',
+    args: [
+      { name: 'range', description: 'The range of cells from which you want to count.', type: 'range' },
+      { name: 'criteria', description: 'The condition that defines which cells will be counted.', type: 'any' }
+    ],
+    examples: ['=COUNTIF(A1:A10, ">0")', '=COUNTIF(A1:A10, "apples")'],
+    handler: (args, context, evaluate) => {
+      const criteriaVal = evaluate(args[1]!, context);
+      if (isFormulaError(criteriaVal)) return criteriaVal;
+
+      const flat = resolveTo1DArray(args[0]!, context, evaluate);
+      if (typeof flat === 'string') return flat;
+
+      let count = 0;
+      for (const val of flat) {
+        if (isFormulaError(val)) return val;
+        if (matchesCriteria(val, criteriaVal)) {
+          count++;
+        }
+      }
+      return count;
+    }
+  },
+
+  // 14. COUNTIFS
+  {
+    name: 'COUNTIFS',
+    category: 'Statistical',
+    description: 'Counts the number of cells specified that meet a given set of conditions.',
+    minArgs: 2,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'criteria_range1', description: 'The first range to evaluate.', type: 'range' },
+      { name: 'criteria1', description: 'The condition that defines which cells to count in the first range.', type: 'any' }
+    ],
+    examples: ['=COUNTIFS(A1:A10, ">0", B1:B10, "<100")'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 2 || args.length % 2 !== 0) {
+        return FormulaError.VALUE;
+      }
+
+      const pairs: { grid: CellValue[][]; crit: CellValue }[] = [];
+      for (let i = 0; i < args.length; i += 2) {
+        const grid = resolveTo2DArray(args[i]!, context, evaluate);
+        if (typeof grid === 'string') return grid;
+        const crit = evaluate(args[i + 1]!, context);
+        if (isFormulaError(crit)) return crit;
+        pairs.push({ grid, crit });
+      }
+
+      const baseGrid = pairs[0]!.grid;
+      let count = 0;
+
+      for (let r = 0; r < baseGrid.length; r++) {
+        const baseRow = baseGrid[r] || [];
+        for (let c = 0; c < baseRow.length; c++) {
+          let matchesAll = true;
+          for (const pair of pairs) {
+            const val = pair.grid[r]?.[c] ?? null;
+            if (isFormulaError(val)) return val;
+            if (!matchesCriteria(val, pair.crit)) {
+              matchesAll = false;
+              break;
+            }
+          }
+          if (matchesAll) {
+            count++;
+          }
+        }
+      }
+
+      return count;
+    }
+  },
+
+  // 15. COUNTBLANK
+  {
+    name: 'COUNTBLANK',
+    category: 'Statistical',
+    description: 'Counts empty cells in a specified range of cells.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'number',
+    args: [
+      { name: 'range', description: 'The range from which you want to count blank cells.', type: 'range' }
+    ],
+    examples: ['=COUNTBLANK(A1:B10)'],
+    handler: (args, context, evaluate) => {
+      const flat = resolveTo1DArray(args[0]!, context, evaluate);
+      if (typeof flat === 'string') return flat;
+
+      let count = 0;
+      for (const val of flat) {
+        if (val === null || val === undefined || val === '') {
+          count++;
+        }
+      }
+      return count;
+    }
+  },
+
+  // 16. AVERAGEIF
+  {
+    name: 'AVERAGEIF',
+    category: 'Statistical',
+    description: 'Returns the average (arithmetic mean) of all the cells in a range that meet a given criteria.',
+    minArgs: 2,
+    maxArgs: 3,
+    returnType: 'number',
+    args: [
+      { name: 'range', description: 'The range of cells you want evaluated by the criteria.', type: 'range' },
+      { name: 'criteria', description: 'The condition that determines which cells will be averaged.', type: 'any' },
+      { name: 'average_range', description: 'The actual cells to average if different from range.', type: 'range', optional: true }
+    ],
+    examples: ['=AVERAGEIF(A1:A10, ">0")', '=AVERAGEIF(A1:A10, "West", B1:B10)'],
+    handler: (args, context, evaluate) => {
+      const criteriaVal = evaluate(args[1]!, context);
+      if (isFormulaError(criteriaVal)) return criteriaVal;
+
+      const critGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof critGrid === 'string') return critGrid;
+
+      const avgGrid = args[2] ? resolveTo2DArray(args[2], context, evaluate) : critGrid;
+      if (typeof avgGrid === 'string') return avgGrid;
+
+      let total = 0;
+      let count = 0;
+
+      for (let r = 0; r < critGrid.length; r++) {
+        const critRow = critGrid[r] || [];
+        const avgRow = avgGrid[r] || [];
+        for (let c = 0; c < critRow.length; c++) {
+          const cVal = critRow[c] ?? null;
+          if (isFormulaError(cVal)) return cVal;
+          if (matchesCriteria(cVal, criteriaVal)) {
+            const aVal = avgRow[c] ?? null;
+            if (isFormulaError(aVal)) return aVal;
+            if (typeof aVal === 'number') {
+              total += aVal;
+              count++;
+            } else if (aVal !== null && aVal !== undefined && aVal !== '') {
+              const { num, error } = coerceNumber(aVal);
+              if (!error) {
+                total += num;
+                count++;
+              }
+            }
+          }
+        }
+      }
+
+      if (count === 0) return FormulaError.DIV_ZERO;
+      return total / count;
+    }
+  },
+
+  // 17. AVERAGEIFS
+  {
+    name: 'AVERAGEIFS',
+    category: 'Statistical',
+    description: 'Returns the average (arithmetic mean) of all cells that meet multiple conditions.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'average_range', description: 'The range of cells to average.', type: 'range' },
+      { name: 'criteria_range1', description: 'The first range to evaluate.', type: 'range' },
+      { name: 'criteria1', description: 'The first condition.', type: 'any' }
+    ],
+    examples: ['=AVERAGEIFS(B1:B10, A1:A10, ">0", C1:C10, "Yes")'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 3 || (args.length - 1) % 2 !== 0) {
+        return FormulaError.VALUE;
+      }
+
+      const avgGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof avgGrid === 'string') return avgGrid;
+
+      const criteriaPairs: { grid: CellValue[][]; crit: CellValue }[] = [];
+      for (let i = 1; i < args.length; i += 2) {
+        const grid = resolveTo2DArray(args[i]!, context, evaluate);
+        if (typeof grid === 'string') return grid;
+        const crit = evaluate(args[i + 1]!, context);
+        if (isFormulaError(crit)) return crit;
+        criteriaPairs.push({ grid, crit });
+      }
+
+      let total = 0;
+      let count = 0;
+
+      for (let r = 0; r < avgGrid.length; r++) {
+        const avgRow = avgGrid[r] || [];
+        for (let c = 0; c < avgRow.length; c++) {
+          let matchesAll = true;
+          for (const pair of criteriaPairs) {
+            const val = pair.grid[r]?.[c] ?? null;
+            if (isFormulaError(val)) return val;
+            if (!matchesCriteria(val, pair.crit)) {
+              matchesAll = false;
+              break;
+            }
+          }
+          if (matchesAll) {
+            const aVal = avgRow[c];
+            if (isFormulaError(aVal)) return aVal;
+            if (typeof aVal === 'number') {
+              total += aVal;
+              count++;
+            } else if (aVal !== null && aVal !== undefined && aVal !== '') {
+              const { num, error } = coerceNumber(aVal);
+              if (!error) {
+                total += num;
+                count++;
+              }
+            }
+          }
+        }
+      }
+
+      if (count === 0) return FormulaError.DIV_ZERO;
+      return total / count;
     }
   }
 ];

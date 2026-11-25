@@ -62,7 +62,7 @@ export const DashboardWelcome: React.FC = () => {
                 Unsaved Work Detected ({pendingRecoveries.length} workbook{pendingRecoveries.length > 1 ? 's' : ''})
               </h4>
               <p className="text-muted-foreground">
-                OmniSheet preserved unsaved session data for &quot;{primaryRecovery.workbookName}&quot; before a crash or tab close.
+                DC Excel preserved unsaved session data for &quot;{primaryRecovery.workbookName}&quot; before a crash or tab close.
               </p>
             </div>
           </div>
@@ -91,7 +91,7 @@ export const DashboardWelcome: React.FC = () => {
             </div>
 
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              Welcome to OmniSheet
+              Welcome to DC Excel
             </h1>
             <p className="text-xs sm:text-sm text-foreground-muted">
               Fast, private, and local-first. Spreadsheets stay safely in your browser with zero remote telemetry.

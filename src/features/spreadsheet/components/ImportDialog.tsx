@@ -214,7 +214,7 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                 Import Spreadsheet
               </h2>
               <p className="text-xs text-muted-foreground">
-                Import Microsoft Excel (.xlsx), CSV, or TSV into OmniSheet
+                Import Microsoft Excel (.xlsx), CSV, or TSV into DC Excel
               </p>
             </div>
           </div>

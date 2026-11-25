@@ -50,7 +50,7 @@ export const SettingsPlaceholder: React.FC = () => {
     { id: 'appearance', label: 'Appearance', icon: <Sun className="w-4 h-4" /> },
     { id: 'storage', label: 'Storage & Diagnostics', icon: <HardDrive className="w-4 h-4" /> },
     { id: 'defaults', label: 'Workbook Defaults', icon: <Sliders className="w-4 h-4" /> },
-    { id: 'about', label: 'About OmniSheet', icon: <Info className="w-4 h-4" /> }
+    { id: 'about', label: 'About DC Excel', icon: <Info className="w-4 h-4" /> }
   ];
 
   return (
@@ -82,7 +82,7 @@ export const SettingsPlaceholder: React.FC = () => {
                 <span>Theme Mode</span>
               </h2>
               <p className="text-xs text-foreground-muted">
-                Choose whether OmniSheet displays in light, dark, or system-synchronized theme.
+                Choose whether DC Excel displays in light, dark, or system-synchronized theme.
               </p>
             </div>
 
@@ -259,7 +259,7 @@ export const SettingsPlaceholder: React.FC = () => {
             </div>
 
             <p className="text-xs text-foreground-secondary leading-relaxed pt-2">
-              OmniSheet is a local-first, privacy-respecting spreadsheet application built with React,
+              DC Excel is a local-first, privacy-respecting spreadsheet application built with React,
               TypeScript, Zustand, and IndexedDB. It works completely client-side without cloud logins or remote tracking.
             </p>
 
@@ -278,7 +278,18 @@ export const SettingsPlaceholder: React.FC = () => {
         onConfirm={() => {
           if (typeof indexedDB !== 'undefined') {
             indexedDB.deleteDatabase(APP_CONFIG.dbName);
-            localStorage.clear();
+            if (typeof localStorage !== 'undefined') {
+              const keysToRemove: string[] = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('omnisheet_') || key.startsWith('omnisheet:'))) {
+                  keysToRemove.push(key);
+                }
+              }
+              for (const k of keysToRemove) {
+                localStorage.removeItem(k);
+              }
+            }
             window.location.reload();
           }
         }}

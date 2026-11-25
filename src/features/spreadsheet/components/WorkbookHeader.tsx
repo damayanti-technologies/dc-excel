@@ -171,7 +171,7 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
             <div className="w-6 h-6 rounded-md bg-accent text-zinc-950 flex items-center justify-center shadow-xs font-bold">
               <Table2 className="w-3.5 h-3.5" />
             </div>
-            <span className="font-extrabold tracking-tight text-sm hidden md:inline">OmniSheet</span>
+            <span className="font-extrabold tracking-tight text-sm hidden md:inline">DC Excel</span>
           </Link>
 
           <div className="h-4 w-px bg-border mx-0.5 hidden sm:block shrink-0" />

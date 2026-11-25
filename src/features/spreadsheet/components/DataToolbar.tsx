@@ -443,10 +443,10 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
             <button
               type="button"
               onClick={onOpenPivotTable}
-              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1"
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
               aria-label="Pivot Table"
             >
-              <Table className="w-4 h-4 text-indigo-500" />
+              <Table className="w-4 h-4 text-emerald-500" />
               <span className="hidden lg:inline text-[11px]">Pivot Table</span>
             </button>
           </Tooltip>
