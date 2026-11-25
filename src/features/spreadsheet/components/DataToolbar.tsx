@@ -430,10 +430,10 @@ export const DataToolbar: React.FC<DataToolbarProps> = ({
             <button
               type="button"
               onClick={onOpenNameManager}
-              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-sky-600 dark:hover:text-sky-400 transition-colors flex items-center gap-1"
+              className="p-1.5 rounded hover:bg-surface-secondary text-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
               aria-label="Name Manager"
             >
-              <Tag className="w-4 h-4 text-sky-500" />
+              <Tag className="w-4 h-4 text-emerald-500" />
               <span className="hidden lg:inline text-[11px]">Name Manager</span>
             </button>
           </Tooltip>

@@ -35,8 +35,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       'inline-flex items-center justify-center font-medium rounded-lg transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.98]';
 
     const variants: Record<ButtonVariant, string> = {
-      primary: 'bg-brand text-foreground-inverse hover:bg-brand-light shadow-xs',
-      accent: 'bg-accent text-white hover:bg-accent-hover shadow-xs',
+      primary: 'bg-accent text-zinc-950 font-semibold hover:bg-accent-hover shadow-xs',
+      accent: 'bg-accent text-zinc-950 font-semibold hover:bg-accent-hover shadow-xs',
       secondary:
         'bg-surface-secondary text-foreground hover:bg-surface-tertiary border border-border shadow-xs',
       outline:

@@ -144,7 +144,7 @@ export const NameManagerDialog: React.FC<NameManagerDialogProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-secondary/40">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <Tag className="w-5 h-5" />
               </div>
               <div>

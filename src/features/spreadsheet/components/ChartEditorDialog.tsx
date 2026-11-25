@@ -592,7 +592,7 @@ export const ChartEditorDialog: React.FC<ChartEditorDialogProps> = ({
                     className="w-full px-3 py-1.5 text-xs bg-surface-secondary border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                   >
                     <option value="professional">Professional (OmniSheet Green / Navy)</option>
-                    <option value="corporate">Corporate (Teal / Classic Blues)</option>
+                    <option value="corporate">Corporate (Teal / Emerald)</option>
                     <option value="modern">Modern SaaS (Indigo / Emerald / Amber)</option>
                     <option value="minimal">Minimal (Grayscale / Slate)</option>
                     <option value="monochrome">Monochrome (Single-hue Slate)</option>

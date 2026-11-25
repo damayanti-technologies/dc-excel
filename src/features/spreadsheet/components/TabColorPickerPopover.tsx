@@ -19,7 +19,7 @@ export const TabColorPickerPopover: React.FC<TabColorPickerPopoverProps> = ({
   anchorPosition
 }) => {
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [customHex, setCustomHex] = useState(currentColor || '#2563eb');
+  const [customHex, setCustomHex] = useState(currentColor || '#10b981');
 
   useEffect(() => {
     if (currentColor) {
@@ -148,7 +148,7 @@ export const TabColorPickerPopover: React.FC<TabColorPickerPopoverProps> = ({
               onClose();
             }
           }}
-          placeholder="#2563eb"
+          placeholder="#10b981"
           className="w-20 px-1.5 py-0.5 text-xs font-mono bg-surface border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>

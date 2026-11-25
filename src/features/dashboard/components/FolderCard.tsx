@@ -50,8 +50,8 @@ export const FolderCard: React.FC<FolderCardProps> = ({ folder }) => {
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
           style={{
-            backgroundColor: `${folder.color || '#2563eb'}18`,
-            color: folder.color || '#2563eb'
+            backgroundColor: `${folder.color || '#10b981'}18`,
+            color: folder.color || '#10b981'
           }}
         >
           <FolderIcon className="w-5 h-5 fill-current/20" />

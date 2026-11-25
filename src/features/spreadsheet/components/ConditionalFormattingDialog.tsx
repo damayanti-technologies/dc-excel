@@ -107,7 +107,7 @@ export const ConditionalFormattingDialog: React.FC<ConditionalFormattingDialogPr
   const [topBottomRank, setTopBottomRank] = useState<number>(existingRule?.topBottomRank || 10);
 
   // Data Bar State
-  const [dataBarColor, setDataBarColor] = useState<string>(existingRule?.dataBar?.barColor || '#3b82f6');
+  const [dataBarColor, setDataBarColor] = useState<string>(existingRule?.dataBar?.barColor || '#10b981');
   const [dataBarNegativeColor, setDataBarNegativeColor] = useState<string>(existingRule?.dataBar?.negativeBarColor || '#ef4444');
   const [dataBarShowOnly, setDataBarShowOnly] = useState<boolean>(Boolean(existingRule?.dataBar?.showBarOnly));
 

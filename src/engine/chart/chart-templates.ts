@@ -21,7 +21,7 @@ export const CHART_TEMPLATES: ChartTemplate[] = [
   {
     id: 'corporate',
     name: 'Corporate',
-    description: 'Crisp corporate teals and deep blues with formal typography.',
+    description: 'Crisp corporate teals and deep emeralds with formal typography.',
     style: {
       paletteId: 'corporate',
       borderRadius: 6,

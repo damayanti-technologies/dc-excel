@@ -622,7 +622,7 @@ export class FolderService {
       parentFolderId: null,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      color: color || '#2563eb'
+      color: color || '#10b981'
     };
 
     await folderRepository.save(folder);

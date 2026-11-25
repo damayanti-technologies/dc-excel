@@ -286,7 +286,7 @@ export const PivotTableDialog: React.FC<PivotTableDialogProps> = ({
                     <button
                       type="button"
                       onClick={() => handleAddRowField(field.index)}
-                      className="px-1 text-[10px] font-semibold rounded bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20"
+                      className="px-1 text-[10px] font-semibold rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                       title="Add to Rows"
                     >
                       +Row
