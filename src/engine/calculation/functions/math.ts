@@ -44,7 +44,7 @@ export const mathFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let total = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {
@@ -222,6 +222,7 @@ export const mathFunctions: FunctionDefinition[] = [
       const { num: exp, error: pErr } = coerceNumber(pEval);
       if (pErr) return FormulaError.VALUE;
 
+      if (base === 0 && exp === 0) return FormulaError.NUM;
       const res = Math.pow(base, exp);
       if (!Number.isFinite(res) || Number.isNaN(res)) return FormulaError.NUM;
       return res;
@@ -470,7 +471,7 @@ export const mathFunctions: FunctionDefinition[] = [
       let count = 0;
 
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {

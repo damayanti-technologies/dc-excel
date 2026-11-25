@@ -156,6 +156,12 @@ export function resolveTo2DArray(
     return context.getRangeValues(resolved.range);
   }
 
+  if (node.type === 'ArrayLiteral') {
+    return node.elements.map((row) =>
+      row.map((item) => evaluate(item, context))
+    );
+  }
+
   const val = evaluate(node, context);
   if (isFormulaError(val)) return val;
   return [[val]];

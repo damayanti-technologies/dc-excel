@@ -2,7 +2,7 @@ import { createHashRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { SpreadsheetPage } from '@/features/spreadsheet/SpreadsheetPage';
-import { SettingsPlaceholder } from '@/features/settings/SettingsPlaceholder';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 
 export const router = createHashRouter([
@@ -41,7 +41,7 @@ export const router = createHashRouter([
       },
       {
         path: 'settings',
-        element: <SettingsPlaceholder />
+        element: <SettingsPage />
       },
       {
         path: '*',

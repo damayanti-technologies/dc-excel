@@ -4,7 +4,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { SpreadsheetPage } from '@/features/spreadsheet/SpreadsheetPage';
-import { SettingsPlaceholder } from '@/features/settings/SettingsPlaceholder';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 import { clearAllStores } from '@/storage/indexeddb/database';
 
@@ -44,7 +44,7 @@ const testRoutes = [
       },
       {
         path: 'settings',
-        element: <SettingsPlaceholder />
+        element: <SettingsPage />
       },
       {
         path: '*',

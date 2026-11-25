@@ -4,7 +4,7 @@ import { ASTNode, EvaluationContext } from './types';
 import { parseFormula } from './parser';
 import { evaluateAST } from './evaluator';
 import { DependencyGraph, extractReferencesFromAST } from './dependency-graph';
-import { FormulaError, isFormulaError } from './errors';
+import { FormulaError, isFormulaError, BoxedLiteralString, isBoxedLiteral } from './errors';
 import { coordToKey, keyToCoord } from '@/utils/coordinates';
 import { dateToSerial } from './date-utils';
 
@@ -16,7 +16,8 @@ export function createEvaluationContext(
   cells: Record<string, Cell>,
   namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
   getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined,
-  currentSheetName?: string
+  currentSheetName?: string,
+  currentCoord?: CellCoordinates
 ): EvaluationContext {
   const getTargetCells = (sheetName?: string) => {
     if (sheetName && getCrossSheetCells) {
@@ -28,15 +29,16 @@ export function createEvaluationContext(
 
   return {
     currentSheetName,
+    currentCoord,
     getCellValue: (coord: CellCoordinates, sheetName?: string) => {
       const target = getTargetCells(sheetName);
       const key = coordToKey(coord.row, coord.col);
       const cell = target[key];
       if (!cell) return null;
       if (cell.dataType === 'string' && typeof cell.value === 'string' && isFormulaError(cell.value)) {
-        const boxed = new String(cell.value);
-        (boxed as any).__isLiteralText = true;
-        return boxed as any;
+        const boxed: BoxedLiteralString = new String(cell.value);
+        boxed.__isLiteralText = true;
+        return boxed as unknown as CellValue;
       }
       return cell.value ?? null;
     },
@@ -69,9 +71,9 @@ export function createEvaluationContext(
           const cell = target[key];
           let val = cell?.value ?? null;
           if (cell?.dataType === 'string' && typeof val === 'string' && isFormulaError(val)) {
-            const boxed = new String(val);
-            (boxed as any).__isLiteralText = true;
-            val = boxed as any;
+            const boxed: BoxedLiteralString = new String(val);
+            boxed.__isLiteralText = true;
+            val = boxed as unknown as CellValue;
           }
           rowVals.push(val);
         }
@@ -191,10 +193,11 @@ export class CalculationEngine {
     cells: Record<string, Cell>,
     namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
     getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined,
-    currentSheetName?: string
+    currentSheetName?: string,
+    currentCoord?: CellCoordinates
   ): CellValue {
     const ast = parseFormula(formula);
-    const context = createEvaluationContext(cells, namedRangeResolver, getCrossSheetCells, currentSheetName);
+    const context = createEvaluationContext(cells, namedRangeResolver, getCrossSheetCells, currentSheetName, currentCoord);
     const evalResult = evaluateAST(ast, context);
     return evalResult instanceof String ? evalResult.valueOf() : evalResult;
   }
@@ -257,8 +260,9 @@ export class CalculationEngine {
       const fInfo = formulaCells.get(key);
       if (!fInfo) continue;
 
+      context.currentCoord = keyToCoord(key);
       const evalResult = evaluateAST(fInfo.ast, context);
-      const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+      const isLiteral = isBoxedLiteral(evalResult);
       const unwrappedResult = evalResult instanceof String ? evalResult.valueOf() : evalResult;
       const isErr = !isLiteral && isFormulaError(unwrappedResult);
 
@@ -313,9 +317,9 @@ export class CalculationEngine {
           dataType: 'error'
         };
       } else {
-        const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName);
+        const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName, keyToCoord(key));
         const evalResult = evaluateAST(ast, context);
-        const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+        const isLiteral = isBoxedLiteral(evalResult);
         const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
         const isErr = !isLiteral && isFormulaError(unwrapped);
         updatedCells[key] = {
@@ -380,8 +384,9 @@ export class CalculationEngine {
           dataType: 'error'
         };
       } else {
+        context.currentCoord = keyToCoord(depKey);
         const evalResult = evaluateAST(ast, context);
-        const isLiteral = evalResult instanceof String && (evalResult as any).__isLiteralText;
+        const isLiteral = isBoxedLiteral(evalResult);
         const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
         const isErr = !isLiteral && isFormulaError(unwrapped);
         updatedCells[depKey] = {

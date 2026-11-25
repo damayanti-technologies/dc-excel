@@ -76,8 +76,8 @@ export function detectDelimiter(sampleText: string): DelimiterOption {
  * Reads a File or Blob as UTF-8 string, with universal browser and node/jsdom compatibility.
  */
 export async function readFileAsText(file: File | Blob): Promise<string> {
-  if (typeof (file as any).text === 'function') {
-    return await (file as any).text();
+  if ('text' in file && typeof file.text === 'function') {
+    return await file.text();
   }
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -91,8 +91,8 @@ export async function readFileAsText(file: File | Blob): Promise<string> {
  * Reads a File or Blob as ArrayBuffer, with universal browser and node/jsdom compatibility.
  */
 export async function readFileAsArrayBuffer(file: File | Blob): Promise<ArrayBuffer> {
-  if (typeof (file as any).arrayBuffer === 'function') {
-    return await (file as any).arrayBuffer();
+  if ('arrayBuffer' in file && typeof file.arrayBuffer === 'function') {
+    return await file.arrayBuffer();
   }
   return new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
@@ -227,15 +227,16 @@ export class ImportExportService {
       } else {
         return await this.importCsv(file, options);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       Logger.error('ImportExportService', 'Import failed', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
       return {
         success: false,
         workbookId: '',
         workbookName: options.workbookName || getBaseName(file.name),
         sheetCount: 0,
         totalCellCount: 0,
-        warnings: [err?.message || 'Unknown import error occurred.'],
+        warnings: [errMsg || 'Unknown import error occurred.'],
         sheets: [],
       };
     }

@@ -55,8 +55,8 @@ export const VersionHistoryDialog: React.FC<VersionHistoryDialogProps> = ({
       if (list.length > 0 && (!selectedVersionId || !list.find((v) => v.id === selectedVersionId))) {
         setSelectedVersionId(list[0]?.id || null);
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to load version history.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to load version history.');
     } finally {
       setIsLoading(false);
     }
@@ -87,8 +87,8 @@ export const VersionHistoryDialog: React.FC<VersionHistoryDialogProps> = ({
       setNewCheckpointDesc('');
       setIsCreatingCheckpoint(false);
       await loadVersions();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to create checkpoint.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to create checkpoint.');
     }
   };
 
@@ -102,8 +102,8 @@ export const VersionHistoryDialog: React.FC<VersionHistoryDialogProps> = ({
         await versionService.restoreVersion(confirmingRestoreId, workbook, sheets);
       onRestoreSuccess(restoredWb, restoredSheets);
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to restore selected version.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to restore selected version.');
     } finally {
       setIsRestoring(false);
       setConfirmingRestoreId(null);
@@ -114,8 +114,8 @@ export const VersionHistoryDialog: React.FC<VersionHistoryDialogProps> = ({
     try {
       await versionService.deleteVersion(versionId);
       await loadVersions();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to delete version checkpoint.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete version checkpoint.');
     }
   };
 
@@ -127,8 +127,8 @@ export const VersionHistoryDialog: React.FC<VersionHistoryDialogProps> = ({
     try {
       await versionService.deleteAllVersions(workbook.id);
       await loadVersions();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to delete all versions.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to delete all versions.');
     }
   };
 

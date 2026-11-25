@@ -14,7 +14,10 @@ export type TokenType =
   | 'PERCENT'    // %
   | 'PAREN_OPEN' // (
   | 'PAREN_CLOSE'// )
+  | 'BRACE_OPEN' // {
+  | 'BRACE_CLOSE'// }
   | 'COMMA'      // ,
+  | 'SEMICOLON'  // ;
   | 'COLON'      // : (for range A1:B10)
   | 'ERROR'      // Syntax / token error
   | 'EOF';
@@ -110,6 +113,11 @@ export interface ErrorNode {
   error: FormulaErrorType;
 }
 
+export interface ArrayLiteralNode {
+  type: 'ArrayLiteral';
+  elements: ASTNode[][]; // 2D array: rows of column elements, e.g. {1,2;3,4}
+}
+
 export interface EmptyNode {
   type: 'Empty';
 }
@@ -125,6 +133,7 @@ export type ASTNode =
   | BinaryOpNode
   | PercentNode
   | FunctionCallNode
+  | ArrayLiteralNode
   | ErrorNode
   | EmptyNode;
 
@@ -137,6 +146,7 @@ export interface EvaluationContext {
   getRangeValues: (range: CellRange, sheetName?: string) => CellValue[][];
   resolveNamedRange?: (name: string) => { range: CellRange; sheetId?: string } | null;
   currentSheetName?: string;
+  currentCoord?: CellCoordinates;
 }
 
 /**

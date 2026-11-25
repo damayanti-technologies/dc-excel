@@ -1,5 +1,5 @@
 /* global BeforeUnloadEvent */
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
@@ -55,7 +55,8 @@ import {
 import { trimWhitespace } from '@/engine/data-tools/trim';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
+import { SpreadsheetModals } from './components/SpreadsheetModals';
+import { useSpreadsheetPaletteCommands } from './hooks/useSpreadsheetPaletteCommands';
 import {
   WorkbookHeader,
   SpreadsheetToolbar,
@@ -64,80 +65,12 @@ import {
   SpreadsheetGrid,
   SheetTabsBar,
   FormulaReferencePanel,
-  MergeConfirmDialog,
-  MobileFormattingPanel,
-  UnhideSheetsDialog,
   DataToolbar,
-  CustomSortDialog,
-  ColumnFilterPopover,
-  FindReplaceDialog,
-  RemoveDuplicatesDialog,
-  DataValidationDialog,
-  TextToColumnsDialog,
-  ConditionalFormattingDialog,
-  ConditionalFormattingManagerDialog,
-  NameManagerDialog,
-  PivotTableDialog,
-  SubtotalsDialog,
-  GoalSeekDialog,
-  ScenarioManagerDialog,
   InsertToolbar,
-  InsertChartDialog,
-  ChartEditorDialog,
-  ImportDialog,
-  ExportDialog,
-  VersionHistoryDialog,
-  BackupRestoreDialog,
-  StorageManagementDialog,
   MultiTabConflictBanner,
   CrashRecoveryPrompt,
   SpreadsheetStatusBar,
-  CommandPaletteDialog,
-  CommandPaletteAction,
-  GoToDialog,
-  PrintDialog,
-  WelcomeTourModal,
-  HelpShortcutsDialog,
-  PreferencesDialog,
 } from './components';
-import {
-  FileSpreadsheet,
-  Save,
-  Printer,
-  Upload,
-  Download,
-  History,
-  FolderArchive,
-  Undo2,
-  Redo2,
-  Scissors,
-  Copy,
-  Clipboard,
-  Search,
-  SearchCode,
-  CheckSquare,
-  Bold,
-  Italic,
-  Underline,
-  Sparkles,
-  ArrowUpDown,
-  Filter,
-  Trash2,
-  FileText,
-  PlusSquare,
-  BarChart2,
-  Table,
-  Tag,
-  SunMoon,
-  ZoomIn,
-  ZoomOut,
-  Grid,
-  Eye,
-  Navigation,
-  HelpCircle,
-  SlidersHorizontal,
-  Palette
-} from 'lucide-react';
 import { useUIPreferencesStore } from '@/stores/ui-preferences-store';
 import { saveQueue } from '@/engine/persistence/save-queue';
 import { historyManager } from '@/engine/history/history-manager';
@@ -1960,340 +1893,17 @@ export const SpreadsheetPage: React.FC = () => {
   }, [selectedChartId, editingCell, handleDeleteChart]);
 
   // Stage 14: Command Palette Commands List
-  const paletteCommands: CommandPaletteAction[] = useMemo(() => [
-    // File
-    {
-      id: 'cmd-new-workbook',
-      title: 'New Workbook',
-      category: 'File',
-      icon: <FileSpreadsheet className="w-4 h-4" />,
-      onExecute: () => { window.location.href = '/'; }
-    },
-    {
-      id: 'cmd-save-workbook',
-      title: 'Save Workbook',
-      category: 'File',
-      shortcut: 'Ctrl + S',
-      icon: <Save className="w-4 h-4" />,
-      onExecute: () => void handleManualSave()
-    },
-    {
-      id: 'cmd-print',
-      title: 'Print / Export PDF',
-      category: 'File',
-      shortcut: 'Ctrl + P',
-      icon: <Printer className="w-4 h-4" />,
-      onExecute: () => setIsPrintOpen(true)
-    },
-    {
-      id: 'cmd-import-file',
-      title: 'Import File (.xlsx, .csv)',
-      category: 'File',
-      icon: <Upload className="w-4 h-4" />,
-      onExecute: () => setIsImportOpen(true)
-    },
-    {
-      id: 'cmd-export-file',
-      title: 'Export Workbook (.xlsx, .csv)',
-      category: 'File',
-      icon: <Download className="w-4 h-4" />,
-      onExecute: () => setIsExportOpen(true)
-    },
-    {
-      id: 'cmd-version-history',
-      title: 'Workbook Version History',
-      category: 'File',
-      icon: <History className="w-4 h-4" />,
-      onExecute: () => setIsVersionHistoryOpen(true)
-    },
-    {
-      id: 'cmd-backup-restore',
-      title: 'Backup & Restore (.omni)',
-      category: 'File',
-      icon: <FolderArchive className="w-4 h-4" />,
-      onExecute: () => setIsBackupRestoreOpen(true)
-    },
-
-    // Editing
-    {
-      id: 'cmd-undo',
-      title: 'Undo',
-      category: 'Editing',
-      shortcut: 'Ctrl + Z',
-      icon: <Undo2 className="w-4 h-4" />,
-      onExecute: () => void historyManager.undo()
-    },
-    {
-      id: 'cmd-redo',
-      title: 'Redo',
-      category: 'Editing',
-      shortcut: 'Ctrl + Y',
-      icon: <Redo2 className="w-4 h-4" />,
-      onExecute: () => void historyManager.redo()
-    },
-    {
-      id: 'cmd-cut',
-      title: 'Cut',
-      category: 'Editing',
-      shortcut: 'Ctrl + X',
-      icon: <Scissors className="w-4 h-4" />,
-      onExecute: () => void handleCut()
-    },
-    {
-      id: 'cmd-copy',
-      title: 'Copy',
-      category: 'Editing',
-      shortcut: 'Ctrl + C',
-      icon: <Copy className="w-4 h-4" />,
-      onExecute: () => void handleCopy()
-    },
-    {
-      id: 'cmd-paste',
-      title: 'Paste',
-      category: 'Editing',
-      shortcut: 'Ctrl + V',
-      icon: <Clipboard className="w-4 h-4" />,
-      onExecute: () => void handlePaste()
-    },
-    {
-      id: 'cmd-find',
-      title: 'Find',
-      category: 'Editing',
-      shortcut: 'Ctrl + F',
-      icon: <Search className="w-4 h-4" />,
-      onExecute: () => { setFindReplaceInitialMode('find'); setIsFindReplaceOpen(true); }
-    },
-    {
-      id: 'cmd-replace',
-      title: 'Replace',
-      category: 'Editing',
-      shortcut: 'Ctrl + H',
-      icon: <SearchCode className="w-4 h-4" />,
-      onExecute: () => { setFindReplaceInitialMode('replace'); setIsFindReplaceOpen(true); }
-    },
-    {
-      id: 'cmd-select-all',
-      title: 'Select All Cells',
-      category: 'Editing',
-      shortcut: 'Ctrl + A',
-      icon: <CheckSquare className="w-4 h-4" />,
-      onExecute: () => handleSelectAll()
-    },
-    {
-      id: 'cmd-insert-date',
-      title: 'Insert Current Date',
-      category: 'Editing',
-      shortcut: 'Ctrl + ;',
-      icon: <Table className="w-4 h-4" />,
-      onExecute: handleInsertCurrentDate
-    },
-    {
-      id: 'cmd-insert-time',
-      title: 'Insert Current Time',
-      category: 'Editing',
-      shortcut: 'Ctrl + Shift + ;',
-      icon: <Table className="w-4 h-4" />,
-      onExecute: handleInsertCurrentTime
-    },
-
-    // Formatting
-    {
-      id: 'cmd-bold',
-      title: 'Toggle Bold',
-      category: 'Formatting',
-      shortcut: 'Ctrl + B',
-      icon: <Bold className="w-4 h-4" />,
-      onExecute: () => {
-        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
-        handleApplyStyle({ bold: !cell?.style?.bold });
-      }
-    },
-    {
-      id: 'cmd-italic',
-      title: 'Toggle Italic',
-      category: 'Formatting',
-      shortcut: 'Ctrl + I',
-      icon: <Italic className="w-4 h-4" />,
-      onExecute: () => {
-        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
-        handleApplyStyle({ italic: !cell?.style?.italic });
-      }
-    },
-    {
-      id: 'cmd-underline',
-      title: 'Toggle Underline',
-      category: 'Formatting',
-      shortcut: 'Ctrl + U',
-      icon: <Underline className="w-4 h-4" />,
-      onExecute: () => {
-        const cell = activeCell && activeSheet ? activeSheet.cells[coordToKey(activeCell.row, activeCell.col)] : undefined;
-        handleApplyStyle({ underline: !cell?.style?.underline });
-      }
-    },
-    {
-      id: 'cmd-format-cells',
-      title: 'Format Cells...',
-      category: 'Formatting',
-      icon: <Palette className="w-4 h-4" />,
-      onExecute: () => setIsMobileFormattingOpen(true)
-    },
-    {
-      id: 'cmd-conditional-formatting',
-      title: 'Conditional Formatting Rules',
-      category: 'Formatting',
-      icon: <Sparkles className="w-4 h-4" />,
-      onExecute: () => setIsConditionalFormattingManagerOpen(true)
-    },
-
-    // Data
-    {
-      id: 'cmd-sort-asc',
-      title: 'Sort Ascending (A to Z)',
-      category: 'Data',
-      icon: <ArrowUpDown className="w-4 h-4" />,
-      onExecute: () => handleQuickSort('asc', activeCell?.col)
-    },
-    {
-      id: 'cmd-sort-desc',
-      title: 'Sort Descending (Z to A)',
-      category: 'Data',
-      icon: <ArrowUpDown className="w-4 h-4" />,
-      onExecute: () => handleQuickSort('desc', activeCell?.col)
-    },
-    {
-      id: 'cmd-filter',
-      title: 'Toggle Filter',
-      category: 'Data',
-      icon: <Filter className="w-4 h-4" />,
-      onExecute: () => handleToggleFilter()
-    },
-    {
-      id: 'cmd-remove-duplicates',
-      title: 'Remove Duplicates',
-      category: 'Data',
-      icon: <Trash2 className="w-4 h-4" />,
-      onExecute: () => setIsRemoveDuplicatesOpen(true)
-    },
-    {
-      id: 'cmd-data-validation',
-      title: 'Data Validation',
-      category: 'Data',
-      icon: <FileText className="w-4 h-4" />,
-      onExecute: () => setIsDataValidationOpen(true)
-    },
-    {
-      id: 'cmd-text-to-columns',
-      title: 'Text to Columns',
-      category: 'Data',
-      icon: <Table className="w-4 h-4" />,
-      onExecute: () => setIsTextToColumnsOpen(true)
-    },
-
-    // Insert
-    {
-      id: 'cmd-insert-sheet',
-      title: 'Insert Worksheet',
-      category: 'Insert',
-      icon: <PlusSquare className="w-4 h-4" />,
-      onExecute: () => void handleAddSheet()
-    },
-    {
-      id: 'cmd-insert-chart',
-      title: 'Insert Chart',
-      category: 'Insert',
-      icon: <BarChart2 className="w-4 h-4" />,
-      onExecute: () => setIsInsertChartOpen(true)
-    },
-    {
-      id: 'cmd-insert-pivot',
-      title: 'Insert Pivot Table',
-      category: 'Insert',
-      icon: <Table className="w-4 h-4" />,
-      onExecute: () => setIsPivotTableOpen(true)
-    },
-    {
-      id: 'cmd-name-manager',
-      title: 'Name Manager / Define Range',
-      category: 'Insert',
-      icon: <Tag className="w-4 h-4" />,
-      onExecute: () => setIsNameManagerOpen(true)
-    },
-
-    // View
-    {
-      id: 'cmd-toggle-theme',
-      title: 'Toggle Dark / Light Theme',
-      category: 'View',
-      icon: <SunMoon className="w-4 h-4" />,
-      onExecute: () => void setTheme(currentTheme === 'dark' ? 'light' : 'dark')
-    },
-    {
-      id: 'cmd-zoom-in',
-      title: 'Zoom In',
-      category: 'View',
-      icon: <ZoomIn className="w-4 h-4" />,
-      onExecute: () => setZoom(Math.min(200, zoom + 10))
-    },
-    {
-      id: 'cmd-zoom-out',
-      title: 'Zoom Out',
-      category: 'View',
-      icon: <ZoomOut className="w-4 h-4" />,
-      onExecute: () => setZoom(Math.max(50, zoom - 10))
-    },
-    {
-      id: 'cmd-reset-zoom',
-      title: 'Reset Zoom to 100%',
-      category: 'View',
-      icon: <ZoomIn className="w-4 h-4" />,
-      onExecute: () => setZoom(100)
-    },
-    {
-      id: 'cmd-toggle-gridlines',
-      title: showGridlines ? 'Hide Gridlines' : 'Show Gridlines',
-      category: 'View',
-      icon: <Grid className="w-4 h-4" />,
-      onExecute: () => setShowGridlines(!showGridlines)
-    },
-    {
-      id: 'cmd-toggle-formula-bar',
-      title: showFormulaBar ? 'Hide Formula Bar' : 'Show Formula Bar',
-      category: 'View',
-      icon: <Eye className="w-4 h-4" />,
-      onExecute: () => setShowFormulaBar(!showFormulaBar)
-    },
-
-    // Help & Navigation
-    {
-      id: 'cmd-go-to',
-      title: 'Go To Cell / Range...',
-      category: 'Help',
-      shortcut: 'Ctrl + G',
-      icon: <Navigation className="w-4 h-4" />,
-      onExecute: () => setIsGoToOpen(true)
-    },
-    {
-      id: 'cmd-help',
-      title: 'Help & Shortcuts Reference',
-      category: 'Help',
-      shortcut: 'F1',
-      icon: <HelpCircle className="w-4 h-4" />,
-      onExecute: () => setIsHelpOpen(true)
-    },
-    {
-      id: 'cmd-preferences',
-      title: 'Preferences & Settings...',
-      category: 'Help',
-      icon: <SlidersHorizontal className="w-4 h-4" />,
-      onExecute: () => setIsPreferencesOpen(true)
-    }
-  ], [
+  const paletteCommands = useSpreadsheetPaletteCommands({
     activeSheet,
     activeCell,
     currentTheme,
     showGridlines,
+    setShowGridlines,
     showFormulaBar,
+    setShowFormulaBar,
     zoom,
+    setZoom,
+    setTheme,
     handleManualSave,
     handleCut,
     handleCopy,
@@ -2305,9 +1915,25 @@ export const SpreadsheetPage: React.FC = () => {
     handleQuickSort,
     handleToggleFilter,
     handleAddSheet,
-    setTheme,
-    setZoom
-  ]);
+    setIsPrintOpen,
+    setIsImportOpen,
+    setIsExportOpen,
+    setIsVersionHistoryOpen,
+    setIsBackupRestoreOpen,
+    setIsFindReplaceOpen,
+    setFindReplaceInitialMode,
+    setIsMobileFormattingOpen,
+    setIsConditionalFormattingManagerOpen,
+    setIsRemoveDuplicatesOpen,
+    setIsDataValidationOpen,
+    setIsTextToColumnsOpen,
+    setIsInsertChartOpen,
+    setIsPivotTableOpen,
+    setIsNameManagerOpen,
+    setIsGoToOpen,
+    setIsHelpOpen,
+    setIsPreferencesOpen,
+  });
 
   if (isLoading) {
     return <LoadingState message="Loading spreadsheet grid..." />;
@@ -2625,325 +2251,129 @@ export const SpreadsheetPage: React.FC = () => {
         onInsertFunction={handleInsertFunction}
       />
 
-      {/* 8. Merge Confirmation Warning Dialog */}
-      <MergeConfirmDialog
-        isOpen={isMergeWarningOpen}
-        onConfirm={handleConfirmMerge}
-        onCancel={() => setIsMergeWarningOpen(false)}
-      />
-
-      {/* 9. Mobile Formatting Drawer Panel */}
-      <MobileFormattingPanel
-        isOpen={isMobileFormattingOpen}
-        onClose={() => setIsMobileFormattingOpen(false)}
-        activeStyle={currentCellData?.style}
-        onApplyStyle={handleApplyStyle}
-        onClearFormatting={handleClearFormatting}
-      />
-
-      {/* 10. Delete Worksheet Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={Boolean(sheetToDelete)}
-        onClose={() => setSheetToDelete(null)}
-        onConfirm={handleConfirmDeleteSheet}
-        title="Delete Worksheet"
-        message={
-          <span>
-            Are you sure you want to permanently delete{' '}
-            <strong className="text-foreground">{sheetToDelete?.name}</strong>?
-            All data, cells, and formatting in this sheet will be permanently removed.
-          </span>
-        }
-        confirmLabel="Delete"
-        isDestructive={true}
-      />
-
-      {/* 11. Unhide Worksheets Dialog */}
-      <UnhideSheetsDialog
-        isOpen={isUnhideDialogOpen}
-        onClose={() => setIsUnhideDialogOpen(false)}
-        hiddenSheets={sheets.filter((s) => s.metadata?.isHidden)}
-        onUnhide={(sheetId) => void handleUnhideSheet(sheetId)}
-      />
-
-      {/* 12. Custom Multi-Level Sort Dialog */}
-      <CustomSortDialog
-        isOpen={isCustomSortOpen}
-        onClose={() => setIsCustomSortOpen(false)}
-        onSort={handleCustomSort}
-        sheet={activeSheet}
-        range={getDataRange()}
-      />
-
-      {/* 13. Column Filter Popover */}
-      {activeFilterCol !== null && (
-        <ColumnFilterPopover
-          isOpen={activeFilterCol !== null}
-          onClose={() => setActiveFilterCol(null)}
-          col={activeFilterCol}
-          sheet={activeSheet}
-          range={activeSheet.metadata?.filterConfig?.range || getDataRange()}
-          currentFilter={activeSheet.metadata?.filterConfig?.columnFilters?.[activeFilterCol]}
-          onApplyFilter={handleApplyColumnFilter}
-          onQuickSort={(dir) => handleQuickSort(dir, activeFilterCol)}
-        />
-      )}
-
-      {/* 14. Find and Replace Dialog */}
-      <FindReplaceDialog
-        isOpen={isFindReplaceOpen}
-        onClose={() => setIsFindReplaceOpen(false)}
+      {/* 8-37. Dialog Modals, Drawers & Popovers */}
+      <SpreadsheetModals
+        isMergeWarningOpen={isMergeWarningOpen}
+        setIsMergeWarningOpen={setIsMergeWarningOpen}
+        isMobileFormattingOpen={isMobileFormattingOpen}
+        setIsMobileFormattingOpen={setIsMobileFormattingOpen}
+        sheetToDelete={sheetToDelete}
+        setSheetToDelete={setSheetToDelete}
+        isUnhideDialogOpen={isUnhideDialogOpen}
+        setIsUnhideDialogOpen={setIsUnhideDialogOpen}
+        isCustomSortOpen={isCustomSortOpen}
+        setIsCustomSortOpen={setIsCustomSortOpen}
+        activeFilterCol={activeFilterCol}
+        setActiveFilterCol={setActiveFilterCol}
+        isFindReplaceOpen={isFindReplaceOpen}
+        setIsFindReplaceOpen={setIsFindReplaceOpen}
+        findReplaceInitialMode={findReplaceInitialMode}
+        isRemoveDuplicatesOpen={isRemoveDuplicatesOpen}
+        setIsRemoveDuplicatesOpen={setIsRemoveDuplicatesOpen}
+        isDataValidationOpen={isDataValidationOpen}
+        setIsDataValidationOpen={setIsDataValidationOpen}
+        isTextToColumnsOpen={isTextToColumnsOpen}
+        setIsTextToColumnsOpen={setIsTextToColumnsOpen}
+        isConditionalFormattingOpen={isConditionalFormattingOpen}
+        setIsConditionalFormattingOpen={setIsConditionalFormattingOpen}
+        isConditionalFormattingManagerOpen={isConditionalFormattingManagerOpen}
+        setIsConditionalFormattingManagerOpen={setIsConditionalFormattingManagerOpen}
+        isNameManagerOpen={isNameManagerOpen}
+        setIsNameManagerOpen={setIsNameManagerOpen}
+        isPivotTableOpen={isPivotTableOpen}
+        setIsPivotTableOpen={setIsPivotTableOpen}
+        isSubtotalsOpen={isSubtotalsOpen}
+        setIsSubtotalsOpen={setIsSubtotalsOpen}
+        isGoalSeekOpen={isGoalSeekOpen}
+        setIsGoalSeekOpen={setIsGoalSeekOpen}
+        isScenarioManagerOpen={isScenarioManagerOpen}
+        setIsScenarioManagerOpen={setIsScenarioManagerOpen}
+        isInsertChartOpen={isInsertChartOpen}
+        setIsInsertChartOpen={setIsInsertChartOpen}
+        isChartEditorOpen={isChartEditorOpen}
+        setIsChartEditorOpen={setIsChartEditorOpen}
+        editingChart={editingChart}
+        setEditingChart={setEditingChart}
+        isImportOpen={isImportOpen}
+        setIsImportOpen={setIsImportOpen}
+        isExportOpen={isExportOpen}
+        setIsExportOpen={setIsExportOpen}
+        isVersionHistoryOpen={isVersionHistoryOpen}
+        setIsVersionHistoryOpen={setIsVersionHistoryOpen}
+        isBackupRestoreOpen={isBackupRestoreOpen}
+        setIsBackupRestoreOpen={setIsBackupRestoreOpen}
+        isStorageManagementOpen={isStorageManagementOpen}
+        setIsStorageManagementOpen={setIsStorageManagementOpen}
+        isCommandPaletteOpen={isCommandPaletteOpen}
+        setIsCommandPaletteOpen={setIsCommandPaletteOpen}
+        isGoToOpen={isGoToOpen}
+        setIsGoToOpen={setIsGoToOpen}
+        isPrintOpen={isPrintOpen}
+        setIsPrintOpen={setIsPrintOpen}
+        isHelpOpen={isHelpOpen}
+        setIsHelpOpen={setIsHelpOpen}
+        isPreferencesOpen={isPreferencesOpen}
+        setIsPreferencesOpen={setIsPreferencesOpen}
+        isWelcomeTourOpen={isWelcomeTourOpen}
+        setIsWelcomeTourOpen={setIsWelcomeTourOpen}
+        workbook={workbook}
+        currentWorkbook={currentWorkbook}
         activeSheet={activeSheet}
         sheets={sheets}
-        initialMode={findReplaceInitialMode}
-        onNavigateToCell={handleNavigateToMatch}
-        onUpdateSheet={handleUpdateFindSheet}
-        onUpdateSheets={handleUpdateFindSheets}
-      />
-
-      {/* 15. Remove Duplicates Dialog */}
-      <RemoveDuplicatesDialog
-        isOpen={isRemoveDuplicatesOpen}
-        onClose={() => setIsRemoveDuplicatesOpen(false)}
-        sheet={activeSheet}
-        range={getDataRange()}
-        onApplyRemoveDuplicates={handleApplyRemoveDuplicates}
-      />
-
-      {/* 16. Data Validation Dialog */}
-      <DataValidationDialog
-        isOpen={isDataValidationOpen}
-        onClose={() => setIsDataValidationOpen(false)}
-        range={getTargetRange() || getDataRange()}
-        existingRule={activeSheet.metadata?.dataValidations?.find((r) => {
-          const target = getTargetRange() || getDataRange();
-          return (
-            Math.max(r.range.startRow, target.startRow) <= Math.min(r.range.endRow, target.endRow) &&
-            Math.max(r.range.startCol, target.startCol) <= Math.min(r.range.endCol, target.endCol)
-          );
-        })}
-        onApplyRule={handleApplyValidationRule}
-        onClearRule={handleClearValidation}
-      />
-
-      {/* 17. Convert Text to Columns Dialog */}
-      <TextToColumnsDialog
-        isOpen={isTextToColumnsOpen}
-        onClose={() => setIsTextToColumnsOpen(false)}
-        sheet={activeSheet}
-        range={getTargetRange() || getDataRange()}
-        onApplyTextToColumns={handleApplyTextToColumns}
-      />
-
-      {/* 18. Conditional Formatting Dialog (New Rule) */}
-      <ConditionalFormattingDialog
-        isOpen={isConditionalFormattingOpen}
-        initialRange={getTargetRange() || getDataRange()}
-        onSaveRule={handleSaveConditionalFormat}
-        onClose={() => setIsConditionalFormattingOpen(false)}
-      />
-
-      {/* 19. Conditional Formatting Rules Manager Dialog */}
-      <ConditionalFormattingManagerDialog
-        isOpen={isConditionalFormattingManagerOpen}
-        rules={activeSheet.metadata?.conditionalFormats || []}
-        currentSelection={getTargetRange() || undefined}
-        onUpdateRules={handleUpdateConditionalFormats}
-        onClose={() => setIsConditionalFormattingManagerOpen(false)}
-      />
-
-      {/* 20. Name Manager Dialog */}
-      <NameManagerDialog
-        isOpen={isNameManagerOpen}
-        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
-        currentSheetId={activeSheet.id}
-        currentSheetName={activeSheet.name}
-        sheets={sheets}
-        currentSelection={getTargetRange() || undefined}
-        onAddNamedRange={handleAddNamedRange}
-        onUpdateNamedRange={handleUpdateNamedRange}
-        onDeleteNamedRange={handleDeleteNamedRange}
-        onClose={() => setIsNameManagerOpen(false)}
-      />
-
-      {/* 21. Pivot Table Dialog */}
-      <PivotTableDialog
-        isOpen={isPivotTableOpen}
-        activeSheetId={activeSheet.id}
-        sheets={sheets}
-        cells={activeSheet.cells}
-        currentSelection={getTargetRange() || getDataRange()}
-        onApplyPivotTable={handleApplyPivotTable}
-        onClose={() => setIsPivotTableOpen(false)}
-      />
-
-      {/* 22. Subtotals Dialog */}
-      <SubtotalsDialog
-        isOpen={isSubtotalsOpen}
-        cells={activeSheet.cells}
-        currentSelection={getTargetRange() || getDataRange()}
-        hasExistingSubtotals={Boolean(
-          activeSheet.metadata?.subtotals ||
-          (activeSheet.metadata?.rowGroups && activeSheet.metadata.rowGroups.length > 0)
-        )}
-        onApplySubtotals={handleApplySubtotals}
-        onRemoveSubtotals={handleRemoveSubtotals}
-        onClose={() => setIsSubtotalsOpen(false)}
-      />
-
-      {/* 23. Goal Seek Dialog */}
-      <GoalSeekDialog
-        isOpen={isGoalSeekOpen}
-        activeCell={activeCell}
-        onRunGoalSeek={handleRunGoalSeek}
-        onClose={() => setIsGoalSeekOpen(false)}
-      />
-
-      {/* 24. Scenario Manager Dialog */}
-      <ScenarioManagerDialog
-        isOpen={isScenarioManagerOpen}
-        scenarios={currentWorkbook?.metadata?.scenarios || workbook?.metadata?.scenarios || []}
-        onAddScenario={handleAddScenario}
-        onUpdateScenario={handleUpdateScenario}
-        onDeleteScenario={handleDeleteScenario}
-        onApplyScenario={handleApplyScenario}
-        onComputeScenarioResults={handleComputeScenarioResults}
-        onClose={() => setIsScenarioManagerOpen(false)}
-      />
-
-      {/* 25. Insert Chart Dialog (Stage 11) */}
-      <InsertChartDialog
-        isOpen={isInsertChartOpen}
-        onClose={() => setIsInsertChartOpen(false)}
-        onInsert={handleInsertChart}
-        activeSheet={activeSheet}
         activeCell={activeCell}
         selectedRange={selectedRange}
-        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
-        pivotTables={activeSheet.metadata?.pivotTables || []}
+        currentCellData={currentCellData}
+        paletteCommands={paletteCommands}
+        getDataRange={getDataRange}
+        getTargetRange={getTargetRange}
         namedRangeResolver={namedRangeResolver}
-      />
-
-      {/* 26. Chart Editor Dialog (Stage 11) */}
-      <ChartEditorDialog
-        isOpen={isChartEditorOpen}
-        onClose={() => {
-          setIsChartEditorOpen(false);
-          setEditingChart(null);
+        handleConfirmMerge={handleConfirmMerge}
+        handleApplyStyle={handleApplyStyle}
+        handleClearFormatting={handleClearFormatting}
+        handleConfirmDeleteSheet={handleConfirmDeleteSheet}
+        handleUnhideSheet={handleUnhideSheet}
+        handleCustomSort={handleCustomSort}
+        handleApplyColumnFilter={handleApplyColumnFilter}
+        handleQuickSort={handleQuickSort}
+        handleNavigateToMatch={handleNavigateToMatch}
+        handleUpdateFindSheet={handleUpdateFindSheet}
+        handleUpdateFindSheets={handleUpdateFindSheets}
+        handleApplyRemoveDuplicates={handleApplyRemoveDuplicates}
+        handleApplyValidationRule={handleApplyValidationRule}
+        handleClearValidation={handleClearValidation}
+        handleApplyTextToColumns={handleApplyTextToColumns}
+        handleSaveConditionalFormat={handleSaveConditionalFormat}
+        handleUpdateConditionalFormats={handleUpdateConditionalFormats}
+        handleAddNamedRange={handleAddNamedRange}
+        handleUpdateNamedRange={handleUpdateNamedRange}
+        handleDeleteNamedRange={handleDeleteNamedRange}
+        handleApplyPivotTable={handleApplyPivotTable}
+        handleApplySubtotals={handleApplySubtotals}
+        handleRemoveSubtotals={handleRemoveSubtotals}
+        handleRunGoalSeek={handleRunGoalSeek}
+        handleAddScenario={handleAddScenario}
+        handleUpdateScenario={handleUpdateScenario}
+        handleDeleteScenario={handleDeleteScenario}
+        handleApplyScenario={handleApplyScenario}
+        handleComputeScenarioResults={handleComputeScenarioResults}
+        handleInsertChart={handleInsertChart}
+        updateChart={updateChart}
+        handleImportSuccess={handleImportSuccess}
+        onRestoreVersionSuccess={(restoredWb: Workbook, restoredSheets: Sheet[]) => {
+          setWorkbook(restoredWb);
+          setCurrentWorkbook(restoredWb);
+          setSheets(restoredSheets);
+          const targetSheet =
+            restoredSheets.find((s) => s.id === restoredWb.activeSheetId) || restoredSheets[0];
+          if (targetSheet) {
+            const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+            setActiveSheet({ ...targetSheet, cells: updatedCells });
+          }
         }}
-        chart={editingChart}
-        onUpdateChart={(chartId, updates) => updateChart(chartId, updates)}
-        activeSheet={activeSheet}
-        namedRangeResolver={namedRangeResolver}
-        pivotTables={activeSheet.metadata?.pivotTables || []}
-      />
-
-      {/* 27. Import Dialog (Stage 12) */}
-      <ImportDialog
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onImportSuccess={handleImportSuccess}
-      />
-
-      {/* 28. Export Dialog (Stage 12) */}
-      {workbook && (
-        <ExportDialog
-          isOpen={isExportOpen}
-          onClose={() => setIsExportOpen(false)}
-          workbook={workbook}
-          sheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
-          activeSheetId={activeSheet.id}
-          selectedRange={selectedRange || undefined}
-        />
-      )}
-
-      {/* 29. Version History Dialog (Stage 13) */}
-      {workbook && (
-        <VersionHistoryDialog
-          isOpen={isVersionHistoryOpen}
-          onClose={() => setIsVersionHistoryOpen(false)}
-          workbook={workbook}
-          sheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
-          onRestoreSuccess={(restoredWb: Workbook, restoredSheets: Sheet[]) => {
-            setWorkbook(restoredWb);
-            setCurrentWorkbook(restoredWb);
-            setSheets(restoredSheets);
-            const targetSheet =
-              restoredSheets.find((s) => s.id === restoredWb.activeSheetId) || restoredSheets[0];
-            if (targetSheet) {
-              const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
-              setActiveSheet({ ...targetSheet, cells: updatedCells });
-            }
-          }}
-        />
-      )}
-
-      {/* 30. Backup & Restore Dialog (Stage 13) */}
-      <BackupRestoreDialog
-        isOpen={isBackupRestoreOpen}
-        onClose={() => setIsBackupRestoreOpen(false)}
-        currentWorkbook={workbook || undefined}
-        currentSheets={sheets.map((s) => (s.id === activeSheet.id ? activeSheet : s))}
-        onRestoreSuccess={() => {
+        onRestoreBackupSuccess={() => {
           void loadWorkbookData();
         }}
-      />
-
-      {/* 31. Storage Management & Diagnostics Dialog (Stage 13) */}
-      <StorageManagementDialog
-        isOpen={isStorageManagementOpen}
-        onClose={() => setIsStorageManagementOpen(false)}
-      />
-
-      {/* 32. Command Palette Dialog (Stage 14) */}
-      <CommandPaletteDialog
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-        commands={paletteCommands}
-      />
-
-      {/* 33. Go To Reference Dialog (Stage 14) */}
-      <GoToDialog
-        isOpen={isGoToOpen}
-        onClose={() => setIsGoToOpen(false)}
-        activeCell={activeCell}
-        currentSheetId={activeSheet.id}
-        sheets={sheets}
-        namedRanges={currentWorkbook?.metadata?.namedRanges || workbook?.metadata?.namedRanges || []}
-        onNavigate={handleGoToNavigate}
-      />
-
-      {/* 34. Print & PDF Export Setup Dialog (Stage 14) */}
-      {workbook && (
-        <PrintDialog
-          isOpen={isPrintOpen}
-          onClose={() => setIsPrintOpen(false)}
-          workbookName={workbook.name}
-          activeSheet={activeSheet}
-          sheets={sheets}
-          selectedRange={selectedRange}
-          charts={activeSheet.metadata?.charts}
-        />
-      )}
-
-      {/* 35. Help & Keyboard Shortcuts Reference Dialog (Stage 14) */}
-      <HelpShortcutsDialog
-        isOpen={isHelpOpen}
-        onClose={() => setIsHelpOpen(false)}
-      />
-
-      {/* 36. User Preferences & Settings Dialog (Stage 14) */}
-      <PreferencesDialog
-        isOpen={isPreferencesOpen}
-        onClose={() => setIsPreferencesOpen(false)}
-      />
-
-      {/* 37. First-Time Welcome Tour Modal (Stage 14) */}
-      <WelcomeTourModal
-        isOpen={isWelcomeTourOpen}
-        onClose={() => setIsWelcomeTourOpen(false)}
-        onNewWorkbook={() => { window.location.href = '/'; }}
-        onImportFile={() => setIsImportOpen(true)}
+        handleGoToNavigate={handleGoToNavigate}
       />
     </div>
   );

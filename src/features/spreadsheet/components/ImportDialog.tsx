@@ -91,8 +91,8 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       if (isCsvTsv && customDelim) {
         setDelimiter(customDelim);
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to parse file preview.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to parse file preview.');
       setPreviewSummary(null);
     } finally {
       setIsLoadingPreview(false);
@@ -183,8 +183,8 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
       } else {
         setErrorMessage(result.warnings.join('; ') || 'Import failed.');
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Error occurred during import.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Error occurred during import.');
     } finally {
       setIsImporting(false);
     }

@@ -13,8 +13,16 @@ export const FormulaError = {
 
 export type FormulaErrorType = (typeof FormulaError)[keyof typeof FormulaError];
 
+export interface BoxedLiteralString extends String {
+  __isLiteralText?: boolean;
+}
+
+export function isBoxedLiteral(val: unknown): val is BoxedLiteralString {
+  return val instanceof String || (typeof val === 'object' && val !== null && '__isLiteralText' in val);
+}
+
 export function isFormulaError(val: unknown): val is FormulaErrorType {
-  if (val instanceof String || (val && typeof val === 'object' && (val as any).__isLiteralText)) {
+  if (isBoxedLiteral(val)) {
     return false;
   }
   return (

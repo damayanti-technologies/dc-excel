@@ -541,8 +541,7 @@ export function buildEChartsOption(
   }
 
   // Build Series definitions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const echartsSeries: any[] = [];
+  const echartsSeries: Record<string, unknown>[] = [];
 
   for (let i = 0; i < data.series.length; i++) {
     const s = data.series[i];
@@ -560,8 +559,7 @@ export function buildEChartsOption(
     let seriesType: 'bar' | 'line' = 'bar';
     let isSmooth = false;
     let showMarkers = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let areaStyle: any = undefined;
+    let areaStyle: Record<string, unknown> | undefined = undefined;
 
     if (chartType === 'combination') {
       seriesType = resolvedType === 'line' ? 'line' : 'bar';

@@ -11,7 +11,7 @@ function extractNumericValues(
   const numbers: number[] = [];
 
   for (const arg of args) {
-    if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+    if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
       const grid = resolveTo2DArray(arg, context, evaluate);
       if (typeof grid === 'string') return { numbers: [], error: grid };
       for (const row of grid) {
@@ -73,7 +73,7 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {
@@ -317,7 +317,7 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef') {
+        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {

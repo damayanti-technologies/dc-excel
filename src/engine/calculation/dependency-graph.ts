@@ -91,6 +91,14 @@ export function extractReferencesFromAST(
         }
         break;
 
+      case 'ArrayLiteral':
+        for (const row of n.elements) {
+          for (const item of row) {
+            walk(item);
+          }
+        }
+        break;
+
       case 'Empty':
       case 'Error':
       case 'NumberLiteral':

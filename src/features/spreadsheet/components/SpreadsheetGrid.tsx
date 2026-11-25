@@ -1,21 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import {
-  Filter,
-  Scissors,
-  Copy,
-  Clipboard,
-  Trash2,
-  Plus,
-  ArrowUpAZ,
-  ArrowDownAZ,
-  Tag,
-  Palette,
-} from 'lucide-react';
 import { Sheet } from '@/types/sheet';
 import { CellCoordinates, CellRange, CellBorder, CellBorders } from '@/types/cell';
 import { GridVirtualizer } from '@/engine/grid/virtualizer';
-import { colIndexToName, coordToKey, isCoordInRange } from '@/utils/coordinates';
-import { isHeaderHighlighted, isSingleCell } from '@/engine/grid/selection';
+import { coordToKey, isCoordInRange } from '@/utils/coordinates';
+import { isSingleCell } from '@/engine/grid/selection';
 import { handleGridKeyboardNavigation } from '@/engine/grid/keyboard';
 import { DEFAULT_GRID_CONFIG } from '@/engine/grid/constants';
 import { ResizeTarget } from '@/engine/grid/types';
@@ -28,13 +16,15 @@ import {
 import { numberFormatter } from '@/engine/formatting/number-formatter';
 import { getValidationRuleForCell, validateCellValue } from '@/engine/data-tools/validation';
 import { useFormulaInputAssist } from '../hooks/useFormulaInputAssist';
-import { FormulaAutocomplete } from './FormulaAutocomplete';
-import { FormulaArgumentHelp } from './FormulaArgumentHelp';
 import { CellValidationDropdown } from './CellValidationDropdown';
 import { evaluateConditionalFormatting } from '@/engine/analysis/conditional-formatting';
 import { NamedRange, PivotTableConfig } from '@/types/analysis';
 import { ChartConfig, ChartPositionConfig } from '@/types/chart';
 import { ChartOverlay } from './ChartOverlay';
+import { GridColumnHeaders } from './grid/GridColumnHeaders';
+import { GridRowHeaders } from './grid/GridRowHeaders';
+import { GridCellEditor } from './grid/GridCellEditor';
+import { GridContextMenus } from './grid/GridContextMenus';
 import { cn } from '@/utils/cn';
 
 function getBorderCss(borders?: CellBorders): React.CSSProperties {
@@ -674,185 +664,40 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       className="flex-1 w-full h-full overflow-auto bg-background outline-none relative select-none"
     >
       {/* 1 & 2: Sticky Column Headers Bar with Corner Header (Horizontally Virtualized) */}
-      <div
-        style={{
-          height: cornerH,
-          width: viewport.totalWidth + cornerW,
-          position: 'sticky',
-          top: 0,
-          zIndex: 20
-        }}
-        className="bg-surface-secondary border-b border-border pointer-events-none"
-      >
-        {/* Top-Left Corner Header (Click to Select All) */}
-        <div
-          onClick={onSelectAll}
-          style={{
-            width: cornerW,
-            height: cornerH,
-            position: 'sticky',
-            left: 0,
-            zIndex: 30,
-            pointerEvents: 'auto'
-          }}
-          className="bg-surface-secondary border-r border-border flex items-center justify-center cursor-pointer hover:bg-surface-tertiary transition-colors"
-          title="Select all cells (Ctrl+A)"
-          role="button"
-          tabIndex={-1}
-        >
-          <div className="w-2.5 h-2.5 border-r-2 border-b-2 border-foreground-muted/60 -translate-x-0.5 -translate-y-0.5" />
-        </div>
-        {visibleCols.map((col) => {
-          const isFrozen = col < frozenCols;
-          const left = isFrozen
-            ? cornerW + scrollState.left + virtualizer.getColOffset(col, zoom)
-            : cornerW + virtualizer.getColOffset(col, zoom);
-          const width = virtualizer.getColWidth(col, zoom);
-          const isHighlighted = isHeaderHighlighted(col, selectedRange, 'col');
-          const isFreezeColEdge = isFrozen && col === frozenCols - 1;
-
-          const isFilterCol = Boolean(
-            filterConfig &&
-              col >= filterConfig.range.startCol &&
-              col <= filterConfig.range.endCol
-          );
-          const hasFilterApplied = Boolean(filterConfig?.columnFilters?.[col]);
-
-          return (
-            <div
-              key={`col-${col}`}
-              onClick={() => onSelectEntireColumn(col)}
-              onContextMenu={(e) => handleColContextMenu(e, col)}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left,
-                width,
-                height: cornerH,
-                lineHeight: `${cornerH}px`,
-                zIndex: isFrozen ? 25 : 20
-              }}
-              className={cn(
-                'border-r border-border text-center font-semibold text-[11px] truncate px-1 transition-colors pointer-events-auto cursor-pointer group flex items-center justify-between',
-                isHighlighted
-                  ? 'bg-accent/15 text-accent font-bold'
-                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground',
-                isFreezeColEdge && 'border-r-2 border-r-primary/70'
-              )}
-              role="columnheader"
-              aria-colindex={col + 1}
-              title={`Column ${colIndexToName(col)}`}
-            >
-              <span className="truncate flex-1">{colIndexToName(col)}</span>
-
-              {/* Filter Trigger Button */}
-              {isFilterCol && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenColumnFilter?.(col);
-                  }}
-                  className={cn(
-                    'p-0.5 rounded transition-colors shrink-0 mr-1 cursor-pointer',
-                    hasFilterApplied
-                      ? 'bg-primary text-primary-foreground shadow-2xs'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-surface'
-                  )}
-                  title={hasFilterApplied ? 'Active filter on this column' : 'Filter column'}
-                >
-                  <Filter className="w-3 h-3" />
-                </button>
-              )}
-
-              {/* Column Resize Handle */}
-              <div
-                onMouseDown={(e) => handleColResizeStart(col, e)}
-                onClick={(e) => e.stopPropagation()}
-                className="absolute top-0 right-0 w-2 h-full cursor-col-resize hover:bg-accent/60 z-20"
-                title="Drag to resize column"
-              />
-            </div>
-          );
-        })}
-      </div>
+      <GridColumnHeaders
+        cornerW={cornerW}
+        cornerH={cornerH}
+        totalWidth={viewport.totalWidth}
+        visibleCols={visibleCols}
+        frozenCols={frozenCols}
+        scrollLeft={scrollState.left}
+        zoom={zoom}
+        selectedRange={selectedRange}
+        filterConfig={filterConfig}
+        virtualizer={virtualizer}
+        onSelectAll={onSelectAll}
+        onSelectEntireColumn={onSelectEntireColumn}
+        onColContextMenu={handleColContextMenu}
+        onOpenColumnFilter={onOpenColumnFilter}
+        onColResizeStart={handleColResizeStart}
+      />
 
       {/* 3. Sticky Row Headers Rail (Vertically Virtualized) */}
-      <div
-        style={{
-          width: cornerW,
-          height: viewport.totalHeight,
-          position: 'sticky',
-          left: 0,
-          zIndex: 10
-        }}
-        className="bg-surface-secondary border-r border-border pointer-events-none"
-      >
-        {visibleRows.map((row) => {
-          const isFrozen = row < frozenRows;
-          const top = isFrozen
-            ? scrollState.top + virtualizer.getRowOffset(row, zoom)
-            : virtualizer.getRowOffset(row, zoom);
-          const height = virtualizer.getRowHeight(row, zoom);
-          const isHighlighted = isHeaderHighlighted(row, selectedRange, 'row');
-          const isFreezeRowEdge = isFrozen && row === frozenRows - 1;
-
-          return (
-            <div
-              key={`row-${row}`}
-              onClick={() => onSelectEntireRow(row)}
-              onContextMenu={(e) => handleRowContextMenu(e, row)}
-              style={{
-                position: 'absolute',
-                top,
-                width: cornerW,
-                height,
-                lineHeight: `${height}px`,
-                zIndex: isFrozen ? 25 : 10
-              }}
-              className={cn(
-                'border-b border-border text-center font-mono text-[10px] truncate px-1 transition-colors pointer-events-auto cursor-pointer group',
-                isHighlighted
-                  ? 'bg-accent/15 text-accent font-bold'
-                  : 'bg-surface-secondary text-foreground-muted hover:bg-surface-tertiary hover:text-foreground',
-                isFreezeRowEdge && 'border-b-2 border-b-primary/70'
-              )}
-              role="rowheader"
-              aria-rowindex={row + 1}
-              title={`Row ${row + 1}`}
-            >
-              <span>{row + 1}</span>
-
-              {/* Row Group Outline Collapse / Expand Trigger */}
-              {sheet.metadata?.rowGroups?.map((group, gIdx) => {
-                if (group.startRow !== row) return null;
-                return (
-                  <button
-                    key={`rg-${gIdx}`}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleRowGroup?.(gIdx);
-                    }}
-                    className="absolute left-1 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded bg-surface border border-border flex items-center justify-center text-[10px] font-bold text-foreground hover:bg-surface-secondary z-20 cursor-pointer shadow-xs leading-none"
-                    title={group.isCollapsed ? 'Expand group' : 'Collapse group'}
-                  >
-                    {group.isCollapsed ? '+' : '−'}
-                  </button>
-                );
-              })}
-
-              {/* Row Resize Handle */}
-              <div
-                onMouseDown={(e) => handleRowResizeStart(row, e)}
-                onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-0 left-0 w-full h-2 cursor-row-resize hover:bg-accent/60 z-20"
-                title="Drag to resize row"
-              />
-            </div>
-          );
-        })}
-      </div>
+      <GridRowHeaders
+        cornerW={cornerW}
+        totalHeight={viewport.totalHeight}
+        visibleRows={visibleRows}
+        frozenRows={frozenRows}
+        scrollTop={scrollState.top}
+        zoom={zoom}
+        selectedRange={selectedRange}
+        rowGroups={sheet.metadata?.rowGroups}
+        virtualizer={virtualizer}
+        onSelectEntireRow={onSelectEntireRow}
+        onRowContextMenu={handleRowContextMenu}
+        onToggleRowGroup={onToggleRowGroup}
+        onRowResizeStart={handleRowResizeStart}
+      />
 
       {/* 4. Virtualized Main Cell Grid Canvas */}
       <div
@@ -1132,70 +977,22 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
 
         {/* 5. Direct In-Cell Editing Input Overlay with Autocomplete & Argument Help */}
         {editingCell && (
-          <div
-            style={{
-              position: 'absolute',
-              left: virtualizer.getColOffset(editingCell.col, zoom),
-              top: virtualizer.getRowOffset(editingCell.row, zoom),
-              zIndex: 35
-            }}
-            className="relative"
-          >
-            <input
-              ref={cellInputRef}
-              type="text"
-              value={editingValue}
-              onChange={(e) => onEditingChange(e.target.value)}
-              onClick={updateCursorPosition}
-              onKeyUp={updateCursorPosition}
-              onKeyDown={handleCellInputKeyDown}
-              onBlur={handleCellInputBlur}
-              style={{
-                width: Math.max(
-                  (() => {
-                    const m = getMergedRangeForCell(sheet.mergedRanges, editingCell.row, editingCell.col);
-                    if (m && isMergeAnchor(m, editingCell.row, editingCell.col)) {
-                      let mw = 0;
-                      for (let c = m.startCol; c <= m.endCol; c++) mw += virtualizer.getColWidth(c, zoom);
-                      return mw;
-                    }
-                    return virtualizer.getColWidth(editingCell.col, zoom);
-                  })(),
-                  140
-                ),
-                height: (() => {
-                  const m = getMergedRangeForCell(sheet.mergedRanges, editingCell.row, editingCell.col);
-                  if (m && isMergeAnchor(m, editingCell.row, editingCell.col)) {
-                    let mh = 0;
-                    for (let r = m.startRow; r <= m.endRow; r++) mh += virtualizer.getRowHeight(r, zoom);
-                    return mh;
-                  }
-                  return virtualizer.getRowHeight(editingCell.row, zoom);
-                })(),
-                fontSize: `${Math.round(12 * zoom)}px`
-              }}
-              className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
-              aria-label="Direct Cell Editor"
-            />
-
-            {/* In-Cell Floating Autocomplete Suggestions */}
-            {suggestions.length > 0 && (
-              <div className="absolute top-full left-0 mt-1 z-50">
-                <FormulaAutocomplete
-                  suggestions={suggestions}
-                  selectedIndex={selectedIndex}
-                  onSelect={acceptSuggestion}
-                />
-              </div>
-            )}
-
-            {/* In-Cell Floating Argument Helper Tooltip */}
-            {argumentHelpContext && (
-              <div className="absolute top-full left-0 mt-1 z-50">
-                <FormulaArgumentHelp context={argumentHelpContext} />
-              </div>
-            )}
-          </div>
+          <GridCellEditor
+            editingCell={editingCell}
+            editingValue={editingValue}
+            zoom={zoom}
+            mergedRanges={sheet.mergedRanges}
+            virtualizer={virtualizer}
+            cellInputRef={cellInputRef}
+            onEditingChange={onEditingChange}
+            updateCursorPosition={updateCursorPosition}
+            handleCellInputKeyDown={handleCellInputKeyDown}
+            handleCellInputBlur={handleCellInputBlur}
+            suggestions={suggestions}
+            selectedIndex={selectedIndex}
+            acceptSuggestion={acceptSuggestion}
+            argumentHelpContext={argumentHelpContext}
+          />
         )}
 
         {/* 6. Selection Box Bounding Overlay */}
@@ -1275,341 +1072,27 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         )}
       </div>
 
-      {/* 10. Cell Context Menu */}
-      {cellContextMenu && (
-        <div
-          role="menu"
-          aria-label="Cell context menu"
-          style={{ top: cellContextMenu.y, left: cellContextMenu.x }}
-          className="fixed z-50 min-w-[200px] py-1 bg-surface-elevated border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onCut?.();
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center justify-between cursor-pointer transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Scissors className="w-3.5 h-3.5 text-foreground-muted" />
-              <span>Cut</span>
-            </div>
-            <kbd className="text-[10px] font-mono text-foreground-muted px-1 py-0.5 rounded bg-surface-secondary border border-border">Ctrl+X</kbd>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onCopy?.();
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center justify-between cursor-pointer transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Copy className="w-3.5 h-3.5 text-foreground-muted" />
-              <span>Copy</span>
-            </div>
-            <kbd className="text-[10px] font-mono text-foreground-muted px-1 py-0.5 rounded bg-surface-secondary border border-border">Ctrl+C</kbd>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onPaste?.();
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center justify-between cursor-pointer transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Clipboard className="w-3.5 h-3.5 text-foreground-muted" />
-              <span>Paste</span>
-            </div>
-            <kbd className="text-[10px] font-mono text-foreground-muted px-1 py-0.5 rounded bg-surface-secondary border border-border">Ctrl+V</kbd>
-          </button>
-
-          <div className="h-px bg-border my-1" />
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onInsertRow?.(cellContextMenu.row);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Insert Row Above</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onInsertColumn?.(cellContextMenu.col);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Insert Column Left</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onDeleteRow?.(cellContextMenu.row);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Delete Row</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onDeleteColumn?.(cellContextMenu.col);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Delete Column</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onClearCell({ row: cellContextMenu.row, col: cellContextMenu.col });
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center justify-between cursor-pointer transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-              <span>Clear Contents</span>
-            </div>
-            <kbd className="text-[10px] font-mono text-foreground-muted px-1 py-0.5 rounded bg-surface-secondary border border-border">Del</kbd>
-          </button>
-
-          <div className="h-px bg-border my-1" />
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onQuickSort?.('asc', cellContextMenu.col);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <ArrowUpAZ className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Sort Ascending (A to Z)</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onQuickSort?.('desc', cellContextMenu.col);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <ArrowDownAZ className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Sort Descending (Z to A)</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onOpenColumnFilter?.(cellContextMenu.col);
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Filter className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Filter Column...</span>
-          </button>
-
-          <div className="h-px bg-border my-1" />
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onOpenDefineName?.();
-              setCellContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Tag className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Define Named Range...</span>
-          </button>
-
-          {onOpenFormatCells && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onOpenFormatCells();
-                setCellContextMenu(null);
-              }}
-              className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-            >
-              <Palette className="w-3.5 h-3.5 text-foreground-muted" />
-              <span>Format Cells...</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* 11. Row Header Context Menu */}
-      {rowContextMenu && (
-        <div
-          role="menu"
-          aria-label="Row header context menu"
-          style={{ top: rowContextMenu.y, left: rowContextMenu.x }}
-          className="fixed z-50 min-w-[190px] py-1 bg-surface-elevated border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-3 py-1 font-semibold text-[10px] text-foreground-muted uppercase tracking-wider border-b border-border">
-            Row {rowContextMenu.row + 1}
-          </div>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onInsertRow?.(rowContextMenu.row);
-              setRowContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Insert 1 Row Above</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onDeleteRow?.(rowContextMenu.row);
-              setRowContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Delete Row</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onClearCell({ row: rowContextMenu.row, col: 0 });
-              setRowContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Clear Contents</span>
-          </button>
-        </div>
-      )}
-
-      {/* 12. Column Header Context Menu */}
-      {colContextMenu && (
-        <div
-          role="menu"
-          aria-label="Column header context menu"
-          style={{ top: colContextMenu.y, left: colContextMenu.x }}
-          className="fixed z-50 min-w-[190px] py-1 bg-surface-elevated border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-3 py-1 font-semibold text-[10px] text-foreground-muted uppercase tracking-wider border-b border-border">
-            Column {colIndexToName(colContextMenu.col)}
-          </div>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onInsertColumn?.(colContextMenu.col);
-              setColContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Insert 1 Column Left</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onDeleteColumn?.(colContextMenu.col);
-              setColContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Delete Column</span>
-          </button>
-
-          <div className="h-px bg-border my-1" />
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onQuickSort?.('asc', colContextMenu.col);
-              setColContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <ArrowUpAZ className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Sort Ascending (A to Z)</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onQuickSort?.('desc', colContextMenu.col);
-              setColContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <ArrowDownAZ className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Sort Descending (Z to A)</span>
-          </button>
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onOpenColumnFilter?.(colContextMenu.col);
-              setColContextMenu(null);
-            }}
-            className="w-full px-3 py-1.5 text-left text-foreground hover:bg-surface-secondary flex items-center gap-2 cursor-pointer transition-colors"
-          >
-            <Filter className="w-3.5 h-3.5 text-foreground-muted" />
-            <span>Filter Column...</span>
-          </button>
-        </div>
-      )}
+      {/* 10. Context Menus Layer */}
+      <GridContextMenus
+        cellContextMenu={cellContextMenu}
+        rowContextMenu={rowContextMenu}
+        colContextMenu={colContextMenu}
+        onCloseCellMenu={() => setCellContextMenu(null)}
+        onCloseRowMenu={() => setRowContextMenu(null)}
+        onCloseColMenu={() => setColContextMenu(null)}
+        onCut={onCut}
+        onCopy={onCopy}
+        onPaste={onPaste}
+        onClearCell={onClearCell}
+        onInsertRow={onInsertRow}
+        onDeleteRow={onDeleteRow}
+        onInsertColumn={onInsertColumn}
+        onDeleteColumn={onDeleteColumn}
+        onQuickSort={onQuickSort}
+        onOpenColumnFilter={onOpenColumnFilter}
+        onOpenDefineName={onOpenDefineName}
+        onOpenFormatCells={onOpenFormatCells}
+      />
     </div>
   );
 };

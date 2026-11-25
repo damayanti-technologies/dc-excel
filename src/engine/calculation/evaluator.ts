@@ -1,5 +1,5 @@
 import { ASTNode, EvaluationContext } from './types';
-import { FormulaError, isFormulaError } from './errors';
+import { FormulaError, isFormulaError, BoxedLiteralString } from './errors';
 import { functionRegistry } from './functions';
 import { CellValue } from '@/types/cell';
 
@@ -56,9 +56,9 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
 
     case 'StringLiteral': {
       if (isFormulaError(node.value)) {
-        const boxed = new String(node.value);
-        (boxed as any).__isLiteralText = true;
-        return boxed as any;
+        const boxed: BoxedLiteralString = new String(node.value);
+        boxed.__isLiteralText = true;
+        return boxed as unknown as CellValue;
       }
       return node.value;
     }
@@ -78,7 +78,39 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
     }
 
     case 'RangeRef': {
-      // Standalone range reference returns top-left cell value or range grid
+      const { range } = node;
+      const isSingleCell = range.startRow === range.endRow && range.startCol === range.endCol;
+      if (isSingleCell) {
+        return context.getCellValue({ row: range.startRow, col: range.startCol }, node.sheetName) ?? null;
+      }
+
+      // Implicit intersection with current formula cell position
+      if (context.currentCoord) {
+        const { row, col } = context.currentCoord;
+        const isSingleCol = range.startCol === range.endCol;
+        const isSingleRow = range.startRow === range.endRow;
+
+        if (isSingleCol) {
+          if (row >= range.startRow && row <= range.endRow) {
+            return context.getCellValue({ row, col: range.startCol }, node.sheetName) ?? null;
+          }
+          return FormulaError.VALUE;
+        }
+
+        if (isSingleRow) {
+          if (col >= range.startCol && col <= range.endCol) {
+            return context.getCellValue({ row: range.startRow, col }, node.sheetName) ?? null;
+          }
+          return FormulaError.VALUE;
+        }
+
+        if (row >= range.startRow && row <= range.endRow && col >= range.startCol && col <= range.endCol) {
+          return context.getCellValue({ row, col }, node.sheetName) ?? null;
+        }
+        return FormulaError.VALUE;
+      }
+
+      // Fallback: top-left cell of range
       const grid = context.getRangeValues(node.range, node.sheetName);
       return grid[0]?.[0] ?? null;
     }
@@ -91,8 +123,45 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
       if (!resolved) {
         return FormulaError.NAME;
       }
+      const { range } = resolved;
+      const isSingleCell = range.startRow === range.endRow && range.startCol === range.endCol;
+      if (isSingleCell) {
+        return context.getCellValue({ row: range.startRow, col: range.startCol }) ?? null;
+      }
+
+      if (context.currentCoord) {
+        const { row, col } = context.currentCoord;
+        if (range.startCol === range.endCol) {
+          if (row >= range.startRow && row <= range.endRow) {
+            return context.getCellValue({ row, col: range.startCol }) ?? null;
+          }
+          return FormulaError.VALUE;
+        }
+        if (range.startRow === range.endRow) {
+          if (col >= range.startCol && col <= range.endCol) {
+            return context.getCellValue({ row: range.startRow, col }) ?? null;
+          }
+          return FormulaError.VALUE;
+        }
+        if (row >= range.startRow && row <= range.endRow && col >= range.startCol && col <= range.endCol) {
+          return context.getCellValue({ row, col }) ?? null;
+        }
+        return FormulaError.VALUE;
+      }
+
       const grid = context.getRangeValues(resolved.range);
       return grid[0]?.[0] ?? null;
+    }
+
+    case 'ArrayLiteral': {
+      // Evaluate all elements of the array literal
+      const evaluatedRows = node.elements.map((row) =>
+        row.map((item) => evaluateAST(item, context))
+      );
+      if (evaluatedRows.length === 1 && evaluatedRows[0]?.length === 1) {
+        return evaluatedRows[0][0] ?? null;
+      }
+      return evaluatedRows[0]?.[0] ?? null;
     }
 
     case 'Percent': {
@@ -241,6 +310,9 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
           }
           return l / r;
         case '^': {
+          if (l === 0 && r === 0) {
+            return FormulaError.NUM;
+          }
           const result = Math.pow(l, r);
           if (Number.isNaN(result) || !Number.isFinite(result)) {
             return FormulaError.NUM;

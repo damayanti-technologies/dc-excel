@@ -30,8 +30,8 @@ export class SaveQueue {
   private pendingSheetsMap = new Map<string, Sheet>();
   private enqueuedGeneration = 0;
   private isPaused = false;
-  private debounceTimer: any = null;
-  private checkpointTimer: any = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private debounceMs = 600;
   private isProcessing = false;
   private onCrashRecoverySave?: (workbook: Workbook, sheets: Sheet[]) => Promise<void>;
@@ -218,9 +218,10 @@ export class SaveQueue {
 
       Logger.info('SaveQueue', `Workbook "${wbToSave?.name || 'active'}" persisted at revision ${this.currentRevision}`);
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.status = 'error';
-      this.errorMessage = err?.message || 'Failed to persist workbook to local IndexedDB.';
+      const msg = err instanceof Error ? err.message : String(err);
+      this.errorMessage = msg || 'Failed to persist workbook to local IndexedDB.';
       this.notify();
       Logger.error('SaveQueue', 'Persistence failed', err);
       return false;

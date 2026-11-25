@@ -124,8 +124,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
         onClose();
       }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Export operation failed.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Export operation failed.');
     } finally {
       setIsExporting(false);
     }

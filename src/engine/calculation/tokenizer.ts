@@ -197,6 +197,39 @@ export function tokenizeFormula(formula: string): Token[] {
       continue;
     }
 
+    if (char === ';') {
+      tokens.push({
+        type: 'SEMICOLON',
+        value: ';',
+        start: pos,
+        end: pos + 1
+      });
+      pos++;
+      continue;
+    }
+
+    if (char === '{') {
+      tokens.push({
+        type: 'BRACE_OPEN',
+        value: '{',
+        start: pos,
+        end: pos + 1
+      });
+      pos++;
+      continue;
+    }
+
+    if (char === '}') {
+      tokens.push({
+        type: 'BRACE_CLOSE',
+        value: '}',
+        start: pos,
+        end: pos + 1
+      });
+      pos++;
+      continue;
+    }
+
     if (char === ':') {
       tokens.push({
         type: 'COLON',

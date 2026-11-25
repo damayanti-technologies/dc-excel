@@ -199,11 +199,12 @@ export class StorageService {
         missingSheets,
         invalidCoordinates,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       Logger.error('StorageService', 'Integrity check failed', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
       return {
         isValid: false,
-        errors: [err?.message || 'Failed to inspect database integrity.'],
+        errors: [errMsg || 'Failed to inspect database integrity.'],
         warnings: [],
         orphanedSheets: [],
         missingSheets: [],

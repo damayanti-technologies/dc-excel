@@ -21,7 +21,7 @@ import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/stores/toast-store';
 
-export const SettingsPlaceholder: React.FC = () => {
+export const SettingsPage: React.FC = () => {
   const { preferences, theme, setTheme, updatePreferences } = useUIPreferencesStore();
   const [activeTab, setActiveTab] = useState('appearance');
   const [quota, setQuota] = useState<StorageQuotaInfo | null>(null);
@@ -254,7 +254,7 @@ export const SettingsPlaceholder: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-base font-bold text-foreground">{APP_CONFIG.name}</h2>
-                <p className="text-xs text-foreground-muted">Version {APP_CONFIG.version} • Stage 2 Design System</p>
+                <p className="text-xs text-foreground-muted">Version {APP_CONFIG.version} • Production Release</p>
               </div>
             </div>
 
@@ -265,7 +265,7 @@ export const SettingsPlaceholder: React.FC = () => {
 
             <div className="p-3.5 rounded-xl bg-surface-secondary border border-border text-xs text-foreground-muted space-y-1">
               <div>License: Permissive MIT / Apache-2.0</div>
-              <div>Stage 2 Milestone: Design System, UI Components & Reusable Shell</div>
+              <div>Milestone: Production Release • Offline-First Engine</div>
             </div>
           </div>
         </div>

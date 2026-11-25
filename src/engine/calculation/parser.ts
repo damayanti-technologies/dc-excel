@@ -318,15 +318,15 @@ export class FormulaParser {
 
         if (!this.check('PAREN_CLOSE')) {
           while (true) {
-            if (this.check('COMMA')) {
-              // Omitted argument before comma, e.g. FUNC(, B1) or FUNC(A1,, C1)
+            if (this.check('COMMA') || this.check('SEMICOLON')) {
+              // Omitted argument before comma or semicolon, e.g. FUNC(, B1) or FUNC(A1;; C1)
               args.push({ type: 'Empty' });
               this.advance();
             } else if (this.check('PAREN_CLOSE')) {
               break;
             } else {
               args.push(this.parseComparison());
-              if (this.match('COMMA')) {
+              if (this.match('COMMA', 'SEMICOLON')) {
                 if (this.check('PAREN_CLOSE')) {
                   args.push({ type: 'Empty' });
                   break;
@@ -361,6 +361,44 @@ export class FormulaParser {
         return { type: 'Error', error: FormulaError.VALUE };
       }
       return expr;
+    }
+
+    // Array Constant: e.g. {1, 2, 3} or {1, 2; 3, 4}
+    if (this.match('BRACE_OPEN')) {
+      const rows: ASTNode[][] = [];
+      let currentRow: ASTNode[] = [];
+
+      if (!this.check('BRACE_CLOSE')) {
+        while (!this.isAtEnd()) {
+          const item = this.parseComparison();
+          currentRow.push(item);
+
+          if (this.match('COMMA')) {
+            // Next column in same row
+            continue;
+          } else if (this.match('SEMICOLON')) {
+            // Row separator
+            rows.push(currentRow);
+            currentRow = [];
+            continue;
+          } else {
+            break;
+          }
+        }
+      }
+
+      if (currentRow.length > 0) {
+        rows.push(currentRow);
+      }
+
+      if (!this.match('BRACE_CLOSE')) {
+        return { type: 'Error', error: FormulaError.VALUE };
+      }
+
+      return {
+        type: 'ArrayLiteral',
+        elements: rows
+      };
     }
 
     // If unexpected token or syntax error

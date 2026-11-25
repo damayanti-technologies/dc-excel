@@ -80,8 +80,8 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
 
       const result = await backupService.createBackup(wbs, allSheets, customFileName, true);
       setSuccessMessage(`Backup archive "${result.fileName}" generated and downloaded successfully!`);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to generate backup archive.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to generate backup archive.');
     } finally {
       setIsGeneratingBackup(false);
     }
@@ -97,8 +97,8 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
     try {
       const { manifest } = await backupService.inspectBackup(file);
       setManifestPreview(manifest);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Invalid backup archive.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Invalid backup archive.');
       setSelectedFile(null);
     } finally {
       setIsInspecting(false);
@@ -125,8 +125,8 @@ export const BackupRestoreDialog: React.FC<BackupRestoreDialogProps> = ({
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to restore backup archive.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to restore backup archive.');
     } finally {
       setIsRestoring(false);
       setConfirmingReplace(false);

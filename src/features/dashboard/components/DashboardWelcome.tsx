@@ -18,6 +18,7 @@ import { WelcomeTourModal } from '@/features/spreadsheet/components/WelcomeTourM
 import { HelpShortcutsDialog } from '@/features/spreadsheet/components/HelpShortcutsDialog';
 import { recoveryService } from '@/services/recovery-service';
 import { CrashRecoveryRecord } from '@/types/persistence';
+import { ImportResult } from '@/types/io';
 import { toast } from '@/stores/toast-store';
 
 export const DashboardWelcome: React.FC = () => {
@@ -38,7 +39,7 @@ export const DashboardWelcome: React.FC = () => {
     })();
   }, []);
 
-  const handleImportSuccess = (result: any) => {
+  const handleImportSuccess = (result: ImportResult) => {
     toast.success(`Imported "${result.workbookName}" (${result.sheetCount} sheet${result.sheetCount === 1 ? '' : 's'})`);
     loadWorkspaceData();
     if (result.workbookId) {
