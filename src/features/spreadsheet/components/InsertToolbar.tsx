@@ -59,7 +59,7 @@ export const InsertToolbar: React.FC<InsertToolbarProps> = ({
           title="Bar Chart"
           className="flex items-center gap-1 px-2.5 py-1 rounded-md text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors"
         >
-          <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           <span>Bar</span>
         </button>
 

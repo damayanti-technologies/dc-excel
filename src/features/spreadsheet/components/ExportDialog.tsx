@@ -205,7 +205,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
                     : 'border-border bg-surface text-muted-foreground hover:border-primary/40 hover:bg-surface-secondary'
                 }`}
               >
-                <FileText className="w-6 h-6 mb-1.5 text-blue-600" />
+                <FileText className="w-6 h-6 mb-1.5 text-emerald-600 dark:text-emerald-400" />
                 <span className="text-xs font-semibold text-foreground">CSV</span>
                 <span className="text-[10px] text-muted-foreground">.csv (Comma-delimited)</span>
               </button>

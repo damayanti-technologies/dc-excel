@@ -134,7 +134,7 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
     {
       id: 'theme-dark',
       label: 'Dark Theme',
-      icon: <Moon className="w-4 h-4 text-blue-400" />,
+      icon: <Moon className="w-4 h-4 text-emerald-400" />,
       shortcut: theme === 'dark' ? 'Active' : undefined,
       onClick: () => void setTheme('dark')
     },
@@ -149,13 +149,13 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
 
   const currentThemeIcon = {
     light: <Sun className="w-4 h-4 text-amber-500" />,
-    dark: <Moon className="w-4 h-4 text-blue-400" />,
+    dark: <Moon className="w-4 h-4 text-emerald-400" />,
     system: <Laptop className="w-4 h-4" />
   }[theme] || <Laptop className="w-4 h-4" />;
 
   return (
     <>
-      <header className="h-12 border-b border-border bg-surface-elevated px-3 sm:px-4 flex items-center justify-between transition-colors z-20 shrink-0 select-none">
+      <header className="h-12 border-b border-border bg-surface-elevated/80 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between transition-colors z-20 shrink-0 select-none">
         {/* Left: Home Navigation, Logo, Title & Rename, QAT */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           <Link
@@ -168,10 +168,10 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
           </Link>
 
           <Link to="/" className="flex items-center gap-2 text-foreground font-bold shrink-0">
-            <div className="w-6 h-6 rounded-md bg-accent text-white flex items-center justify-center shadow-xs">
+            <div className="w-6 h-6 rounded-md bg-accent text-zinc-950 flex items-center justify-center shadow-xs font-bold">
               <Table2 className="w-3.5 h-3.5" />
             </div>
-            <span className="font-bold tracking-tight text-sm hidden md:inline">OmniSheet</span>
+            <span className="font-extrabold tracking-tight text-sm hidden md:inline">OmniSheet</span>
           </Link>
 
           <div className="h-4 w-px bg-border mx-0.5 hidden sm:block shrink-0" />
@@ -244,8 +244,8 @@ export const WorkbookHeader: React.FC<WorkbookHeaderProps> = ({
               <span className="hidden sm:inline">Save failed (Retry)</span>
             </button>
           ) : saveStatus === 'recovering' ? (
-            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
-              <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />
               <span className="hidden sm:inline">Recovering...</span>
             </div>
           ) : (

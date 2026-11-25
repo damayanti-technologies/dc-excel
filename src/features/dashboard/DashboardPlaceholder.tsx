@@ -173,7 +173,7 @@ export const DashboardPlaceholder: React.FC = () => {
                 variant="outline"
                 size="xs"
                 onClick={() => handleTestToast('info')}
-                className="text-blue-600 dark:text-blue-400"
+                className="text-teal-600 dark:text-teal-400"
               >
                 Info
               </Button>
@@ -221,7 +221,7 @@ export const DashboardPlaceholder: React.FC = () => {
               <span>Theme & Identity</span>
             </div>
             <div className="text-[11px] text-foreground-muted space-y-1">
-              <div>Palette: Deep Navy & Blue</div>
+              <div>Palette: Obsidian & Precision Emerald</div>
               <div>Typography: Inter System UI</div>
               <div>Storage: 100% Client-Side</div>
             </div>

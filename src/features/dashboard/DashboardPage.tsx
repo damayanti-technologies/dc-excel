@@ -263,8 +263,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ viewModeOverride }
               <div
                 className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                 style={{
-                  backgroundColor: `${activeFolder?.color || '#2563eb'}20`,
-                  color: activeFolder?.color || '#2563eb'
+                  backgroundColor: `${activeFolder?.color || '#10b981'}20`,
+                  color: activeFolder?.color || '#10b981'
                 }}
               >
                 <FolderIcon className="w-4 h-4 fill-current/20" />

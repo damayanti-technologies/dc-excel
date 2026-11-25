@@ -5,45 +5,45 @@
 :root {
   /* ==========================================================================
      OMNISHEET DESIGN SYSTEM TOKENS - LIGHT THEME
-     Deep Navy & Professional Blue hybrid palette with crisp neutral surfaces.
+     Editorial Zinc & Precision Emerald Palette (Zero-Blue).
      ========================================================================== */
 
   /* Surface & Background Colors */
-  --bg-app: #f8fafc;              /* Slate-50: Main app background */
+  --bg-app: #fafafa;              /* Clean warm stone/zinc */
   --bg-surface: #ffffff;          /* Pure white: Cards, sheets, modals */
   --bg-surface-elevated: #ffffff; /* Elevated dialogs, tooltips, dropdowns */
-  --bg-surface-secondary: #f1f5f9;/* Slate-100: Headers, table headers, sidebar */
-  --bg-surface-tertiary: #e2e8f0; /* Slate-200: Inactive tabs, subtle fills */
-  --bg-surface-hover: #f1f5f9;    /* Hover fill for buttons & list items */
-  --bg-surface-active: #e2e8f0;   /* Active / pressed state fill */
+  --bg-surface-secondary: #f4f4f5;/* Zinc-100: Headers, table headers, sidebar */
+  --bg-surface-tertiary: #e4e4e7; /* Zinc-200: Inactive tabs, subtle fills */
+  --bg-surface-hover: #f4f4f5;    /* Hover fill for buttons & list items */
+  --bg-surface-active: #e4e4e7;   /* Active / pressed state fill */
 
   /* Text & Foreground Colors */
-  --text-primary: #0f172a;        /* Slate-900: High-contrast body & headings */
-  --text-secondary: #334155;      /* Slate-700: Labels, secondary actions */
-  --text-muted: #64748b;          /* Slate-500: Helper text, shortcuts */
-  --text-subtle: #94a3b8;         /* Slate-400: Placeholders, disabled text */
+  --text-primary: #18181b;        /* Zinc-900: High-contrast body & headings */
+  --text-secondary: #3f3f46;      /* Zinc-700: Labels, secondary actions */
+  --text-muted: #71717a;          /* Zinc-500: Helper text, shortcuts */
+  --text-subtle: #a1a1aa;         /* Zinc-400: Placeholders, disabled text */
   --text-inverse: #ffffff;        /* Pure white for dark buttons & badges */
 
-  /* Brand & Primary Navy */
-  --brand-navy: #0f172a;          /* Slate-900: Deep Navy brand tone */
-  --brand-navy-light: #1e293b;    /* Slate-800 */
-  --color-primary: #0f172a;
-  --color-primary-hover: #1e293b;
-  --color-primary-active: #334155;
-  --color-primary-subtle: #f1f5f9;
+  /* Brand Tone */
+  --brand-navy: #18181b;          /* Zinc-900: High-end obsidian brand tone */
+  --brand-navy-light: #27272a;    /* Zinc-800 */
+  --color-primary: #18181b;
+  --color-primary-hover: #27272a;
+  --color-primary-active: #3f3f46;
+  --color-primary-subtle: #f4f4f5;
 
-  /* Professional Blue Accent */
-  --accent-primary: #2563eb;       /* Blue-600: Primary actions, active highlights */
-  --accent-hover: #1d4ed8;         /* Blue-700 */
-  --accent-active: #1e40af;        /* Blue-800 */
-  --accent-muted: #eff6ff;         /* Blue-50: Soft active selection backgrounds */
-  --accent-border: #bfdbfe;        /* Blue-200 */
+  /* Precision Emerald Accent (Replaces Blue) */
+  --accent-primary: #059669;       /* Emerald-600 */
+  --accent-hover: #047857;         /* Emerald-700 */
+  --accent-active: #065f46;        /* Emerald-800 */
+  --accent-muted: #ecfdf5;         /* Emerald-50: Soft active selection backgrounds */
+  --accent-border: #a7f3d0;        /* Emerald-200 */
 
   /* Borders & Dividers */
-  --border-subtle: #f1f5f9;        /* Slate-100 */
-  --border-default: #e2e8f0;       /* Slate-200: Default component border */
-  --border-strong: #cbd5e1;        /* Slate-300: Active inputs, table grids */
-  --border-focus: #2563eb;         /* Blue-600 */
+  --border-subtle: #f4f4f5;        /* Zinc-100 */
+  --border-default: #e4e4e7;       /* Zinc-200: Default component border */
+  --border-strong: #d4d4d8;        /* Zinc-300: Active inputs, table grids */
+  --border-focus: #059669;         /* Emerald-600 */
 
   /* Status & Semantic Signals */
   --success-text: #15803d;         /* Green-700 */
@@ -55,107 +55,107 @@
   --error-text: #b91c1c;           /* Red-700 */
   --error-bg: #fef2f2;             /* Red-50 */
   --error-border: #fecaca;         /* Red-200 */
-  --info-text: #1d4ed8;            /* Blue-700 */
-  --info-bg: #eff6ff;              /* Blue-50 */
-  --info-border: #bfdbfe;          /* Blue-200 */
+  --info-text: #0d9488;            /* Teal-600 */
+  --info-bg: #f0fdfa;              /* Teal-50 */
+  --info-border: #99f6e4;          /* Teal-200 */
 
   /* Spreadsheet Grid Tokens */
   --grid-bg: #ffffff;
-  --grid-header-bg: #f8fafc;
-  --grid-header-hover: #f1f5f9;
-  --grid-header-active: #e2e8f0;
-  --grid-header-text: #475569;
-  --grid-border: #e2e8f0;
-  --grid-selection-border: #2563eb;
-  --grid-selection-bg: rgba(37, 99, 235, 0.12);
+  --grid-header-bg: #fafafa;
+  --grid-header-hover: #f4f4f5;
+  --grid-header-active: #e4e4e7;
+  --grid-header-text: #52525b;
+  --grid-border: #e4e4e7;
+  --grid-selection-border: #059669;
+  --grid-selection-bg: rgba(5, 150, 105, 0.12);
 
   /* Focus Ring */
-  --focus-ring: #2563eb;
+  --focus-ring: #059669;
   --focus-ring-offset: #ffffff;
 
   /* Shadows (Restrained & Professional) */
-  --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px -1px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
 }
 
 .dark {
   /* ==========================================================================
      OMNISHEET DESIGN SYSTEM TOKENS - DARK THEME
-     Deep Charcoal / Slate palette with vibrant high-contrast accents.
+     Deep Pitch Obsidian & Electric Mint Palette (Zero-Blue).
      ========================================================================== */
 
   /* Surface & Background Colors */
-  --bg-app: #0b0f19;              /* Deep Navy-Charcoal */
-  --bg-surface: #111827;          /* Gray-900: Main content panels */
-  --bg-surface-elevated: #1e293b; /* Slate-800: Modals, popovers, dropdowns */
-  --bg-surface-secondary: #162032;/* Custom Slate: Secondary toolbars, sidebar */
-  --bg-surface-tertiary: #1e293b; /* Slate-800 */
-  --bg-surface-hover: #1e293b;    /* Hover fill */
-  --bg-surface-active: #283548;   /* Pressed fill */
+  --bg-app: #09090b;              /* Pitch Obsidian (Zinc-950) */
+  --bg-surface: #121215;          /* Deep Carbon Panel */
+  --bg-surface-elevated: #18181b; /* Elevated Studio Surface */
+  --bg-surface-secondary: #16161a;/* Secondary Toolbars & Rail */
+  --bg-surface-tertiary: #202024; /* Surface Muted Fill */
+  --bg-surface-hover: #222226;    /* Hover State Fill */
+  --bg-surface-active: #27272a;   /* Pressed State Fill */
 
   /* Text & Foreground Colors */
-  --text-primary: #f8fafc;        /* Slate-50 */
-  --text-secondary: #cbd5e1;      /* Slate-300 */
-  --text-muted: #94a3b8;          /* Slate-400 */
-  --text-subtle: #64748b;         /* Slate-500 */
-  --text-inverse: #0f172a;        /* Slate-900 */
+  --text-primary: #f4f4f5;        /* Zinc-100: Crisp Pure Text */
+  --text-secondary: #d4d4d8;      /* Zinc-300: High Readability */
+  --text-muted: #a1a1aa;          /* Zinc-400: Micro-copy */
+  --text-subtle: #71717a;         /* Zinc-500: Secondary Hints */
+  --text-inverse: #09090b;        /* Pitch Black for Light Tags */
 
-  /* Brand & Primary Navy */
-  --brand-navy: #38bdf8;          /* Sky-400 */
-  --brand-navy-light: #0284c7;
-  --color-primary: #3b82f6;
-  --color-primary-hover: #60a5fa;
-  --color-primary-active: #93c5fd;
-  --color-primary-subtle: #1e293b;
+  /* Brand Tone */
+  --brand-navy: #10b981;          /* Electric Emerald */
+  --brand-navy-light: #34d399;
+  --color-primary: #10b981;
+  --color-primary-hover: #34d399;
+  --color-primary-active: #059669;
+  --color-primary-subtle: #18181b;
 
-  /* Professional Blue Accent */
-  --accent-primary: #3b82f6;       /* Blue-500: Vibrant contrast on dark */
-  --accent-hover: #60a5fa;         /* Blue-400 */
-  --accent-active: #93c5fd;        /* Blue-300 */
-  --accent-muted: #1e3a8a33;       /* Blue-900/20 */
-  --accent-border: #1d4ed8;        /* Blue-700 */
+  /* Precision Emerald Accent (Replaces Blue) */
+  --accent-primary: #10b981;       /* Electric Emerald-500 */
+  --accent-hover: #34d399;         /* Emerald-400 */
+  --accent-active: #059669;        /* Emerald-600 */
+  --accent-muted: rgba(16, 185, 129, 0.12); /* Soft Emerald Glow */
+  --accent-border: rgba(16, 185, 129, 0.35); /* Subtle Emerald Border */
 
   /* Borders & Dividers */
-  --border-subtle: #1a2436;
-  --border-default: #243048;       /* Slate-700 equivalent */
-  --border-strong: #334155;        /* Slate-600 */
-  --border-focus: #3b82f6;
+  --border-subtle: #18181b;        /* Whisper-thin boundary */
+  --border-default: #27272a;       /* Zinc-800 default border */
+  --border-strong: #3f3f46;        /* Zinc-700 active border */
+  --border-focus: #10b981;
 
   /* Status & Semantic Signals */
-  --success-text: #4ade80;         /* Green-400 */
-  --success-bg: #052e1644;
-  --success-border: #14532d;
+  --success-text: #34d399;         /* Emerald-400 */
+  --success-bg: rgba(5, 46, 22, 0.4);
+  --success-border: #065f46;
   --warning-text: #fbbf24;         /* Amber-400 */
-  --warning-bg: #451a0344;
+  --warning-bg: rgba(69, 26, 3, 0.4);
   --warning-border: #78350f;
   --error-text: #f87171;           /* Red-400 */
-  --error-bg: #450a0a44;
+  --error-bg: rgba(69, 10, 10, 0.4);
   --error-border: #7f1d1d;
-  --info-text: #60a5fa;            /* Blue-400 */
-  --info-bg: #1e3a8a33;
-  --info-border: #1d4ed8;
+  --info-text: #2dd4bf;            /* Teal-400 */
+  --info-bg: rgba(13, 148, 136, 0.15);
+  --info-border: rgba(45, 212, 191, 0.3);
 
   /* Spreadsheet Grid Tokens */
-  --grid-bg: #0b0f19;
-  --grid-header-bg: #162032;
-  --grid-header-hover: #1e293b;
-  --grid-header-active: #283548;
-  --grid-header-text: #94a3b8;
-  --grid-border: #243048;
-  --grid-selection-border: #3b82f6;
-  --grid-selection-bg: rgba(59, 130, 246, 0.22);
+  --grid-bg: #09090b;
+  --grid-header-bg: #141418;
+  --grid-header-hover: #1e1e22;
+  --grid-header-active: #27272a;
+  --grid-header-text: #a1a1aa;
+  --grid-border: #222226;
+  --grid-selection-border: #10b981;
+  --grid-selection-bg: rgba(16, 185, 129, 0.14);
 
   /* Focus Ring */
-  --focus-ring: #3b82f6;
-  --focus-ring-offset: #0b0f19;
+  --focus-ring: #10b981;
+  --focus-ring-offset: #09090b;
 
   /* Shadows (Subtle Glows in Dark) */
-  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.35);
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
 }
 
 html, body, #root {

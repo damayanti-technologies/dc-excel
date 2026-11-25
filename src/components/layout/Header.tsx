@@ -89,7 +89,7 @@ export const Header: React.FC = () => {
     {
       id: 'theme-dark',
       label: 'Dark Theme',
-      icon: <Moon className="w-4 h-4 text-blue-400" />,
+      icon: <Moon className="w-4 h-4 text-emerald-400" />,
       shortcut: theme === 'dark' ? 'Active' : undefined,
       onClick: () => void setTheme('dark')
     },
@@ -104,12 +104,12 @@ export const Header: React.FC = () => {
 
   const currentThemeIcon = {
     light: <Sun className="w-4 h-4 text-amber-500" />,
-    dark: <Moon className="w-4 h-4 text-blue-400" />,
+    dark: <Moon className="w-4 h-4 text-emerald-400" />,
     system: <Laptop className="w-4 h-4" />
   }[theme] || <Laptop className="w-4 h-4" />;
 
   return (
-    <header className="h-13 border-b border-border bg-surface-elevated px-3 sm:px-4 flex items-center justify-between transition-colors z-20 shrink-0">
+    <header className="h-13 border-b border-border bg-surface-elevated/80 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between transition-colors z-20 shrink-0">
       {/* Left: Mobile Toggle, Brand & Wordmark */}
       <div className="flex items-center gap-2.5 sm:gap-4">
         {/* Mobile menu trigger */}
@@ -123,14 +123,14 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Brand Link */}
-        <Link to="/" className="flex items-center gap-2 font-bold text-foreground group select-none">
-          <div className="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center shadow-xs group-hover:bg-accent-hover transition-colors shrink-0">
+        <Link to="/" className="flex items-center gap-2.5 font-bold text-foreground group select-none">
+          <div className="w-7 h-7 rounded-lg bg-accent text-zinc-950 flex items-center justify-center shadow-xs group-hover:bg-accent-hover transition-colors shrink-0 font-extrabold">
             <Table2 className="w-4 h-4" />
           </div>
-          <span className="font-bold tracking-tight text-base sm:text-lg hidden xs:inline">
+          <span className="font-extrabold tracking-tight text-base sm:text-lg hidden xs:inline">
             {APP_CONFIG.name}
           </span>
-          <span className="text-[10px] font-semibold tracking-wider px-1.5 py-0.2 rounded bg-accent/10 text-accent border border-accent/20 hidden sm:inline">
+          <span className="text-[10px] font-semibold tracking-wider px-1.5 py-0.2 rounded-md bg-accent/10 text-accent border border-accent/20 hidden sm:inline">
             Local
           </span>
         </Link>
@@ -152,7 +152,7 @@ export const Header: React.FC = () => {
         <button
           type="button"
           onClick={() => openCreateWorkbook()}
-          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-accent text-white hover:bg-accent-hover transition-colors shadow-xs cursor-pointer"
+          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-accent text-zinc-950 hover:bg-accent-hover transition-all shadow-xs cursor-pointer active:scale-95"
           title="Create a new spreadsheet workbook"
         >
           <Plus className="w-3.5 h-3.5" />

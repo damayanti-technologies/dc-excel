@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Upload,
-  Sparkles,
-  Database,
-  ShieldCheck,
   FolderArchive,
   HardDrive,
   ShieldAlert,
@@ -13,7 +10,6 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { ImportDialog } from '@/features/spreadsheet/components/ImportDialog';
 import { BackupRestoreDialog } from '@/features/spreadsheet/components/BackupRestoreDialog';
@@ -56,9 +52,9 @@ export const DashboardWelcome: React.FC = () => {
     <div className="space-y-4">
       {/* Crash Recovery Notification Banner */}
       {primaryRecovery && (
-        <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs animate-in slide-in-from-top-2">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/20 text-primary shrink-0">
+            <div className="p-2 rounded-lg bg-amber-500/20 text-amber-500 shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
@@ -81,49 +77,40 @@ export const DashboardWelcome: React.FC = () => {
         </div>
       )}
 
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-linear-to-b from-surface-elevated to-surface p-6 sm:p-8 shadow-xs">
-        {/* Background ambient decoration */}
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-accent/5 blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="accent" size="sm">
-                <Sparkles className="w-3 h-3 text-accent" />
-                <span>Local-First Workspace</span>
-              </Badge>
-              <Badge variant="neutral" size="sm">
-                <Database className="w-3 h-3 text-foreground-muted" />
-                <span>IndexedDB v3</span>
-              </Badge>
-              <Badge variant="success" size="sm">
-                <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Zero Cloud Dependency</span>
-              </Badge>
+      {/* Modern Studio Command Strip (Zero AI-fluff, 100% Pro Utility) */}
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-surface-elevated/70 backdrop-blur-md p-5 sm:p-6 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-1 max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                Local Engine
+              </span>
+              <span className="text-xs text-foreground-subtle">•</span>
+              <span className="text-xs font-mono text-foreground-subtle">IndexedDB v3</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Welcome to OmniSheet
             </h1>
-            <p className="text-sm sm:text-base text-foreground-muted leading-relaxed">
-              Your workspace for organizing, creating and managing spreadsheets. Fast, private, and
-              saved directly in your browser.
+            <p className="text-xs sm:text-sm text-foreground-muted">
+              Fast, private, and local-first. Spreadsheets stay safely in your browser with zero remote telemetry.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="accent"
               size="md"
               leftIcon={<Plus className="w-4 h-4" />}
               onClick={() => openCreateWorkbook()}
-              className="shadow-sm"
+              className="font-semibold shadow-xs"
             >
               Create New Workbook
             </Button>
 
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               leftIcon={<Upload className="w-4 h-4" />}
               onClick={() => setIsImportDialogOpen(true)}
@@ -132,7 +119,7 @@ export const DashboardWelcome: React.FC = () => {
             </Button>
 
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               leftIcon={<FolderArchive className="w-4 h-4" />}
               onClick={() => setIsBackupDialogOpen(true)}
@@ -142,7 +129,7 @@ export const DashboardWelcome: React.FC = () => {
             </Button>
 
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               leftIcon={<HardDrive className="w-4 h-4" />}
               onClick={() => setIsStorageDialogOpen(true)}
@@ -155,20 +142,10 @@ export const DashboardWelcome: React.FC = () => {
               variant="outline"
               size="md"
               leftIcon={<HelpCircle className="w-4 h-4" />}
-              onClick={() => setIsTourDialogOpen(true)}
-              title="Quick Tour & Introduction"
-            >
-              Tour
-            </Button>
-
-            <Button
-              variant="outline"
-              size="md"
-              leftIcon={<HelpCircle className="w-4 h-4" />}
               onClick={() => setIsHelpDialogOpen(true)}
-              title="Help & Keyboard Shortcuts (F1)"
+              title="Help & Shortcuts (F1)"
             >
-              Help
+              Shortcuts
             </Button>
           </div>
         </div>

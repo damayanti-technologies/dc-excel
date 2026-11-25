@@ -112,11 +112,11 @@ export const SettingsPlaceholder: React.FC = () => {
                     : 'border-border bg-surface-secondary text-foreground hover:bg-surface-tertiary'
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-slate-800 text-blue-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-zinc-800 text-emerald-400 flex items-center justify-center">
                   <Moon className="w-5 h-5" />
                 </div>
                 <span>Dark</span>
-                <span className="text-[11px] font-normal text-foreground-muted">Charcoal & high contrast</span>
+                <span className="text-[11px] font-normal text-foreground-muted">Obsidian & precision emerald</span>
               </button>
 
               <button

@@ -2325,10 +2325,10 @@ export const SpreadsheetPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveRibbonTab('home')}
-          className={`px-3 py-1 rounded-t-md transition-colors ${
+          className={`px-3 py-1.5 rounded-t-md transition-all font-medium ${
             activeRibbonTab === 'home'
-              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-surface text-accent border-t-2 border-t-accent border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-surface-tertiary/50'
           }`}
         >
           Home
@@ -2336,10 +2336,10 @@ export const SpreadsheetPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveRibbonTab('insert')}
-          className={`px-3 py-1 rounded-t-md transition-colors ${
+          className={`px-3 py-1.5 rounded-t-md transition-all font-medium ${
             activeRibbonTab === 'insert'
-              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-surface text-accent border-t-2 border-t-accent border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-surface-tertiary/50'
           }`}
         >
           Insert
@@ -2347,10 +2347,10 @@ export const SpreadsheetPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveRibbonTab('data')}
-          className={`px-3 py-1 rounded-t-md transition-colors ${
+          className={`px-3 py-1.5 rounded-t-md transition-all font-medium ${
             activeRibbonTab === 'data'
-              ? 'bg-surface text-primary border-t border-l border-r border-border font-semibold shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-surface text-accent border-t-2 border-t-accent border-l border-r border-border font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-surface-tertiary/50'
           }`}
         >
           Data

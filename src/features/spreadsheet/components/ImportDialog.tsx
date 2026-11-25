@@ -299,9 +299,9 @@ export const ImportDialog: React.FC<ImportDialogProps> = ({
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded bg-surface border border-border">
                     {isExcel ? (
-                      <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <FileText className="w-5 h-5 text-blue-600" />
+                      <FileText className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                     )}
                   </div>
                   <div>

@@ -19,7 +19,7 @@ export const QuickActions: React.FC = () => {
           onClick={() => openCreateWorkbook()}
           className="group relative flex items-center gap-3.5 p-4 rounded-xl border border-border bg-surface hover:bg-surface-elevated hover:border-accent/40 transition-all text-left shadow-xs hover:shadow-sm cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent group-hover:bg-accent group-hover:text-white transition-colors flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent group-hover:bg-accent group-hover:text-zinc-950 transition-colors flex items-center justify-center shrink-0">
             <Plus className="w-5 h-5" />
           </div>
           <div className="min-w-0">

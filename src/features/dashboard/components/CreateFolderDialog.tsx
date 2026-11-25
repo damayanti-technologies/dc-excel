@@ -7,8 +7,8 @@ import { useWorkspaceStore } from '@/stores/workspace-store';
 import { cn } from '@/utils/cn';
 
 const COLOR_OPTIONS = [
-  { value: '#2563eb', label: 'Blue' },
-  { value: '#059669', label: 'Emerald' },
+  { value: '#10b981', label: 'Emerald' },
+  { value: '#0d9488', label: 'Teal' },
   { value: '#d97706', label: 'Amber' },
   { value: '#7c3aed', label: 'Purple' },
   { value: '#e11d48', label: 'Rose' },
@@ -21,14 +21,14 @@ export const CreateFolderDialog: React.FC = () => {
   const createFolder = useWorkspaceStore((state) => state.createFolder);
 
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#2563eb');
+  const [color, setColor] = useState('#10b981');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setName('');
-      setColor('#2563eb');
+      setColor('#10b981');
       setError(null);
       setIsSubmitting(false);
     }

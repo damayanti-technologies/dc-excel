@@ -32,14 +32,14 @@ const ToastNotification: React.FC<ToastNotificationProps> = ({ toast, onDismiss 
     success: <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />,
     error: <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />,
     warning: <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />,
-    info: <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+    info: <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
   };
 
   const borderColors = {
     success: 'border-emerald-200 dark:border-emerald-800/60',
     error: 'border-red-200 dark:border-red-800/60',
     warning: 'border-amber-200 dark:border-amber-800/60',
-    info: 'border-blue-200 dark:border-blue-800/60'
+    info: 'border-emerald-200 dark:border-emerald-800/60'
   };
 
   return (

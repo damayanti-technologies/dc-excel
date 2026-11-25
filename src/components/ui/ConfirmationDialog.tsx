@@ -53,7 +53,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
             isDestructive
               ? 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400'
-              : 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+              : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
           }`}
         >
           {isDestructive ? <AlertTriangle className="w-5 h-5" /> : <Info className="w-5 h-5" />}
