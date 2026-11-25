@@ -2,6 +2,7 @@ import { SparseCellMap } from '@/types/sheet';
 import { Cell, CellRange, CellCoordinates } from '@/types/cell';
 import { SortConfig } from '@/types/data-tools';
 import { coordToKey, parseKey } from '@/utils/coordinates';
+import { shiftFormulaReferences } from '@/engine/calculation/formula-shifter';
 
 /**
  * Compares two cell values in standard spreadsheet order:
@@ -164,12 +165,22 @@ export function sortRange(cells: SparseCellMap, config: SortConfig): SparseCellM
     }
   }
 
-  // Second, assign sorted cells to their new row positions
+  // Second, assign sorted cells to their new row positions, shifting formulas if row moved
   rows.forEach((rowRecord, idx) => {
     const targetRow = dataStartRow + idx;
+    const deltaRow = targetRow - rowRecord.originalRow;
     for (const [col, cell] of rowRecord.cells.entries()) {
       if (cell) {
-        updatedCells[coordToKey(targetRow, col)] = cell;
+        let cellToPlace = cell;
+        if (cell.formula && deltaRow !== 0) {
+          const shiftedFormula = shiftFormulaReferences(cell.formula, {
+            type: 'offset',
+            deltaRow,
+            deltaCol: 0,
+          });
+          cellToPlace = { ...cell, formula: shiftedFormula };
+        }
+        updatedCells[coordToKey(targetRow, col)] = cellToPlace;
       }
     }
   });

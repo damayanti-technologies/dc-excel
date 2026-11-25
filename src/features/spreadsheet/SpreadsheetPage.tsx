@@ -306,6 +306,17 @@ export const SpreadsheetPage: React.FC = () => {
     [currentWorkbook?.metadata?.namedRanges, workbook?.metadata?.namedRanges, activeSheet?.id]
   );
 
+  const getCrossSheetCells = useCallback(
+    (sheetName: string) => {
+      const currentList = sheets.map((s) => (s.id === activeSheet?.id ? activeSheet : s));
+      const target = currentList.find(
+        (s) => s.name.toLowerCase() === sheetName.toLowerCase()
+      );
+      return target?.cells;
+    },
+    [sheets, activeSheet]
+  );
+
   // Format painter store
   const isFormatPainterActive = useFormatPainterStore((state) => state.isActive);
   const formatPainterStyle = useFormatPainterStore((state) => state.sourceStyle);
@@ -914,7 +925,7 @@ export const SpreadsheetPage: React.FC = () => {
           },
         };
         const tempSheet = { ...activeSheet, cells: tempCells };
-        const { updatedCells } = calculationEngine.recalculateSheet(tempSheet, namedRangeResolver);
+        const { updatedCells } = calculationEngine.recalculateSheet(tempSheet, namedRangeResolver, getCrossSheetCells);
         const targetCell = updatedCells[coordToKey(targetCoord.row, targetCoord.col)];
         return typeof targetCell?.value === 'number'
           ? targetCell.value
@@ -927,7 +938,9 @@ export const SpreadsheetPage: React.FC = () => {
           activeSheet.cells,
           variableCoord,
           String(x),
-          namedRangeResolver
+          namedRangeResolver,
+          getCrossSheetCells,
+          activeSheet.name
         );
         setBatchCells(updatedCells);
         toast.success('Goal Seek Committed', `Variable cell set to ${x.toFixed(4)}.`);
@@ -935,7 +948,7 @@ export const SpreadsheetPage: React.FC = () => {
 
       return { evaluateWithVariable, commitVariableValue };
     },
-    [activeSheet, namedRangeResolver, setBatchCells]
+    [activeSheet, namedRangeResolver, getCrossSheetCells, setBatchCells]
   );
 
   // 7. What-If: Scenarios
@@ -972,13 +985,15 @@ export const SpreadsheetPage: React.FC = () => {
           workingCells,
           v.coord,
           String(v.value ?? ''),
-          namedRangeResolver
+          namedRangeResolver,
+          getCrossSheetCells,
+          activeSheet.name
         ).updatedCells;
       }
       setBatchCells(workingCells);
       toast.success('Scenario Applied', `Applied scenario "${scenario.name}".`);
     },
-    [activeSheet, namedRangeResolver, setBatchCells]
+    [activeSheet, namedRangeResolver, getCrossSheetCells, setBatchCells]
   );
 
   const handleComputeScenarioResults = useCallback(
@@ -990,7 +1005,9 @@ export const SpreadsheetPage: React.FC = () => {
           workingCells,
           v.coord,
           String(v.value ?? ''),
-          namedRangeResolver
+          namedRangeResolver,
+          getCrossSheetCells,
+          activeSheet.name
         ).updatedCells;
       }
       const results: Record<string, CellValue> = {};
@@ -1001,7 +1018,7 @@ export const SpreadsheetPage: React.FC = () => {
       }
       return results;
     },
-    [activeSheet, namedRangeResolver]
+    [activeSheet, namedRangeResolver, getCrossSheetCells]
   );
 
   const isInitialLoadRef = useRef(true);
@@ -1069,10 +1086,15 @@ export const SpreadsheetPage: React.FC = () => {
     })();
   }, [workbookId]);
 
-  // Stage 13: Multi-Tab conflict detection listener
+  // Stage 13: Multi-Tab conflict detection listener & auto broadcast sync
   useEffect(() => {
+    saveQueue.setOnSaveSuccess((wb, rev) => {
+      multiTabService.notifyWorkbookSaved(wb.id, rev);
+    });
+
     const unsubscribe = multiTabService.onConflict((msg) => {
       setConflictMessage(msg);
+      saveQueue.pause(); // Block writes to prevent silent overwrite of the other tab
     });
     return () => unsubscribe();
   }, []);
@@ -1431,7 +1453,9 @@ export const SpreadsheetPage: React.FC = () => {
         activeSheet.cells,
         targetCoord,
         editingValue,
-        namedRangeResolver
+        namedRangeResolver,
+        getCrossSheetCells,
+        activeSheet.name
       );
 
       setAllCells(updatedCells);
@@ -1448,7 +1472,9 @@ export const SpreadsheetPage: React.FC = () => {
               currentSheet.cells,
               targetCoord,
               prevInput,
-              namedRangeResolver
+              namedRangeResolver,
+              getCrossSheetCells,
+              currentSheet.name
             );
             useSheetStore.getState().setAllCells(restoredCells);
           },
@@ -1459,7 +1485,9 @@ export const SpreadsheetPage: React.FC = () => {
               currentSheet.cells,
               targetCoord,
               currentInput,
-              namedRangeResolver
+              namedRangeResolver,
+              getCrossSheetCells,
+              currentSheet.name
             );
             useSheetStore.getState().setAllCells(reappliedCells);
           }
@@ -1488,7 +1516,7 @@ export const SpreadsheetPage: React.FC = () => {
         });
       }
     },
-    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell, namedRangeResolver]
+    [activeSheet, editingCell, editingValue, setBatchCells, stopEditing, setActiveCell, namedRangeResolver, getCrossSheetCells]
   );
 
   // 7. Clear Cell Contents (Delete / Backspace)
@@ -1503,7 +1531,9 @@ export const SpreadsheetPage: React.FC = () => {
         activeSheet.cells,
         coord,
         '',
-        namedRangeResolver
+        namedRangeResolver,
+        getCrossSheetCells,
+        activeSheet.name
       );
       setAllCells(updatedCells);
 
@@ -1518,7 +1548,9 @@ export const SpreadsheetPage: React.FC = () => {
               currentSheet.cells,
               coord,
               prevInput,
-              namedRangeResolver
+              namedRangeResolver,
+              getCrossSheetCells,
+              currentSheet.name
             );
             useSheetStore.getState().setAllCells(restoredCells);
           },
@@ -1529,14 +1561,16 @@ export const SpreadsheetPage: React.FC = () => {
               currentSheet.cells,
               coord,
               '',
-              namedRangeResolver
+              namedRangeResolver,
+              getCrossSheetCells,
+              currentSheet.name
             );
             useSheetStore.getState().setAllCells(clearedCells);
           }
         });
       }
     },
-    [activeSheet, setBatchCells, namedRangeResolver]
+    [activeSheet, setBatchCells, namedRangeResolver, getCrossSheetCells]
   );
 
   // 8. Clipboard: Copy
@@ -1581,13 +1615,13 @@ export const SpreadsheetPage: React.FC = () => {
           ...result.updatedCells
         }
       };
-      const { updatedCells } = calculationEngine.recalculateSheet(tempSheet);
+      const { updatedCells } = calculationEngine.recalculateSheet(tempSheet, namedRangeResolver, getCrossSheetCells);
       setBatchCells(updatedCells, result.newRowCount, result.newColCount);
       toast.success('Pasted', 'Pasted content from clipboard.');
     } catch {
       toast.error('Paste Failed', 'Could not paste from clipboard.');
     }
-  }, [activeSheet, activeCell, setBatchCells]);
+  }, [activeSheet, activeCell, setBatchCells, namedRangeResolver, getCrossSheetCells]);
 
   // 11. Row & Column actions
   const handleInsertRowAbove = () => {
@@ -2269,8 +2303,14 @@ export const SpreadsheetPage: React.FC = () => {
       {conflictMessage && (
         <MultiTabConflictBanner
           externalRevision={conflictMessage.revision}
-          onReload={() => window.location.reload()}
-          onDismiss={() => setConflictMessage(null)}
+          onReload={() => {
+            saveQueue.reset();
+            window.location.reload();
+          }}
+          onDismiss={() => {
+            setConflictMessage(null);
+            saveQueue.resume();
+          }}
         />
       )}
 

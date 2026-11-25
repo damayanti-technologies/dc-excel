@@ -9,13 +9,14 @@ export type TokenType =
   | 'STRING'
   | 'BOOLEAN'
   | 'IDENTIFIER' // Function names or unknown words
-  | 'CELL_REF'   // e.g. A1, B12, AA100
+  | 'CELL_REF'   // e.g. A1, $A$1, Sheet2!A1
   | 'OPERATOR'   // +, -, *, /, ^, &, =, <>, <, <=, >, >=
   | 'PERCENT'    // %
   | 'PAREN_OPEN' // (
   | 'PAREN_CLOSE'// )
   | 'COMMA'      // ,
   | 'COLON'      // : (for range A1:B10)
+  | 'ERROR'      // Syntax / token error
   | 'EOF';
 
 export interface Token {
@@ -46,7 +47,10 @@ export interface BooleanLiteralNode {
 export interface CellRefNode {
   type: 'CellRef';
   coord: CellCoordinates;
-  raw: string; // e.g. "A1"
+  raw: string; // e.g. "A1", "$A$1", "Sheet2!A1"
+  sheetName?: string;
+  isColAbsolute?: boolean;
+  isRowAbsolute?: boolean;
 }
 
 export interface RangeRefNode {
@@ -54,7 +58,10 @@ export interface RangeRefNode {
   range: CellRange;
   startRef: CellCoordinates;
   endRef: CellCoordinates;
-  raw: string; // e.g. "A1:B10"
+  raw: string; // e.g. "A1:B10", "A:A", "1:1", "Sheet2!A1:B10"
+  sheetName?: string;
+  isFullCol?: boolean;
+  isFullRow?: boolean;
 }
 
 export interface NamedRangeRefNode {
@@ -125,10 +132,11 @@ export type ASTNode =
  * Interface supplied to the evaluator to resolve cell values and ranges dynamically.
  */
 export interface EvaluationContext {
-  getCellValue: (coord: CellCoordinates) => CellValue;
-  getCellRawOrFormula?: (coord: CellCoordinates) => string | undefined;
-  getRangeValues: (range: CellRange) => CellValue[][];
+  getCellValue: (coord: CellCoordinates, sheetName?: string) => CellValue;
+  getCellRawOrFormula?: (coord: CellCoordinates, sheetName?: string) => string | undefined;
+  getRangeValues: (range: CellRange, sheetName?: string) => CellValue[][];
   resolveNamedRange?: (name: string) => { range: CellRange; sheetId?: string } | null;
+  currentSheetName?: string;
 }
 
 /**

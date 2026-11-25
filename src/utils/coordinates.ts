@@ -75,17 +75,41 @@ export function coordToA1(coord: CellCoordinates): string {
   return `${colIndexToName(coord.col)}${coord.row + 1}`;
 }
 
+export interface ParsedCellRef {
+  row: number;
+  col: number;
+  isColAbsolute: boolean;
+  isRowAbsolute: boolean;
+}
+
 /**
- * Parses Excel A1 notation to 0-indexed coordinates (e.g., "A1" -> { row: 0, col: 0 }).
+ * Parses Excel A1 notation (including optional absolute '$' markers like $A$1, A$1, $A1)
+ * to 0-indexed coordinates with absolute flags.
  */
-export function a1ToCoord(a1: string): CellCoordinates | null {
-  const match = a1.trim().toUpperCase().match(/^([A-Z]+)([1-9][0-9]*)$/);
+export function parseA1Reference(a1: string): ParsedCellRef | null {
+  const match = a1.trim().toUpperCase().match(/^(\$?)([A-Z]+)(\$?)([1-9][0-9]*)$/);
   if (!match) return null;
-  const colName = match[1]!;
-  const rowNum = Number.parseInt(match[2]!, 10);
+  const isColAbsolute = match[1] === '$';
+  const colName = match[2]!;
+  const isRowAbsolute = match[3] === '$';
+  const rowNum = Number.parseInt(match[4]!, 10);
   return {
     row: rowNum - 1,
-    col: nameToColIndex(colName)
+    col: nameToColIndex(colName),
+    isColAbsolute,
+    isRowAbsolute
+  };
+}
+
+/**
+ * Parses Excel A1 notation to 0-indexed coordinates (e.g., "A1" or "$A$1" -> { row: 0, col: 0 }).
+ */
+export function a1ToCoord(a1: string): CellCoordinates | null {
+  const parsed = parseA1Reference(a1);
+  if (!parsed) return null;
+  return {
+    row: parsed.row,
+    col: parsed.col
   };
 }
 
@@ -99,9 +123,9 @@ export function rangeToA1(range: CellRange): string {
 }
 
 /**
- * Parses an Excel range notation into a CellRange (e.g., "A1:C10" or single "B2").
+ * Parses an Excel range notation into a CellRange (e.g., "A1:C10", "A:A", "1:1", or single "B2").
  */
-export function a1ToRange(a1Range: string): CellRange | null {
+export function a1ToRange(a1Range: string, maxRows = 1000, maxCols = 50): CellRange | null {
   const parts = a1Range.trim().toUpperCase().split(':');
   if (parts.length === 1 && parts[0]) {
     const c = a1ToCoord(parts[0]);
@@ -109,6 +133,32 @@ export function a1ToRange(a1Range: string): CellRange | null {
     return { startRow: c.row, startCol: c.col, endRow: c.row, endCol: c.col };
   }
   if (parts.length === 2 && parts[0] && parts[1]) {
+    // Check full column notation: e.g. "A:A" or "$A:$B"
+    const p1Col = parts[0].replace(/\$/g, '');
+    const p2Col = parts[1].replace(/\$/g, '');
+    if (/^[A-Z]+$/.test(p1Col) && /^[A-Z]+$/.test(p2Col)) {
+      const c1 = nameToColIndex(p1Col);
+      const c2 = nameToColIndex(p2Col);
+      return {
+        startRow: 0,
+        startCol: Math.min(c1, c2),
+        endRow: maxRows - 1,
+        endCol: Math.max(c1, c2)
+      };
+    }
+
+    // Check full row notation: e.g. "1:1" or "$1:$5"
+    if (/^[1-9][0-9]*$/.test(p1Col) && /^[1-9][0-9]*$/.test(p2Col)) {
+      const r1 = Number.parseInt(p1Col, 10) - 1;
+      const r2 = Number.parseInt(p2Col, 10) - 1;
+      return {
+        startRow: Math.min(r1, r2),
+        startCol: 0,
+        endRow: Math.max(r1, r2),
+        endCol: maxCols - 1
+      };
+    }
+
     const start = a1ToCoord(parts[0]);
     const end = a1ToCoord(parts[1]);
     if (!start || !end) return null;

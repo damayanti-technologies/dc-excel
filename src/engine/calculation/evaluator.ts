@@ -59,13 +59,13 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
       return null;
 
     case 'CellRef': {
-      const val = context.getCellValue(node.coord);
+      const val = context.getCellValue(node.coord, node.sheetName);
       return val ?? null;
     }
 
     case 'RangeRef': {
       // Standalone range reference returns top-left cell value or range grid
-      const grid = context.getRangeValues(node.range);
+      const grid = context.getRangeValues(node.range, node.sheetName);
       return grid[0]?.[0] ?? null;
     }
 

@@ -1,38 +1,74 @@
 import { ASTNode } from './types';
-import { coordToKey } from '@/utils/coordinates';
+import { coordToKey, parseKey } from '@/utils/coordinates';
 import { CellRange } from '@/types/cell';
+
+export interface RangeDependentRecord {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+  dependentKey: string;
+}
 
 /**
  * Traverses an AST and extracts all referenced cell coordinate keys ("row:col").
- * Range references are expanded to all contained cell keys.
+ * Large ranges (or full columns/rows) are emitted as compact "RANGE:r1:c1:r2:c2" tokens
+ * to prevent allocating hundreds of thousands of keys in memory.
  */
 export function extractReferencesFromAST(
   node: ASTNode,
-  resolveNamedRange?: (name: string) => { range: CellRange } | null
+  resolveNamedRange?: (name: string) => { range: CellRange } | null,
+  currentSheetName?: string
 ): string[] {
   const refs = new Set<string>();
 
   function walk(n: ASTNode) {
     switch (n.type) {
-      case 'CellRef':
-        refs.add(coordToKey(n.coord.row, n.coord.col));
+      case 'CellRef': {
+        const isCrossSheet = n.sheetName && (!currentSheetName || n.sheetName.toLowerCase() !== currentSheetName.toLowerCase());
+        if (isCrossSheet) {
+          refs.add(`${n.sheetName}!${coordToKey(n.coord.row, n.coord.col)}`);
+        } else {
+          refs.add(coordToKey(n.coord.row, n.coord.col));
+        }
         break;
+      }
 
-      case 'RangeRef':
-        for (let r = n.range.startRow; r <= n.range.endRow; r++) {
-          for (let c = n.range.startCol; c <= n.range.endCol; c++) {
-            refs.add(coordToKey(r, c));
+      case 'RangeRef': {
+        const rowSpan = n.range.endRow - n.range.startRow + 1;
+        const colSpan = n.range.endCol - n.range.startCol + 1;
+        const cellCount = rowSpan * colSpan;
+        const isCrossSheet = n.sheetName && (!currentSheetName || n.sheetName.toLowerCase() !== currentSheetName.toLowerCase());
+        const prefix = isCrossSheet ? `${n.sheetName}!` : '';
+
+        if (n.isFullCol || n.isFullRow || cellCount > 250) {
+          // Bounded range token to avoid 100k key explosion
+          refs.add(`${prefix}RANGE:${n.range.startRow}:${n.range.startCol}:${n.range.endRow}:${n.range.endCol}`);
+        } else {
+          for (let r = n.range.startRow; r <= n.range.endRow; r++) {
+            for (let c = n.range.startCol; c <= n.range.endCol; c++) {
+              refs.add(`${prefix}${coordToKey(r, c)}`);
+            }
           }
         }
         break;
+      }
 
       case 'NamedRangeRef':
         if (resolveNamedRange) {
           const resolved = resolveNamedRange(n.name);
           if (resolved) {
-            for (let r = resolved.range.startRow; r <= resolved.range.endRow; r++) {
-              for (let c = resolved.range.startCol; c <= resolved.range.endCol; c++) {
-                refs.add(coordToKey(r, c));
+            const rowSpan = resolved.range.endRow - resolved.range.startRow + 1;
+            const colSpan = resolved.range.endCol - resolved.range.startCol + 1;
+            const cellCount = rowSpan * colSpan;
+
+            if (cellCount > 250) {
+              refs.add(`RANGE:${resolved.range.startRow}:${resolved.range.startCol}:${resolved.range.endRow}:${resolved.range.endCol}`);
+            } else {
+              for (let r = resolved.range.startRow; r <= resolved.range.endRow; r++) {
+                for (let c = resolved.range.startCol; c <= resolved.range.endCol; c++) {
+                  refs.add(coordToKey(r, c));
+                }
               }
             }
           }
@@ -70,7 +106,7 @@ export function extractReferencesFromAST(
 
 /**
  * Dependency Graph (DAG) for tracking formula precedents and dependents.
- * Provides cycle detection and topological recalculation sorting.
+ * Provides stack-safe iterative cycle detection and O(V + E) topological recalculation sorting.
  */
 export class DependencyGraph {
   // cellKey -> set of cells that cellKey references (precedents)
@@ -79,17 +115,23 @@ export class DependencyGraph {
   // cellKey -> set of cells that reference cellKey (dependents)
   private dependents = new Map<string, Set<string>>();
 
+  // rangeDependents array for compact, large-range subscriptions
+  private rangeDependents: RangeDependentRecord[] = [];
+
   /**
    * Sets or updates the precedents of a cell.
-   * Automatically synchronizes the reverse dependents map.
+   * Automatically synchronizes the reverse dependents map and compact range subscriptions.
    */
   public setCellDependencies(cellKey: string, newPrecedents: string[]): void {
     // 1. Remove old precedents
     const oldPrecedents = this.precedents.get(cellKey);
     if (oldPrecedents) {
       for (const prec of oldPrecedents) {
-        this.dependents.get(prec)?.delete(cellKey);
+        if (!prec.startsWith('RANGE:')) {
+          this.dependents.get(prec)?.delete(cellKey);
+        }
       }
+      this.rangeDependents = this.rangeDependents.filter((rd) => rd.dependentKey !== cellKey);
     }
 
     // 2. Set new precedents
@@ -98,10 +140,23 @@ export class DependencyGraph {
 
     // 3. Update reverse dependents
     for (const prec of precSet) {
-      if (!this.dependents.has(prec)) {
-        this.dependents.set(prec, new Set());
+      if (prec.startsWith('RANGE:')) {
+        const parts = prec.split(':');
+        if (parts.length === 5) {
+          this.rangeDependents.push({
+            startRow: Number.parseInt(parts[1]!, 10),
+            startCol: Number.parseInt(parts[2]!, 10),
+            endRow: Number.parseInt(parts[3]!, 10),
+            endCol: Number.parseInt(parts[4]!, 10),
+            dependentKey: cellKey
+          });
+        }
+      } else {
+        if (!this.dependents.has(prec)) {
+          this.dependents.set(prec, new Set());
+        }
+        this.dependents.get(prec)!.add(cellKey);
       }
-      this.dependents.get(prec)!.add(cellKey);
     }
   }
 
@@ -112,8 +167,11 @@ export class DependencyGraph {
     const oldPrecedents = this.precedents.get(cellKey);
     if (oldPrecedents) {
       for (const prec of oldPrecedents) {
-        this.dependents.get(prec)?.delete(cellKey);
+        if (!prec.startsWith('RANGE:')) {
+          this.dependents.get(prec)?.delete(cellKey);
+        }
       }
+      this.rangeDependents = this.rangeDependents.filter((rd) => rd.dependentKey !== cellKey);
       this.precedents.delete(cellKey);
     }
   }
@@ -131,37 +189,74 @@ export class DependencyGraph {
    */
   public getDirectDependents(cellKey: string): string[] {
     const dep = this.dependents.get(cellKey);
-    return dep ? Array.from(dep) : [];
+    const result = dep ? Array.from(dep) : [];
+
+    const coord = parseKey(cellKey);
+    if (coord) {
+      for (const rd of this.rangeDependents) {
+        if (
+          coord.row >= rd.startRow &&
+          coord.row <= rd.endRow &&
+          coord.col >= rd.startCol &&
+          coord.col <= rd.endCol
+        ) {
+          if (!result.includes(rd.dependentKey)) {
+            result.push(rd.dependentKey);
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
    * Detects whether a cell is part of a circular dependency cycle.
-   * Uses depth-first search with recursion stack.
+   * Uses stack-safe iterative depth-first search with explicit heap stack.
    */
   public hasCircularDependency(startKey: string): boolean {
     const visited = new Set<string>();
-    const stack = new Set<string>();
+    const onStack = new Set<string>();
 
-    const dfs = (curr: string): boolean => {
-      visited.add(curr);
-      stack.add(curr);
+    interface DfsFrame {
+      node: string;
+      neighbors: string[];
+      index: number;
+    }
 
-      const precs = this.precedents.get(curr);
-      if (precs) {
-        for (const p of precs) {
-          if (!visited.has(p)) {
-            if (dfs(p)) return true;
-          } else if (stack.has(p)) {
-            return true; // Cycle found
-          }
+    const startPrecs = Array.from(this.precedents.get(startKey) || []).filter(
+      (p) => !p.startsWith('RANGE:')
+    );
+
+    const stack: DfsFrame[] = [{ node: startKey, neighbors: startPrecs, index: 0 }];
+    visited.add(startKey);
+    onStack.add(startKey);
+
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
+
+      if (frame.index < frame.neighbors.length) {
+        const next = frame.neighbors[frame.index++]!;
+
+        if (onStack.has(next)) {
+          return true; // Cycle detected
         }
+
+        if (!visited.has(next)) {
+          visited.add(next);
+          onStack.add(next);
+          const nextNeighbors = Array.from(this.precedents.get(next) || []).filter(
+            (p) => !p.startsWith('RANGE:')
+          );
+          stack.push({ node: next, neighbors: nextNeighbors, index: 0 });
+        }
+      } else {
+        onStack.delete(frame.node);
+        stack.pop();
       }
+    }
 
-      stack.delete(curr);
-      return false;
-    };
-
-    return dfs(startKey);
+    return false;
   }
 
   /**
@@ -191,21 +286,38 @@ export class DependencyGraph {
           }
         }
       }
+
+      // Check range dependents
+      const coord = parseKey(current);
+      if (coord) {
+        for (const rd of this.rangeDependents) {
+          if (
+            coord.row >= rd.startRow &&
+            coord.row <= rd.endRow &&
+            coord.col >= rd.startCol &&
+            coord.col <= rd.endCol
+          ) {
+            if (!allDependents.has(rd.dependentKey)) {
+              allDependents.add(rd.dependentKey);
+              queue.push(rd.dependentKey);
+            }
+          }
+        }
+      }
     }
 
     if (allDependents.size === 0) {
       return { order: [], hasCycle: false, cycleCells: new Set() };
     }
 
-    // 2. Perform Kahn's algorithm or DFS topological sort on the subgraph of allDependents
-    // In-degree: how many precedents of node V are also in (allDependents + changedCellKeys)?
+    // 2. Perform Kahn's algorithm topological sort on the subgraph of allDependents
     const inDegree = new Map<string, number>();
     for (const node of allDependents) {
       let degree = 0;
       const precs = this.precedents.get(node);
       if (precs) {
         for (const p of precs) {
-          if (allDependents.has(p)) {
+          if (!p.startsWith('RANGE:') && allDependents.has(p)) {
             degree++;
           }
         }
@@ -222,9 +334,12 @@ export class DependencyGraph {
     }
 
     const order: string[] = [];
+    const orderSet = new Set<string>();
+
     while (topoQueue.length > 0) {
       const u = topoQueue.shift()!;
       order.push(u);
+      orderSet.add(u);
 
       const direct = this.dependents.get(u);
       if (direct) {
@@ -245,7 +360,7 @@ export class DependencyGraph {
     const cycleCells = new Set<string>();
     if (hasCycle) {
       for (const node of allDependents) {
-        if (!order.includes(node)) {
+        if (!orderSet.has(node)) {
           cycleCells.add(node);
         }
       }
@@ -257,6 +372,7 @@ export class DependencyGraph {
   /**
    * Topologically sorts a full set of target keys (e.g. all formula cells in a sheet)
    * so that precedents are always evaluated before dependents.
+   * Runs in O(V + E) time by using Set lookups instead of Array.includes.
    */
   public getFullTopologicalOrder(targetKeys: string[]): string[] {
     const keySet = new Set(targetKeys);
@@ -268,7 +384,7 @@ export class DependencyGraph {
       const precs = this.precedents.get(key);
       if (precs) {
         for (const p of precs) {
-          if (keySet.has(p)) {
+          if (!p.startsWith('RANGE:') && keySet.has(p)) {
             degree++;
           }
         }
@@ -284,9 +400,12 @@ export class DependencyGraph {
     }
 
     const order: string[] = [];
+    const orderSet = new Set<string>();
+
     while (queue.length > 0) {
       const u = queue.shift()!;
       order.push(u);
+      orderSet.add(u);
 
       const direct = this.dependents.get(u);
       if (direct) {
@@ -304,8 +423,9 @@ export class DependencyGraph {
 
     // Append any remaining keys that weren't queued (e.g. if part of a cycle)
     for (const key of targetKeys) {
-      if (!order.includes(key)) {
+      if (!orderSet.has(key)) {
         order.push(key);
+        orderSet.add(key);
       }
     }
 
@@ -318,5 +438,6 @@ export class DependencyGraph {
   public clear(): void {
     this.precedents.clear();
     this.dependents.clear();
+    this.rangeDependents = [];
   }
 }

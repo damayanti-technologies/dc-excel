@@ -8,35 +8,63 @@ import { FormulaError, isFormulaError } from './errors';
 import { coordToKey, keyToCoord } from '@/utils/coordinates';
 
 /**
- * Creates an EvaluationContext backed by a cells map.
+ * Creates an EvaluationContext backed by a cells map, with cross-sheet resolution
+ * and bounded full-column/full-row iteration.
  */
 export function createEvaluationContext(
   cells: Record<string, Cell>,
-  namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+  namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
+  getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined,
+  currentSheetName?: string
 ): EvaluationContext {
+  const getTargetCells = (sheetName?: string) => {
+    if (sheetName && getCrossSheetCells) {
+      const cross = getCrossSheetCells(sheetName);
+      if (cross) return cross;
+    }
+    return cells;
+  };
+
   return {
-    getCellValue: (coord: CellCoordinates) => {
+    currentSheetName,
+    getCellValue: (coord: CellCoordinates, sheetName?: string) => {
+      const target = getTargetCells(sheetName);
       const key = coordToKey(coord.row, coord.col);
-      const cell = cells[key];
+      const cell = target[key];
       return cell?.value ?? null;
     },
-    getCellRawOrFormula: (coord: CellCoordinates) => {
+    getCellRawOrFormula: (coord: CellCoordinates, sheetName?: string) => {
+      const target = getTargetCells(sheetName);
       const key = coordToKey(coord.row, coord.col);
-      const cell = cells[key];
+      const cell = target[key];
       return cell?.formula ?? (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : undefined);
     },
-    getRangeValues: (range: CellRange) => {
+    getRangeValues: (range: CellRange, sheetName?: string) => {
+      const target = getTargetCells(sheetName);
+
+      // Determine bounding box of populated cells so full columns/rows (e.g. A:A) don't iterate 100k+ times
+      let maxPopulatedRow = 0;
+      let maxPopulatedCol = 0;
+      for (const k of Object.keys(target)) {
+        const c = keyToCoord(k);
+        if (c.row > maxPopulatedRow) maxPopulatedRow = c.row;
+        if (c.col > maxPopulatedCol) maxPopulatedCol = c.col;
+      }
+
+      const effectiveEndRow = Math.min(range.endRow, Math.max(maxPopulatedRow, range.startRow));
+      const effectiveEndCol = Math.min(range.endCol, Math.max(maxPopulatedCol, range.startCol));
+
       const result: CellValue[][] = [];
-      for (let r = range.startRow; r <= range.endRow; r++) {
+      for (let r = range.startRow; r <= effectiveEndRow; r++) {
         const rowVals: CellValue[] = [];
-        for (let c = range.startCol; c <= range.endCol; c++) {
+        for (let c = range.startCol; c <= effectiveEndCol; c++) {
           const key = coordToKey(r, c);
-          const cell = cells[key];
+          const cell = target[key];
           rowVals.push(cell?.value ?? null);
         }
         result.push(rowVals);
       }
-      return result;
+      return result.length > 0 ? result : [[null]];
     },
     resolveNamedRange: namedRangeResolver
   };
@@ -74,9 +102,11 @@ export function parseRawCellValue(input: string): {
     return { value: false, dataType: 'boolean' };
   }
 
-  // 4. Number (standard integer, float, scientific notation)
-  // Check if pure numeric (avoiding Date or partial string parses)
-  if (/^-?[0-9]+(\.[0-9]+)?$/.test(trimmed) || /^-?\.[0-9]+$/.test(trimmed)) {
+  // 4. Number (standard integer, float, or scientific notation e.g. 1E5, 2.5e-3)
+  if (
+    /^-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(trimmed) ||
+    /^-?\.[0-9]+([eE][+-]?[0-9]+)?$/.test(trimmed)
+  ) {
     const num = Number(trimmed);
     if (!Number.isNaN(num) && Number.isFinite(num)) {
       return { value: num, dataType: 'number' };
@@ -101,10 +131,12 @@ export class CalculationEngine {
   public evaluateFormula(
     formula: string,
     cells: Record<string, Cell>,
-    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
+    getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined,
+    currentSheetName?: string
   ): CellValue {
     const ast = parseFormula(formula);
-    const context = createEvaluationContext(cells, namedRangeResolver);
+    const context = createEvaluationContext(cells, namedRangeResolver, getCrossSheetCells, currentSheetName);
     return evaluateAST(ast, context);
   }
 
@@ -114,7 +146,8 @@ export class CalculationEngine {
    */
   public recalculateSheet(
     sheet: Sheet,
-    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
+    getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined
   ): {
     updatedCells: Record<string, Cell>;
     cycles: string[];
@@ -131,7 +164,7 @@ export class CalculationEngine {
       if (formulaStr && formulaStr.startsWith('=')) {
         const ast = parseFormula(formulaStr);
         this.astCache.set(key, ast);
-        const precedents = extractReferencesFromAST(ast, namedRangeResolver);
+        const precedents = extractReferencesFromAST(ast, namedRangeResolver, sheet.name);
         this.dependencyGraph.setCellDependencies(key, precedents);
         formulaCells.set(key, { formula: formulaStr, ast });
       }
@@ -159,7 +192,7 @@ export class CalculationEngine {
     const allNonCycleKeys = Array.from(formulaCells.keys()).filter((k) => !cycles.includes(k));
     const fullOrder = this.dependencyGraph.getFullTopologicalOrder(allNonCycleKeys);
 
-    const context = createEvaluationContext(cellsCopy, namedRangeResolver);
+    const context = createEvaluationContext(cellsCopy, namedRangeResolver, getCrossSheetCells, sheet.name);
     for (const key of fullOrder) {
       if (cycles.includes(key)) continue;
       const fInfo = formulaCells.get(key);
@@ -187,7 +220,9 @@ export class CalculationEngine {
     currentCells: Record<string, Cell>,
     coord: CellCoordinates,
     rawInput: string,
-    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null
+    namedRangeResolver?: (name: string) => { range: CellRange; sheetId?: string } | null,
+    getCrossSheetCells?: (sheetName: string) => Record<string, Cell> | undefined,
+    currentSheetName?: string
   ): {
     updatedCells: Record<string, Cell>;
     recalculatedCount: number;
@@ -206,7 +241,7 @@ export class CalculationEngine {
       // Cell contains formula
       const ast = parseFormula(parsed.formula);
       this.astCache.set(key, ast);
-      const precedents = extractReferencesFromAST(ast, namedRangeResolver);
+      const precedents = extractReferencesFromAST(ast, namedRangeResolver, currentSheetName);
       this.dependencyGraph.setCellDependencies(key, precedents);
 
       // Check if self or newly formed dependency is circular
@@ -217,7 +252,7 @@ export class CalculationEngine {
           dataType: 'error'
         };
       } else {
-        const context = createEvaluationContext(updatedCells, namedRangeResolver);
+        const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName);
         const evalResult = evaluateAST(ast, context);
         const isErr = isFormulaError(evalResult);
         updatedCells[key] = {
@@ -253,7 +288,7 @@ export class CalculationEngine {
     }
 
     // 3. Recalculate downstream non-cycle cells in topological order
-    const context = createEvaluationContext(updatedCells, namedRangeResolver);
+    const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName);
     let count = 0;
 
     for (const depKey of order) {

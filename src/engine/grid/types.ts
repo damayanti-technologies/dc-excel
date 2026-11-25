@@ -64,6 +64,7 @@ export interface ClipboardPayload {
   cells: SparseCellMap;
   rowCount: number;
   colCount: number;
+  sourceRange?: CellRange;
 }
 
 /**

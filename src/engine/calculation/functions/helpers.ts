@@ -65,11 +65,11 @@ export function resolveTo2DArray(
   evaluate: (node: ASTNode, context: EvaluationContext) => CellValue
 ): CellValue[][] | string {
   if (node.type === 'RangeRef') {
-    return context.getRangeValues(node.range);
+    return context.getRangeValues(node.range, node.sheetName);
   }
 
   if (node.type === 'CellRef') {
-    const val = context.getCellValue(node.coord);
+    const val = context.getCellValue(node.coord, node.sheetName);
     return [[val ?? null]];
   }
 

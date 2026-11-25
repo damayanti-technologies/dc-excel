@@ -182,15 +182,15 @@ describe('Data Tools: Sorting Engine', () => {
 
       const sorted = sortRange(cells, config);
 
-      // Row 0 was 10 (italic)
+      // Row 0 is now 10 (italic) with relative formula adjusted to row 1 (=A1*5)
       expect(sorted[coordToKey(0, 0)]?.value).toBe(10);
       expect(sorted[coordToKey(0, 0)]?.style?.italic).toBe(true);
-      expect(sorted[coordToKey(0, 1)]?.formula).toBe('=A2*5');
+      expect(sorted[coordToKey(0, 1)]?.formula).toBe('=A1*5');
 
-      // Row 1 was 20 (bold)
+      // Row 1 is now 20 (bold) with relative formula adjusted to row 2 (=A2*5)
       expect(sorted[coordToKey(1, 0)]?.value).toBe(20);
       expect(sorted[coordToKey(1, 0)]?.style?.bold).toBe(true);
-      expect(sorted[coordToKey(1, 1)]?.formula).toBe('=A1*5');
+      expect(sorted[coordToKey(1, 1)]?.formula).toBe('=A2*5');
     });
   });
 });

@@ -16,6 +16,7 @@ export type SaveStatusListener = (state: {
 export interface SaveQueueOptions {
   debounceMs?: number;
   onCrashRecoverySave?: (workbook: Workbook, sheets: Sheet[]) => Promise<void>;
+  onSaveSuccess?: (workbook: Workbook, revision: number) => void;
 }
 
 export class SaveQueue {
@@ -26,16 +27,49 @@ export class SaveQueue {
 
   private pendingWorkbook: Workbook | null = null;
   private pendingSheets: Sheet[] = [];
+  private enqueuedGeneration = 0;
+  private isPaused = false;
   private debounceTimer: any = null;
   private debounceMs = 600;
   private isProcessing = false;
   private onCrashRecoverySave?: (workbook: Workbook, sheets: Sheet[]) => Promise<void>;
+  private onSaveSuccess?: (workbook: Workbook, revision: number) => void;
 
   private listeners: Set<SaveStatusListener> = new Set();
 
   constructor(options: SaveQueueOptions = {}) {
     this.debounceMs = options.debounceMs ?? 600;
     this.onCrashRecoverySave = options.onCrashRecoverySave;
+    this.onSaveSuccess = options.onSaveSuccess;
+  }
+
+  public setOnSaveSuccess(cb: (workbook: Workbook, revision: number) => void): void {
+    this.onSaveSuccess = cb;
+  }
+
+  /**
+   * Pauses the save queue (e.g. during a multi-tab conflict).
+   */
+  public pause(): void {
+    this.isPaused = true;
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+  }
+
+  /**
+   * Resumes the save queue.
+   */
+  public resume(): void {
+    this.isPaused = false;
+    if (this.pendingWorkbook || this.pendingSheets.length > 0) {
+      void this.flush();
+    }
+  }
+
+  public get isSavePaused(): boolean {
+    return this.isPaused;
   }
 
   /**
@@ -46,6 +80,7 @@ export class SaveQueue {
     sheets: Sheet[],
     immediate = false
   ): void {
+    this.enqueuedGeneration++;
     this.pendingWorkbook = {
       ...workbook,
       revision: (workbook.revision || this.currentRevision) + 1,
@@ -62,6 +97,10 @@ export class SaveQueue {
 
     if (this.onCrashRecoverySave) {
       void this.onCrashRecoverySave(this.pendingWorkbook, this.pendingSheets);
+    }
+
+    if (this.isPaused) {
+      return;
     }
 
     if (this.debounceTimer) {
@@ -87,6 +126,10 @@ export class SaveQueue {
       this.debounceTimer = null;
     }
 
+    if (this.isPaused) {
+      return false;
+    }
+
     if (!this.pendingWorkbook && this.pendingSheets.length === 0) {
       return true;
     }
@@ -100,6 +143,7 @@ export class SaveQueue {
       });
     }
 
+    const currentGeneration = this.enqueuedGeneration;
     const wbToSave = this.pendingWorkbook;
     const sheetsToSave = [...this.pendingSheets];
 
@@ -118,18 +162,32 @@ export class SaveQueue {
       }
 
       // If no new pending edits arrived while saving, mark clean
-      if (this.pendingWorkbook === wbToSave) {
+      if (this.enqueuedGeneration === currentGeneration) {
         this.pendingWorkbook = null;
+        this.pendingSheets = [];
+        this.status = 'saved';
+        this.lastSavedAt = Date.now();
+        this.errorMessage = null;
+      } else {
+        // Newer edits were enqueued during save! Keep dirty and schedule next flush
+        this.status = 'dirty';
+        if (!this.isPaused) {
+          setTimeout(() => void this.flush(), 50);
+        }
       }
-      this.pendingSheets = [];
-
-      this.status = 'saved';
-      this.lastSavedAt = Date.now();
-      this.errorMessage = null;
 
       // Clean recovery record on successful persistence
       if (wbToSave) {
         void recoveryService.discardRecovery(wbToSave.id);
+      }
+
+      // Broadcast save success (for multi-tab synchronization)
+      if (this.onSaveSuccess && wbToSave) {
+        try {
+          this.onSaveSuccess(wbToSave, this.currentRevision);
+        } catch (err) {
+          Logger.warn('SaveQueue', 'onSaveSuccess broadcast callback error', err);
+        }
       }
 
       this.notify();
@@ -159,6 +217,10 @@ export class SaveQueue {
 
   public get currentStatus(): SaveStatus {
     return this.status;
+  }
+
+  public get isDirty(): boolean {
+    return this.status === 'dirty' || Boolean(this.pendingWorkbook) || this.pendingSheets.length > 0;
   }
 
   public get currentRevisionNumber(): number {

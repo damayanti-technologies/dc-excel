@@ -1,10 +1,11 @@
 import { Sheet } from '@/types/sheet';
 import { SparseCellMap } from '@/types/cell';
 import { coordToKey, keyToCoord } from '@/utils/coordinates';
+import { shiftFormulaReferences } from '@/engine/calculation/formula-shifter';
 import { DEFAULT_GRID_CONFIG } from './constants';
 
 /**
- * Inserts a row at the specified index, shifting existing rows down.
+ * Inserts a row at the specified index, shifting existing rows down and updating all formula references.
  */
 export function insertRow(sheet: Sheet, atRow: number, position: 'above' | 'below' = 'above'): Sheet {
   const targetIndex = position === 'below' ? atRow + 1 : atRow;
@@ -12,11 +13,15 @@ export function insertRow(sheet: Sheet, atRow: number, position: 'above' | 'belo
 
   for (const [key, cell] of Object.entries(sheet.cells)) {
     const { row, col } = keyToCoord(key);
-    if (row >= targetIndex) {
-      newCells[coordToKey(row + 1, col)] = cell;
-    } else {
-      newCells[key] = cell;
-    }
+    const newCoord = row >= targetIndex ? coordToKey(row + 1, col) : key;
+    const updatedFormula = cell.formula
+      ? shiftFormulaReferences(cell.formula, { type: 'row_insert', atRow: targetIndex, count: 1 })
+      : undefined;
+
+    newCells[newCoord] = {
+      ...cell,
+      formula: updatedFormula
+    };
   }
 
   const newRowHeights: Record<number, number> = {};
@@ -40,7 +45,7 @@ export function insertRow(sheet: Sheet, atRow: number, position: 'above' | 'belo
 }
 
 /**
- * Deletes a row at the specified index, shifting remaining rows up.
+ * Deletes a row at the specified index, shifting remaining rows up and updating formula references (or creating #REF!).
  */
 export function deleteRow(sheet: Sheet, atRow: number): Sheet {
   if (sheet.rowCount <= 1) {
@@ -54,11 +59,17 @@ export function deleteRow(sheet: Sheet, atRow: number): Sheet {
     if (row === atRow) {
       // Discard deleted row's cells
       continue;
-    } else if (row > atRow) {
-      newCells[coordToKey(row - 1, col)] = cell;
-    } else {
-      newCells[key] = cell;
     }
+
+    const newCoord = row > atRow ? coordToKey(row - 1, col) : key;
+    const updatedFormula = cell.formula
+      ? shiftFormulaReferences(cell.formula, { type: 'row_delete', atRow, count: 1 })
+      : undefined;
+
+    newCells[newCoord] = {
+      ...cell,
+      formula: updatedFormula
+    };
   }
 
   const newRowHeights: Record<number, number> = {};
@@ -84,7 +95,7 @@ export function deleteRow(sheet: Sheet, atRow: number): Sheet {
 }
 
 /**
- * Inserts a column at the specified index, shifting existing columns right.
+ * Inserts a column at the specified index, shifting existing columns right and updating formula references.
  */
 export function insertColumn(sheet: Sheet, atCol: number, position: 'before' | 'after' = 'before'): Sheet {
   const targetIndex = position === 'after' ? atCol + 1 : atCol;
@@ -92,11 +103,15 @@ export function insertColumn(sheet: Sheet, atCol: number, position: 'before' | '
 
   for (const [key, cell] of Object.entries(sheet.cells)) {
     const { row, col } = keyToCoord(key);
-    if (col >= targetIndex) {
-      newCells[coordToKey(row, col + 1)] = cell;
-    } else {
-      newCells[key] = cell;
-    }
+    const newCoord = col >= targetIndex ? coordToKey(row, col + 1) : key;
+    const updatedFormula = cell.formula
+      ? shiftFormulaReferences(cell.formula, { type: 'col_insert', atCol: targetIndex, count: 1 })
+      : undefined;
+
+    newCells[newCoord] = {
+      ...cell,
+      formula: updatedFormula
+    };
   }
 
   const newColWidths: Record<number, number> = {};
@@ -120,7 +135,7 @@ export function insertColumn(sheet: Sheet, atCol: number, position: 'before' | '
 }
 
 /**
- * Deletes a column at the specified index, shifting remaining columns left.
+ * Deletes a column at the specified index, shifting remaining columns left and updating formula references.
  */
 export function deleteColumn(sheet: Sheet, atCol: number): Sheet {
   if (sheet.columnCount <= 1) {
@@ -134,11 +149,17 @@ export function deleteColumn(sheet: Sheet, atCol: number): Sheet {
     if (col === atCol) {
       // Discard deleted column's cells
       continue;
-    } else if (col > atCol) {
-      newCells[coordToKey(row, col - 1)] = cell;
-    } else {
-      newCells[key] = cell;
     }
+
+    const newCoord = col > atCol ? coordToKey(row, col - 1) : key;
+    const updatedFormula = cell.formula
+      ? shiftFormulaReferences(cell.formula, { type: 'col_delete', atCol, count: 1 })
+      : undefined;
+
+    newCells[newCoord] = {
+      ...cell,
+      formula: updatedFormula
+    };
   }
 
   const newColWidths: Record<number, number> = {};

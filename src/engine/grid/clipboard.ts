@@ -3,6 +3,7 @@ import { Sheet } from '@/types/sheet';
 import { coordToKey } from '@/utils/coordinates';
 import { normalizeRange } from './selection';
 import { ClipboardPayload, PasteResult } from './types';
+import { shiftFormulaReferences } from '@/engine/calculation/formula-shifter';
 import { Logger } from '@/utils/logger';
 
 // In-memory fallback clipboard cache
@@ -52,7 +53,8 @@ export function serializeRangeToClipboard(range: CellRange, cells: SparseCellMap
     matrix,
     cells: copiedCells,
     rowCount,
-    colCount
+    colCount,
+    sourceRange: norm
   };
 
   memoryClipboard = payload;
@@ -119,6 +121,20 @@ export function applyPasteData(
   const endRow = targetCoord.row + rows - 1;
   const endCol = targetCoord.col + cols - 1;
 
+  // Check if pasting internal clipboard with rich cell metadata and formatting
+  const hasMatchingInternal = Boolean(
+    memoryClipboard &&
+    memoryClipboard.sourceRange &&
+    memoryClipboard.rawText.replace(/\r/g, '').trim() === text.replace(/\r/g, '').trim()
+  );
+
+  const deltaRow = hasMatchingInternal && memoryClipboard?.sourceRange
+    ? targetCoord.row - memoryClipboard.sourceRange.startRow
+    : 0;
+  const deltaCol = hasMatchingInternal && memoryClipboard?.sourceRange
+    ? targetCoord.col - memoryClipboard.sourceRange.startCol
+    : 0;
+
   for (let r = 0; r < rows; r++) {
     const rowValues = matrix[r] || [];
     const destRow = targetCoord.row + r;
@@ -127,6 +143,8 @@ export function applyPasteData(
       const destCol = targetCoord.col + c;
       const rawVal = rowValues[c] ?? '';
       const key = coordToKey(destRow, destCol);
+
+      const cachedCell = hasMatchingInternal ? memoryClipboard?.cells[coordToKey(r, c)] : undefined;
 
       // Infer primitive data type without executing formulas
       let val: string | number | boolean | null = rawVal;
@@ -146,11 +164,36 @@ export function applyPasteData(
         dataType = 'number';
       }
 
-      updatedCells[key] = {
-        value: val,
-        dataType,
-        formula: rawVal.startsWith('=') ? rawVal : undefined
-      };
+      // Determine formula, shifting references if source delta is non-zero
+      let formula: string | undefined = undefined;
+      const rawFormula = cachedCell?.formula || (rawVal.startsWith('=') ? rawVal : undefined);
+      if (rawFormula) {
+        if (deltaRow !== 0 || deltaCol !== 0) {
+          formula = shiftFormulaReferences(rawFormula, {
+            type: 'offset',
+            deltaRow,
+            deltaCol,
+          });
+        } else {
+          formula = rawFormula;
+        }
+      }
+
+      // Preserve rich formatting and attributes if copied internally
+      if (cachedCell) {
+        updatedCells[key] = {
+          ...cachedCell,
+          value: formula ? cachedCell.value : val,
+          dataType: formula ? 'string' : (cachedCell.dataType || dataType),
+          formula,
+        };
+      } else {
+        updatedCells[key] = {
+          value: val,
+          dataType,
+          formula,
+        };
+      }
     }
   }
 
