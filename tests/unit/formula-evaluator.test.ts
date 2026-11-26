@@ -86,6 +86,30 @@ describe('Formula Evaluator & Built-in Functions', () => {
     expect(calculationEngine.evaluateFormula(nested, cells)).toBe('Grade B');
   });
 
+  it('evaluates array constants and 0^0 power', () => {
+    const emptyCells: Record<string, Cell> = {};
+    expect(calculationEngine.evaluateFormula('=SUM({1, 2; 3, 4})', emptyCells)).toBe(10);
+    expect(calculationEngine.evaluateFormula('=0^0', emptyCells)).toBe(FormulaError.NUM);
+    expect(calculationEngine.evaluateFormula('=POWER(0, 0)', emptyCells)).toBe(FormulaError.NUM);
+  });
+
+  it('evaluates implicit intersection for standalone vector ranges', () => {
+    const cells: Record<string, Cell> = {
+      '0:1': { value: 10, dataType: 'number' },
+      '1:1': { value: 20, dataType: 'number' },
+      '2:1': { value: 30, dataType: 'number' },
+    };
+
+    // When evaluated at row 1 (C2): currentCoord = { row: 1, col: 2 }
+    expect(
+      calculationEngine.evaluateFormula('=B1:B3', cells, undefined, undefined, undefined, { row: 1, col: 2 })
+    ).toBe(20);
+    // When evaluated at row 0 (C1): currentCoord = { row: 0, col: 2 }
+    expect(
+      calculationEngine.evaluateFormula('=B1:B3', cells, undefined, undefined, undefined, { row: 0, col: 2 })
+    ).toBe(10);
+  });
+
   it('handles unknown functions with #NAME?', () => {
     const emptyCells: Record<string, Cell> = {};
     expect(calculationEngine.evaluateFormula('=UNKNOWNFUNCTION(1, 2)', emptyCells)).toBe(FormulaError.NAME);
