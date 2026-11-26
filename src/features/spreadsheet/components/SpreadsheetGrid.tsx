@@ -95,6 +95,7 @@ interface SpreadsheetGridProps {
   onOpenDefineName?: () => void;
   onQuickSort?: (direction: 'asc' | 'desc', col?: number) => void;
   onExpandGrid?: (targetRowCount: number, targetColCount: number) => void;
+  onZoomChange?: (newZoom: number) => void;
   showGridlines?: boolean;
 }
 
@@ -146,10 +147,13 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onOpenDefineName,
   onQuickSort,
   onExpandGrid,
+  onZoomChange,
   showGridlines = true,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const cellInputRef = useRef<HTMLInputElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const [viewportWidth, setViewportWidth] = useState(1000);
   const [viewportHeight, setViewportHeight] = useState(600);
   const [scrollState, setScrollState] = useState({ top: 0, left: 0 });
@@ -249,6 +253,71 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       cellInputRef.current.setSelectionRange(len, len);
     }
   }, [editingCell]);
+
+  // Touchpad pinch-to-zoom (Wheel with ctrlKey/metaKey) & touch pinch gesture
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !onZoomChange) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = -e.deltaY;
+        const step = delta * 0.003;
+        const currentZoom = zoomRef.current;
+        const targetZoom = Math.min(3.0, Math.max(0.25, Math.round((currentZoom + step) * 100) / 100));
+        if (targetZoom !== currentZoom) {
+          onZoomChange(targetZoom);
+        }
+      }
+    };
+
+    let initialDist = 0;
+    let initialPinchZoom = 1;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          initialDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+          initialPinchZoom = zoomRef.current;
+        }
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialDist > 0) {
+        e.preventDefault();
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          const currentDist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+          const scale = currentDist / initialDist;
+          const targetZoom = Math.min(3.0, Math.max(0.25, Math.round(initialPinchZoom * scale * 100) / 100));
+          if (targetZoom !== zoomRef.current) {
+            onZoomChange(targetZoom);
+          }
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      initialDist = 0;
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [onZoomChange]);
 
   // Measure container dimensions
   useEffect(() => {
@@ -1024,6 +1093,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
             mergedRanges={sheet.mergedRanges}
             virtualizer={virtualizer}
             cellInputRef={cellInputRef}
+            cellStyle={sheet.cells[coordToKey(editingCell.row, editingCell.col)]?.style}
             onEditingChange={onEditingChange}
             updateCursorPosition={updateCursorPosition}
             handleCellInputKeyDown={handleCellInputKeyDown}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CellCoordinates, CellRange } from '@/types/cell';
+import { CellCoordinates, CellRange, CellStyle } from '@/types/cell';
 import { GridVirtualizer } from '@/engine/grid/virtualizer';
 import { getMergedRangeForCell, isMergeAnchor } from '@/engine/formatting/merge-cells';
 import { FormulaAutocomplete } from '../FormulaAutocomplete';
@@ -11,6 +11,7 @@ export interface GridCellEditorProps {
   editingCell: CellCoordinates;
   editingValue: string;
   zoom: number;
+  cellStyle?: CellStyle;
   mergedRanges?: CellRange[];
   virtualizer: GridVirtualizer;
   cellInputRef: React.RefObject<HTMLInputElement>;
@@ -28,6 +29,7 @@ export const GridCellEditor: React.FC<GridCellEditorProps> = ({
   editingCell,
   editingValue,
   zoom,
+  cellStyle,
   mergedRanges,
   virtualizer,
   cellInputRef,
@@ -84,7 +86,11 @@ export const GridCellEditor: React.FC<GridCellEditorProps> = ({
         style={{
           width,
           height,
-          fontSize: `${Math.round(12 * zoom)}px`,
+          fontSize: `${Math.round((cellStyle?.fontSize || 12) * zoom)}px`,
+          fontFamily: cellStyle?.fontFamily || cellStyle?.font || undefined,
+          fontWeight: cellStyle?.bold ? 'bold' : 'normal',
+          fontStyle: cellStyle?.italic ? 'italic' : 'normal',
+          color: cellStyle?.textColor || undefined,
         }}
         className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
         aria-label="Direct Cell Editor"

@@ -278,7 +278,12 @@ export const SpreadsheetPage: React.FC = () => {
         endCol: activeCell.col
       };
     }
-    return null;
+    return {
+      startRow: 0,
+      startCol: 0,
+      endRow: 0,
+      endCol: 0
+    };
   }, [selectedRange, activeCell]);
 
   const handleApplyStyle = useCallback(
@@ -2192,6 +2197,7 @@ export const SpreadsheetPage: React.FC = () => {
           selectedRange={selectedRange}
           anchorCell={anchorCell}
           zoom={zoom}
+          onZoomChange={setZoom}
           editingCell={editingCell}
           editingValue={editingValue}
           isFormatPainterActive={isFormatPainterActive}

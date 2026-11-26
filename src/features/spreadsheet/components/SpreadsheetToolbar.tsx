@@ -93,7 +93,7 @@ export const SpreadsheetToolbar: React.FC<SpreadsheetToolbarProps> = ({
   };
 
   return (
-    <div className="h-10 bg-surface-secondary border-b border-border px-3 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar shrink-0 text-xs select-none">
+    <div className="h-10 bg-surface-secondary border-b border-border px-3 flex items-center justify-between gap-2 overflow-visible shrink-0 text-xs select-none">
       {/* Left: Range Indicator, Clipboard, Row/Col operations */}
       <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
         {/* Active Selection Range Badge */}

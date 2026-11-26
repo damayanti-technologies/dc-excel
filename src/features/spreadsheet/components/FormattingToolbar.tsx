@@ -75,6 +75,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   const fontFamilyItems: (DropdownItem | 'divider')[] = FONT_FAMILIES.map((f) => ({
     id: f.value,
     label: f.label,
+    style: { fontFamily: f.value },
     shortcut: currentFontFamily.includes(f.label) ? '✓' : undefined,
     onClick: () => onApplyStyle({ fontFamily: f.value })
   }));
@@ -147,7 +148,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   };
 
   return (
-    <div className="h-9 bg-surface border-b border-border px-3 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar shrink-0 text-xs select-none">
+    <div className="h-9 bg-surface border-b border-border px-3 flex items-center justify-between gap-1 overflow-visible shrink-0 text-xs select-none">
       <div className="flex items-center gap-1 min-w-max">
         {/* 1. Format Painter */}
         <Tooltip content="Format Painter (Copy format and apply to another cell)">
