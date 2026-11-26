@@ -8,9 +8,18 @@
     <meta name="theme-color" content="#0f766e" />
     <meta name="description" content="DC Excel - Local-first spreadsheet application built for privacy, performance, and offline capability." />
     <title>DC Excel - Local-First Spreadsheet</title>
+    <meta name="application-name" content="DC Excel" />
+    <meta name="apple-mobile-web-app-title" content="DC Excel" />
   </head>
   <body class="bg-background text-foreground antialiased min-h-screen">
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.update();
+        }).catch(function() {});
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
