@@ -6,8 +6,8 @@ export const APP_CONFIG = {
   dbName: 'omnisheet_db',
   dbVersion: 3,
   defaultGrid: {
-    rowCount: 1000,
-    columnCount: 26,
+    rowCount: 50000,
+    columnCount: 100,
     rowHeight: 24,
     columnWidth: 100
   }

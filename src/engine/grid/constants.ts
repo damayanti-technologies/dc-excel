@@ -9,7 +9,7 @@ export const DEFAULT_GRID_CONFIG: GridConfig = {
   minColWidth: 32,
   maxRowHeight: 400,
   maxColWidth: 800,
-  defaultRowCount: 1000,
+  defaultRowCount: 50000,
   defaultColumnCount: 100,
   rowOverscan: 6,
   colOverscan: 4

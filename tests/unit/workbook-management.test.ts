@@ -27,8 +27,8 @@ describe('Workbook Management & Service', () => {
     expect(retrievedSheet).not.toBeNull();
     expect(retrievedSheet?.workbookId).toBe(workbook.id);
     expect(retrievedSheet?.name).toBe('Sheet1');
-    expect(retrievedSheet?.rowCount).toBe(1000);
-    expect(retrievedSheet?.columnCount).toBe(26);
+    expect(retrievedSheet?.rowCount).toBe(50000);
+    expect(retrievedSheet?.columnCount).toBe(100);
   });
 
   it('renames a workbook and persists the updated name', async () => {

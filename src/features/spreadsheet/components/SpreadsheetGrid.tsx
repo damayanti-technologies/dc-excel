@@ -94,6 +94,7 @@ interface SpreadsheetGridProps {
   onOpenFormatCells?: () => void;
   onOpenDefineName?: () => void;
   onQuickSort?: (direction: 'asc' | 'desc', col?: number) => void;
+  onExpandGrid?: (targetRowCount: number, targetColCount: number) => void;
   showGridlines?: boolean;
 }
 
@@ -144,6 +145,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   onOpenFormatCells,
   onOpenDefineName,
   onQuickSort,
+  onExpandGrid,
   showGridlines = true,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -274,12 +276,29 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // Scroll listener (RAF throttled)
+  // Scroll listener (RAF throttled) with infinite scroll expansion
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     setScrollState({ top: el.scrollTop, left: el.scrollLeft });
-  }, []);
+
+    const maxScrollY = el.scrollHeight - el.clientHeight;
+    const maxScrollX = el.scrollWidth - el.clientWidth;
+
+    let targetRows = sheet.rowCount;
+    let targetCols = sheet.columnCount;
+
+    if (maxScrollY - el.scrollTop < 600 && sheet.rowCount < 1048576) {
+      targetRows = Math.min(1048576, sheet.rowCount + 5000);
+    }
+    if (maxScrollX - el.scrollLeft < 400 && sheet.columnCount < 16384) {
+      targetCols = Math.min(16384, sheet.columnCount + 50);
+    }
+
+    if (targetRows !== sheet.rowCount || targetCols !== sheet.columnCount) {
+      onExpandGrid?.(targetRows, targetCols);
+    }
+  }, [sheet.rowCount, sheet.columnCount, onExpandGrid]);
 
   // Compute 2D virtualized viewport
   const viewport = useMemo(() => {
@@ -297,7 +316,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     const el = scrollContainerRef.current;
     if (!el) return;
 
-    const cornerW = Math.round(DEFAULT_GRID_CONFIG.rowHeaderWidth * zoom);
+    const baseHeaderW = Math.max(
+      DEFAULT_GRID_CONFIG.rowHeaderWidth,
+      Math.ceil(Math.log10(Math.max(10, sheet.rowCount + 1))) * 8 + 18
+    );
+    const cornerW = Math.round(baseHeaderW * zoom);
     const cornerH = Math.round(DEFAULT_GRID_CONFIG.colHeaderHeight * zoom);
 
     const cellRect = virtualizer.getCellRect(coord.row, coord.col, zoom);
@@ -408,6 +431,19 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
       onSelectCell(navResult.nextActiveCell, e.shiftKey && e.key !== 'Tab' && e.key !== 'Enter');
       if (navResult.shouldScroll) {
         scrollToCell(navResult.nextActiveCell);
+      }
+
+      // Check if navigation reached near the edge and trigger auto-expansion
+      let expandRows = sheet.rowCount;
+      let expandCols = sheet.columnCount;
+      if (navResult.nextActiveCell.row >= sheet.rowCount - 5 && sheet.rowCount < 1048576) {
+        expandRows = Math.min(1048576, sheet.rowCount + 5000);
+      }
+      if (navResult.nextActiveCell.col >= sheet.columnCount - 3 && sheet.columnCount < 16384) {
+        expandCols = Math.min(16384, sheet.columnCount + 50);
+      }
+      if (expandRows !== sheet.rowCount || expandCols !== sheet.columnCount) {
+        onExpandGrid?.(expandRows, expandCols);
       }
     }
   };
@@ -603,7 +639,11 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     return virtualizer.getCellRect(activeCell.row, activeCell.col, zoom);
   }, [virtualizer, activeCell, zoom, sheet.mergedRanges]);
 
-  const cornerW = Math.round(DEFAULT_GRID_CONFIG.rowHeaderWidth * zoom);
+  const baseHeaderW = Math.max(
+    DEFAULT_GRID_CONFIG.rowHeaderWidth,
+    Math.ceil(Math.log10(Math.max(10, sheet.rowCount + 1))) * 8 + 18
+  );
+  const cornerW = Math.round(baseHeaderW * zoom);
   const cornerH = Math.round(DEFAULT_GRID_CONFIG.colHeaderHeight * zoom);
 
   // Freeze panes and filter metadata

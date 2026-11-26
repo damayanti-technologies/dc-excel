@@ -125,7 +125,7 @@ export function rangeToA1(range: CellRange): string {
 /**
  * Parses an Excel range notation into a CellRange (e.g., "A1:C10", "A:A", "1:1", or single "B2").
  */
-export function a1ToRange(a1Range: string, maxRows = 1000, maxCols = 50): CellRange | null {
+export function a1ToRange(a1Range: string, maxRows = 1048576, maxCols = 16384): CellRange | null {
   const parts = a1Range.trim().toUpperCase().split(':');
   if (parts.length === 1 && parts[0]) {
     const c = a1ToCoord(parts[0]);

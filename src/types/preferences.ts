@@ -34,8 +34,8 @@ export const DEFAULT_USER_PREFERENCES: UserPreferences = {
   theme: 'system',
   language: 'en',
   defaultWorkbookSettings: {
-    defaultRowCount: 1000,
-    defaultColumnCount: 26,
+    defaultRowCount: 50000,
+    defaultColumnCount: 100,
     defaultSheetName: 'Sheet1',
     defaultColWidth: 100,
     defaultRowHeight: 24

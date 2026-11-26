@@ -28,6 +28,7 @@ interface SheetState {
   setZoom: (zoom: number) => void;
   updateCell: (coord: CellCoordinates, cell: Cell) => void;
   setBatchCells: (cells: Record<string, Cell>, newRowCount?: number, newColCount?: number) => void;
+  setGridDimensions: (rowCount: number, columnCount: number) => void;
   setRowHeight: (row: number, height: number) => void;
   setColumnWidth: (col: number, width: number) => void;
   insertRow: (atRow: number, position?: 'above' | 'below') => void;
@@ -117,6 +118,23 @@ export const useSheetStore = create<SheetState>((set) => ({
             ...state.activeSheet.cells,
             ...cells
           }
+        }
+      };
+    }),
+
+  setGridDimensions: (rowCount, columnCount) =>
+    set((state) => {
+      if (!state.activeSheet) return state;
+      const nextRows = Math.max(state.activeSheet.rowCount, rowCount);
+      const nextCols = Math.max(state.activeSheet.columnCount, columnCount);
+      if (nextRows === state.activeSheet.rowCount && nextCols === state.activeSheet.columnCount) {
+        return state;
+      }
+      return {
+        activeSheet: {
+          ...state.activeSheet,
+          rowCount: nextRows,
+          columnCount: nextCols
         }
       };
     }),

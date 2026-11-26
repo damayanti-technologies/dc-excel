@@ -107,6 +107,7 @@ export const SpreadsheetPage: React.FC = () => {
   const duplicateChart = useSheetStore((state) => state.duplicateChart);
   const bringChartForward = useSheetStore((state) => state.bringChartForward);
   const sendChartBackward = useSheetStore((state) => state.sendChartBackward);
+  const setGridDimensions = useSheetStore((state) => state.setGridDimensions);
 
   const activeCell = useSelectionStore((state) => state.activeCell);
   const anchorCell = useSelectionStore((state) => state.anchorCell);
@@ -1461,8 +1462,12 @@ export const SpreadsheetPage: React.FC = () => {
       }
 
       if (moveTo === 'down') {
+        const nextRow = targetCoord.row + 1;
+        if (nextRow >= activeSheet.rowCount && activeSheet.rowCount < 1048576) {
+          setGridDimensions(Math.min(1048576, activeSheet.rowCount + 1000), activeSheet.columnCount);
+        }
         setActiveCell({
-          row: Math.min(activeSheet.rowCount - 1, targetCoord.row + 1),
+          row: Math.min(1048576 - 1, nextRow),
           col: targetCoord.col
         });
       } else if (moveTo === 'up') {
@@ -1471,9 +1476,13 @@ export const SpreadsheetPage: React.FC = () => {
           col: targetCoord.col
         });
       } else if (moveTo === 'right') {
+        const nextCol = targetCoord.col + 1;
+        if (nextCol >= activeSheet.columnCount && activeSheet.columnCount < 16384) {
+          setGridDimensions(activeSheet.rowCount, Math.min(16384, activeSheet.columnCount + 26));
+        }
         setActiveCell({
           row: targetCoord.row,
-          col: Math.min(activeSheet.columnCount - 1, targetCoord.col + 1)
+          col: Math.min(16384 - 1, nextCol)
         });
       } else if (moveTo === 'left') {
         setActiveCell({
@@ -1678,13 +1687,27 @@ export const SpreadsheetPage: React.FC = () => {
   }, [activeCell, activeSheet, handleUpdateCellValue]);
 
   // Stage 14: Navigation & Go To Handlers
+  const handleExpandGrid = useCallback(
+    (targetRowCount: number, targetColCount: number) => {
+      setGridDimensions(targetRowCount, targetColCount);
+    },
+    [setGridDimensions]
+  );
+
   const handleNavigateToRange = useCallback(
     (range: CellRange) => {
+      if (activeSheet) {
+        const neededRows = Math.max(activeSheet.rowCount, range.endRow + 50);
+        const neededCols = Math.max(activeSheet.columnCount, range.endCol + 10);
+        if (neededRows > activeSheet.rowCount || neededCols > activeSheet.columnCount) {
+          setGridDimensions(Math.min(1048576, neededRows), Math.min(16384, neededCols));
+        }
+      }
       setActiveCell({ row: range.startRow, col: range.startCol });
       setAnchorCell({ row: range.startRow, col: range.startCol });
       setSelectedRange(range);
     },
-    [setActiveCell, setAnchorCell, setSelectedRange]
+    [activeSheet, setGridDimensions, setActiveCell, setAnchorCell, setSelectedRange]
   );
 
   const handleNavigateToNamedRange = useCallback(
@@ -2211,6 +2234,7 @@ export const SpreadsheetPage: React.FC = () => {
           onOpenFormatCells={() => setIsMobileFormattingOpen(true)}
           onOpenDefineName={() => setIsNameManagerOpen(true)}
           onQuickSort={handleQuickSort}
+          onExpandGrid={handleExpandGrid}
         />
       </div>
 

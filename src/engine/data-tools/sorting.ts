@@ -56,8 +56,8 @@ export function compareCellValues(
 export function detectTableRange(
   cells: SparseCellMap,
   startCoord: CellCoordinates,
-  maxRows = 1000,
-  maxCols = 50
+  maxRows = 1048576,
+  maxCols = 16384
 ): CellRange {
   const populatedCoords: CellCoordinates[] = [];
 

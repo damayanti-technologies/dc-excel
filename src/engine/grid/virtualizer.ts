@@ -9,9 +9,11 @@ export class GridVirtualizer {
   private readonly columnWidths: Record<number, number>;
   private readonly config: GridConfig;
 
-  // Cached prefix sums (unscaled by zoom)
-  private rowOffsets: number[] = [];
-  private colOffsets: number[] = [];
+  // Cached prefix sums (unscaled by zoom) - only allocated when custom sizes exist
+  private rowOffsets: number[] | null = null;
+  private colOffsets: number[] | null = null;
+  private readonly hasCustomRowHeights: boolean;
+  private readonly hasCustomColWidths: boolean;
   private totalHeightUnscaled = 0;
   private totalWidthUnscaled = 0;
 
@@ -28,6 +30,9 @@ export class GridVirtualizer {
     this.columnWidths = columnWidths;
     this.config = { ...DEFAULT_GRID_CONFIG, ...config };
 
+    this.hasCustomRowHeights = Object.keys(rowHeights).length > 0;
+    this.hasCustomColWidths = Object.keys(columnWidths).length > 0;
+
     this.computeOffsets();
   }
 
@@ -35,26 +40,36 @@ export class GridVirtualizer {
     const { defaultRowHeight, defaultColWidth } = this.config;
 
     // 1. Row offsets
-    this.rowOffsets = new Array(this.rowCount + 1);
-    let currentY = 0;
-    this.rowOffsets[0] = 0;
-    for (let r = 0; r < this.rowCount; r++) {
-      const h = this.rowHeights[r] ?? defaultRowHeight;
-      currentY += h;
-      this.rowOffsets[r + 1] = currentY;
+    if (this.hasCustomRowHeights) {
+      this.rowOffsets = new Array(this.rowCount + 1);
+      let currentY = 0;
+      this.rowOffsets[0] = 0;
+      for (let r = 0; r < this.rowCount; r++) {
+        const h = this.rowHeights[r] ?? defaultRowHeight;
+        currentY += h;
+        this.rowOffsets[r + 1] = currentY;
+      }
+      this.totalHeightUnscaled = currentY;
+    } else {
+      this.rowOffsets = null;
+      this.totalHeightUnscaled = this.rowCount * defaultRowHeight;
     }
-    this.totalHeightUnscaled = currentY;
 
     // 2. Column offsets
-    this.colOffsets = new Array(this.colCount + 1);
-    let currentX = 0;
-    this.colOffsets[0] = 0;
-    for (let c = 0; c < this.colCount; c++) {
-      const w = this.columnWidths[c] ?? defaultColWidth;
-      currentX += w;
-      this.colOffsets[c + 1] = currentX;
+    if (this.hasCustomColWidths) {
+      this.colOffsets = new Array(this.colCount + 1);
+      let currentX = 0;
+      this.colOffsets[0] = 0;
+      for (let c = 0; c < this.colCount; c++) {
+        const w = this.columnWidths[c] ?? defaultColWidth;
+        currentX += w;
+        this.colOffsets[c + 1] = currentX;
+      }
+      this.totalWidthUnscaled = currentX;
+    } else {
+      this.colOffsets = null;
+      this.totalWidthUnscaled = this.colCount * defaultColWidth;
     }
-    this.totalWidthUnscaled = currentX;
   }
 
   public getRowHeight(row: number, zoom = 1): number {
@@ -69,11 +84,17 @@ export class GridVirtualizer {
 
   public getRowOffset(row: number, zoom = 1): number {
     const clamped = Math.max(0, Math.min(row, this.rowCount));
+    if (!this.hasCustomRowHeights || !this.rowOffsets) {
+      return Math.round(clamped * this.config.defaultRowHeight * zoom);
+    }
     return Math.round((this.rowOffsets[clamped] ?? 0) * zoom);
   }
 
   public getColOffset(col: number, zoom = 1): number {
     const clamped = Math.max(0, Math.min(col, this.colCount));
+    if (!this.hasCustomColWidths || !this.colOffsets) {
+      return Math.round(clamped * this.config.defaultColWidth * zoom);
+    }
     return Math.round((this.colOffsets[clamped] ?? 0) * zoom);
   }
 
@@ -86,12 +107,17 @@ export class GridVirtualizer {
   }
 
   /**
-   * Binary search to find row index at given vertical pixel offset.
+   * Fast index lookup at given vertical pixel offset (O(1) uniform or binary search custom).
    */
   public getRowIndexAtY(y: number, zoom = 1): number {
     if (y <= 0) return 0;
     const unscaledY = y / zoom;
     if (unscaledY >= this.totalHeightUnscaled) return this.rowCount - 1;
+
+    if (!this.hasCustomRowHeights || !this.rowOffsets) {
+      const idx = Math.floor(unscaledY / this.config.defaultRowHeight);
+      return Math.max(0, Math.min(idx, this.rowCount - 1));
+    }
 
     let low = 0;
     let high = this.rowCount - 1;
@@ -115,12 +141,17 @@ export class GridVirtualizer {
   }
 
   /**
-   * Binary search to find column index at given horizontal pixel offset.
+   * Fast index lookup at given horizontal pixel offset (O(1) uniform or binary search custom).
    */
   public getColIndexAtX(x: number, zoom = 1): number {
     if (x <= 0) return 0;
     const unscaledX = x / zoom;
     if (unscaledX >= this.totalWidthUnscaled) return this.colCount - 1;
+
+    if (!this.hasCustomColWidths || !this.colOffsets) {
+      const idx = Math.floor(unscaledX / this.config.defaultColWidth);
+      return Math.max(0, Math.min(idx, this.colCount - 1));
+    }
 
     let low = 0;
     let high = this.colCount - 1;
