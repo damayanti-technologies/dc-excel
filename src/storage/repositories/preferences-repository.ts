@@ -6,6 +6,27 @@ import { Logger } from '@/utils/logger';
 const PREFERENCES_ID = 'current_user_preferences';
 const LOCAL_STORAGE_FALLBACK_KEY = 'omnisheet_preferences_fallback';
 
+function normalizePreferences(prefs?: Partial<UserPreferences> | null): UserPreferences {
+  if (!prefs) return DEFAULT_USER_PREFERENCES;
+  const def = DEFAULT_USER_PREFERENCES;
+  const defWb = def.defaultWorkbookSettings;
+  const loadedWb: Partial<typeof defWb> = prefs.defaultWorkbookSettings || {};
+  return {
+    ...def,
+    ...prefs,
+    defaultWorkbookSettings: {
+      ...defWb,
+      ...loadedWb,
+      defaultRowCount: Math.max(loadedWb.defaultRowCount || defWb.defaultRowCount, defWb.defaultRowCount),
+      defaultColumnCount: Math.max(loadedWb.defaultColumnCount || defWb.defaultColumnCount, defWb.defaultColumnCount)
+    },
+    applicationPreferences: {
+      ...def.applicationPreferences,
+      ...(prefs.applicationPreferences || {})
+    }
+  };
+}
+
 export class PreferencesRepository implements IPreferencesRepository {
   private readonly storeName = 'preferences';
 
@@ -14,7 +35,7 @@ export class PreferencesRepository implements IPreferencesRepository {
       const db = await getDatabase();
       const prefs = (await db.get(this.storeName, PREFERENCES_ID)) as UserPreferences | undefined;
       if (prefs) {
-        return prefs;
+        return normalizePreferences(prefs);
       }
     } catch (err) {
       Logger.warn('PreferencesRepository', 'Could not read from IndexedDB, checking localStorage fallback', err);
@@ -25,7 +46,7 @@ export class PreferencesRepository implements IPreferencesRepository {
       if (typeof localStorage !== 'undefined') {
         const stored = localStorage.getItem(LOCAL_STORAGE_FALLBACK_KEY);
         if (stored) {
-          return { ...DEFAULT_USER_PREFERENCES, ...JSON.parse(stored) };
+          return normalizePreferences(JSON.parse(stored));
         }
       }
     } catch (err) {

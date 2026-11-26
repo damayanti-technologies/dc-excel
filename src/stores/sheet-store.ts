@@ -66,12 +66,23 @@ export const useSheetStore = create<SheetState>((set) => ({
   isLoading: false,
   zoom: 1.0,
 
-  setActiveSheet: (activeSheet) =>
+  setActiveSheet: (activeSheet) => {
+    if (!activeSheet) {
+      set({ activeSheet: null, isLoading: false, zoom: 1.0 });
+      return;
+    }
+    const rowCount = Math.max(activeSheet.rowCount || 50000, 50000);
+    const columnCount = Math.max(activeSheet.columnCount || 100, 100);
     set({
-      activeSheet,
+      activeSheet: {
+        ...activeSheet,
+        rowCount,
+        columnCount
+      },
       isLoading: false,
       zoom: activeSheet?.metadata?.zoom || 1.0
-    }),
+    });
+  },
 
   setLoading: (isLoading) => set({ isLoading }),
 
