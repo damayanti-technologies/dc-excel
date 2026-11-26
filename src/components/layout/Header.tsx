@@ -156,10 +156,10 @@ export const Header: React.FC = () => {
             <Table2 className="w-4 h-4" />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-extrabold tracking-tight text-base sm:text-lg hidden xs:inline">
+            <span className="font-extrabold tracking-tight text-base sm:text-lg inline">
               {APP_CONFIG.name}
             </span>
-            <span className="text-[9px] font-medium tracking-wide text-foreground-subtle hidden sm:inline">
+            <span className="text-[9px] font-medium tracking-wide text-foreground-subtle inline">
               by {APP_CONFIG.brand}
             </span>
           </div>
