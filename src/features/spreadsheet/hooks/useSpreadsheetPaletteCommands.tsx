@@ -400,21 +400,21 @@ export function useSpreadsheetPaletteCommands(options: UseSpreadsheetPaletteComm
       title: 'Zoom In',
       category: 'View',
       icon: <ZoomIn className="w-4 h-4" />,
-      onExecute: () => setZoom(Math.min(200, zoom + 10))
+      onExecute: () => setZoom(Math.min(3.0, Math.round((zoom + 0.1) * 10) / 10))
     },
     {
       id: 'cmd-zoom-out',
       title: 'Zoom Out',
       category: 'View',
       icon: <ZoomOut className="w-4 h-4" />,
-      onExecute: () => setZoom(Math.max(50, zoom - 10))
+      onExecute: () => setZoom(Math.max(0.25, Math.round((zoom - 0.1) * 10) / 10))
     },
     {
       id: 'cmd-reset-zoom',
       title: 'Reset Zoom to 100%',
       category: 'View',
       icon: <ZoomIn className="w-4 h-4" />,
-      onExecute: () => setZoom(100)
+      onExecute: () => setZoom(1.0)
     },
     {
       id: 'cmd-toggle-gridlines',

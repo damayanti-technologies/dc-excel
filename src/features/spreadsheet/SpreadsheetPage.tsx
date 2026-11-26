@@ -211,7 +211,8 @@ export const SpreadsheetPage: React.FC = () => {
         setShowFormulaBar(preferences.applicationPreferences.showFormulaBarDefault);
       }
       if (preferences.applicationPreferences.defaultZoom !== undefined) {
-        setZoom(preferences.applicationPreferences.defaultZoom);
+        const prefZoom = preferences.applicationPreferences.defaultZoom;
+        setZoom(prefZoom > 10 ? prefZoom / 100 : prefZoom);
       }
       if (preferences.applicationPreferences.hasSeenOnboarding === false) {
         setIsWelcomeTourOpen(true);
