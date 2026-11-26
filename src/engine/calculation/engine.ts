@@ -232,31 +232,25 @@ export class CalculationEngine {
       }
     }
 
-    // 2. Identify cycles
-    const cycles: string[] = [];
-    for (const key of formulaCells.keys()) {
-      if (this.dependencyGraph.hasCircularDependency(key)) {
-        cycles.push(key);
+    // 2. Identify cycles and topological evaluation order in a single O(V + E) pass
+    const formulaKeys = Array.from(formulaCells.keys());
+    const { order, cycleCells } = this.dependencyGraph.getTopologicalOrderAndCycles(formulaKeys);
+
+    // 3. Mark cycle cells
+    for (const cycleKey of cycleCells) {
+      const orig = cellsCopy[cycleKey];
+      if (orig) {
+        cellsCopy[cycleKey] = {
+          ...orig,
+          value: FormulaError.CYCLE,
+          dataType: 'error'
+        };
       }
     }
 
-    // 3. Mark cycle cells
-    for (const cycleKey of cycles) {
-      const orig = cellsCopy[cycleKey]!;
-      cellsCopy[cycleKey] = {
-        ...orig,
-        value: FormulaError.CYCLE,
-        dataType: 'error'
-      };
-    }
-
     // 4. Calculate non-cycle formula cells in topological order
-    const allNonCycleKeys = Array.from(formulaCells.keys()).filter((k) => !cycles.includes(k));
-    const fullOrder = this.dependencyGraph.getFullTopologicalOrder(allNonCycleKeys);
-
     const context = createEvaluationContext(cellsCopy, namedRangeResolver, getCrossSheetCells, sheet.name);
-    for (const key of fullOrder) {
-      if (cycles.includes(key)) continue;
+    for (const key of order) {
       const fInfo = formulaCells.get(key);
       if (!fInfo) continue;
 
@@ -274,7 +268,7 @@ export class CalculationEngine {
       };
     }
 
-    return { updatedCells: cellsCopy, cycles };
+    return { updatedCells: cellsCopy, cycles: Array.from(cycleCells) };
   }
 
   /**
@@ -377,24 +371,16 @@ export class CalculationEngine {
         this.astCache.set(depKey, ast);
       }
 
-      if (this.dependencyGraph.hasCircularDependency(depKey)) {
-        updatedCells[depKey] = {
-          ...cell,
-          value: FormulaError.CYCLE,
-          dataType: 'error'
-        };
-      } else {
-        context.currentCoord = keyToCoord(depKey);
-        const evalResult = evaluateAST(ast, context);
-        const isLiteral = isBoxedLiteral(evalResult);
-        const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
-        const isErr = !isLiteral && isFormulaError(unwrapped);
-        updatedCells[depKey] = {
-          ...cell,
-          value: unwrapped,
-          dataType: isErr ? 'error' : 'formula'
-        };
-      }
+      context.currentCoord = keyToCoord(depKey);
+      const evalResult = evaluateAST(ast, context);
+      const isLiteral = isBoxedLiteral(evalResult);
+      const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
+      const isErr = !isLiteral && isFormulaError(unwrapped);
+      updatedCells[depKey] = {
+        ...cell,
+        value: unwrapped,
+        dataType: isErr ? 'error' : 'formula'
+      };
       count++;
     }
 
