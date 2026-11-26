@@ -1,20 +1,23 @@
-# System Architecture & Layer Boundaries
+# DC Excel — System Architecture & Layer Boundaries
 
-**Project:** OmniSheet  
+**Brand:** Damayanti Crest  
+**Product:** DC Excel  
+**Tagline:** Create. Calculate. Analyse.  
 **Date:** November 2026  
-**Document:** `docs/ARCHITECTURE.md`  
+**Document:** `docs/ARCHITECTURE.md`
 
 ---
 
 ## 1. Architectural Principles
 
-OmniSheet is architected as a **local-first, offline-resilient, modular desktop/web spreadsheet application**. It strictly enforces the following core architectural mandates:
+DC Excel is architected as an **independent, local-first, offline-resilient desktop/web productivity and spreadsheet platform**. It enforces the following core architectural mandates:
 
-1. **Strict Layer Separation:** Presentation components never touch IndexedDB or calculate formula graphs directly.
-2. **UI Independence:** Workbook and sheet data structures are completely detached from React UI state.
-3. **Sparse Memory Management:** Memory footprint is proportional only to populated cells, preventing browser crashes on million-row spreadsheets.
-4. **Adapter Isolation:** The spreadsheet computation engine and grid renderer sit behind generic adapter boundaries (`ISpreadsheetEngineAdapter`), preventing vendor lock-in.
-5. **Zero Cloud Requirement:** The application functions with 100% feature parity offline.
+1. **Strict Layer Separation:** Presentation components never access IndexedDB or calculate formula graphs directly.
+2. **UI Independence:** Workbook and sheet data structures are decoupled from React UI state.
+3. **Sparse Memory Model:** Memory footprint is proportional only to populated cells, preventing browser crashes on million-row spreadsheets.
+4. **$O(1)$ Arithmetic Virtualization:** Row and column rendering utilizes constant-time coordinate projection without pre-allocating millions of DOM nodes or prefix-sum arrays.
+5. **Zero Cloud Requirement:** Complete feature parity offline with zero telemetry and 100% client-side privacy.
+6. **Hub Modularity:** Standalone productivity hubs (Tools Hub, Formula Center, Data Center, DC Excel Academy, Templates, Shortcut Center) run in dedicated routes while integrating seamlessly with the Workbook Workspace.
 
 ---
 
@@ -23,36 +26,39 @@ OmniSheet is architected as a **local-first, offline-resilient, modular desktop/
 ```mermaid
 flowchart TD
     subgraph PresentationLayer["Presentation Layer (React 18 + Tailwind)"]
-        UI_Shell["App Shell & Navigation (Header, Layout, 404)"]
-        UI_Dashboard["Dashboard Feature (Listings, Metrics)"]
-        UI_Editor["Spreadsheet Editor Shell (Formula Bar, Tabs)"]
-        UI_Settings["Settings & Diagnostics"]
+        UI_Shell["App Shell & Navigation (Header, Sidebar, Global Search)"]
+        UI_Home["Home Hub (Command Center, Quick Actions, Guides)"]
+        UI_Editor["Spreadsheet Workspace (Grid, Formula Bar, Ribbons, Modals)"]
+        UI_Tools["Tools Hub (Calculators & Converters)"]
+        UI_Formula["Formula Center (Explorer, Builder, Sandbox)"]
+        UI_Data["Data Center (Cleaning, Validation, Analysis)"]
+        UI_Academy["DC Excel Academy (19 Interactive Courses)"]
+        UI_Templates["Templates Gallery (Business, Engineering, Personal)"]
+        UI_Shortcuts["Shortcut Center & Command Palette (Ctrl+K)"]
+        UI_Settings["Settings & Storage Diagnostics"]
     end
 
     subgraph StateLayer["Application State Layer (Zustand)"]
-        Store_App["useAppStore (Online, Modals, Loading)"]
+        Store_App["useAppStore (Modals, Navigation, Sidebar)"]
         Store_WB["useWorkbookStore (Active WB, Save Status, Undo)"]
-        Store_Sheet["useSheetStore (Active Sheet Data, Cells)"]
+        Store_Sheet["useSheetStore (Active Sheet Data, Cells, Dimensions)"]
         Store_Selection["useSelectionStore (Active Cell, Selection Range)"]
         Store_Prefs["useUIPreferencesStore (Theme, User Settings)"]
+        Store_Workspace["useWorkspaceStore (Workbooks, Folders, Search)"]
     end
 
     subgraph ServiceLayer["Service & Domain Layer"]
         Service_WB["WorkbookService (Create, Duplicate, Delete)"]
-        Service_AutoSave["AutoSave Management"]
-        Service_Log["Logger & Error Handlers"]
+        Service_Save["SaveQueue & RecoveryService (Crash Detection)"]
+        Service_Log["Logger & Telemetry Shield"]
     end
 
     subgraph EngineLayer["Spreadsheet Engine & Adapters"]
-        Engine_Adapter["ISpreadsheetEngineAdapter Boundary"]
-        Engine_Calc["ICalculationEngine (Formula Evaluation)"]
-        Engine_Grid["IGridVirtualizer (Viewport & Geometry)"]
-        Engine_Format["IValueFormatter (Number & Date Masks)"]
-    end
-
-    subgraph CompatibilityLayer["File Compatibility Layer"]
-        Compat_XLSX["XLSX Importer / Exporter"]
-        Compat_CSV["CSV Parser / Serializer"]
+        Engine_Calc["CalculationEngine (AST Parser, Cycle Detection)"]
+        Engine_Grid["GridVirtualizer ($O(1)$ Math Viewport)"]
+        Engine_Format["ValueFormatter (Number & Date Formatting)"]
+        Engine_Data["DataTools (Sorting, Filtering, Find/Replace)"]
+        Engine_Charts["ChartDataAdapter & ECharts Builder"]
     end
 
     subgraph StorageLayer["Persistence Layer (IndexedDB via idb)"]
@@ -60,8 +66,8 @@ flowchart TD
         Repo_Sheet["SheetRepository"]
         Repo_Folder["FolderRepository"]
         Repo_Prefs["PreferencesRepository"]
-        DB_Migration["DatabaseMigrationManager (v1 -> vN)"]
-        IDB_Instance[("IndexedDB: omnisheet_db")]
+        Repo_Recovery["RecoveryRepository"]
+        IDB_Instance[("IndexedDB: omnisheet_db v3")]
     end
 
     PresentationLayer --> StateLayer
@@ -69,59 +75,22 @@ flowchart TD
     StateLayer --> ServiceLayer
     StateLayer --> EngineLayer
     ServiceLayer --> StorageLayer
-    ServiceLayer --> CompatibilityLayer
     EngineLayer --> StateLayer
     StorageLayer --> IDB_Instance
-    DB_Migration --> IDB_Instance
 ```
 
 ---
 
-## 3. Module Responsibilities
+## 3. Product Hub Architecture
 
-### 3.1 Presentation Layer (`src/app/`, `src/components/`, `src/features/`)
-- Pure React components responsible for DOM rendering, accessibility, and dispatching user actions to Zustand stores or domain services.
-- **Rules:**
-  - Forbidden from directly calling `indexedDB` or `openDB`.
-  - Forbidden from embedding formula parsing or AST evaluation logic inside JSX.
-  - Subscribed to localized Zustand store selectors to prevent unnecessary re-renders.
+DC Excel provides 9 distinct application areas:
 
-### 3.2 Application State Layer (`src/stores/`)
-- Five decoupled Zustand stores maintain in-memory application lifecycle:
-  - `useAppStore`: Transient network status (`isOnline`), modal overlays, global loading spinners.
-  - `useWorkbookStore`: Active workbook metadata, list of sheet summaries, persistence status (`idle`, `saving`, `saved`, `error`), undo/redo states.
-  - `useSheetStore`: Current active sheet cells (`SparseCellMap`), row heights, column widths.
-  - `useSelectionStore`: Active coordinate (`activeCell`), highlighted range (`selectedRange`), edit cell coordinate.
-  - `useUIPreferencesStore`: Theme (`light`, `dark`, `system`), grid display defaults, auto-save timers.
-
-### 3.3 Domain & Service Layer (`src/services/`, `src/utils/`)
-- Business workflows orchestrating multiple domain operations (e.g., creating a workbook requires creating an initial default sheet and committing both in a coordinated transaction).
-- Coordinates debounced auto-saving and recovery snapshots.
-
-### 3.4 Spreadsheet Engine Layer (`src/engine/`)
-- Isolated behind `ISpreadsheetEngineAdapter` and `ICalculationEngine`.
-- Decouples formula calculation, range referencing, and viewport virtualization from React component lifecycles.
-- Allows upgrading or swapping calculation algorithms without touching storage schemas or UI views.
-
-### 3.5 Storage Layer (`src/storage/`)
-- Implements the Repository Pattern over IndexedDB (`idb`).
-- Handles object stores (`workbooks`, `sheets`, `folders`, `preferences`, `backups`).
-- Implements versioned schema migrations via `DatabaseMigrationManager`.
-- Intercepts and transforms browser `QuotaExceededError` exceptions into actionable domain errors.
-
-### 3.6 File Compatibility Layer (`src/engine/compatibility/`)
-- Manages bi-directional transformation between external spreadsheet formats (XLSX, CSV) and internal `Workbook` / `Sheet` models.
-
----
-
-## 4. In-Memory vs. Persistent State Matrix
-
-| State Data | In-Memory (Zustand) | Persistent (IndexedDB) | Rationale |
-| :--- | :---: | :---: | :--- |
-| **Active Workbook ID** | Yes | Yes | Needed for active editing session; reloaded from URL params or storage. |
-| **All Populated Cells** | Yes (Active Sheet) | Yes (All Sheets) | Active sheet is kept in memory for high-frequency editing; persisted via debounced auto-save. |
-| **Selection Range (e.g., A1:B10)** | Yes | No | Highly transient UI state; resetting on page reload is expected spreadsheet behavior. |
-| **Scroll Offsets / Viewport** | Yes | Optional (Metadata) | Transient navigation state. |
-| **Online / Offline Network State** | Yes | No | Derived dynamically from browser event listeners (`window.ononline`). |
-| **User Preferences & Theme** | Yes | Yes | Persisted to IndexedDB with localStorage fallback to prevent theme flickering on boot. |
-| **Undo / Redo Stacks** | Yes | No | Ephemeral per-session stack to maintain lean storage performance. |
+1. **Home**: Productivity command center with welcome banner, unified global search, quick action cards, recent files, template highlights, and beginner quick guides.
+2. **Workbook Workspace**: High-performance spreadsheet editor supporting up to 1,048,576 rows and 16,384 columns, formula bar, name box, sheet tabs, cell formatting, charts, and data tools.
+3. **Tools Hub**: Integrated calculators (Scientific, Engineering, Financial, Statistics) and Universal Unit Converter with "Insert into Cell" capability.
+4. **Formula Center**: Searchable formula library across 8 categories, interactive visual formula builder, and sandboxed tester.
+5. **Data Center**: Data cleaning, text-to-columns, deduplication, data validation, and descriptive statistics.
+6. **DC Excel Academy**: 19 offline-capable interactive courses with guided exercises, challenges, and local progress tracking.
+7. **Templates**: Pre-designed, functional spreadsheet templates ready for 1-click instantiation.
+8. **Shortcut Center & Command Palette**: Comprehensive keyboard shortcut database with interactive practice and `Ctrl+K` command launcher.
+9. **Settings & Storage**: Theme configuration, locale preferences, autosave timers, storage quota analytics, and JSON backup/restore.

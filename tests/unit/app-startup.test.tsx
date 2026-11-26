@@ -56,6 +56,12 @@ describe('Application Startup & Shell Components', () => {
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('Recent')).toBeInTheDocument();
     expect(screen.getByText('My Workbooks')).toBeInTheDocument();
+    expect(screen.getByText('HUBS & LABS')).toBeInTheDocument();
+    expect(screen.getByText('Tools Hub')).toBeInTheDocument();
+    expect(screen.getByText('Formula Center')).toBeInTheDocument();
+    expect(screen.getByText('DC Academy')).toBeInTheDocument();
+    expect(screen.getByText('Templates')).toBeInTheDocument();
+    expect(screen.getByText('Shortcuts')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 });

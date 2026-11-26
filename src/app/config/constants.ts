@@ -1,8 +1,10 @@
 export const APP_CONFIG = {
   name: 'DC Excel',
+  brand: 'Damayanti Crest',
+  tagline: 'Create. Calculate. Analyse.',
+  fullName: 'DC Excel by Damayanti Crest',
   version: '1.0.0',
   stage: 'Production Release',
-  tagline: 'Professional Local-First Spreadsheet',
   dbName: 'omnisheet_db',
   dbVersion: 3,
   defaultGrid: {

@@ -75,6 +75,30 @@ export const Header: React.FC = () => {
       return [{ label: 'Settings' }];
     }
 
+    if (path === '/tools') {
+      return [{ label: 'Tools Hub' }];
+    }
+
+    if (path === '/formulas') {
+      return [{ label: 'Formula Center' }];
+    }
+
+    if (path === '/data-tools') {
+      return [{ label: 'Data Center' }];
+    }
+
+    if (path === '/academy') {
+      return [{ label: 'DC Excel Academy' }];
+    }
+
+    if (path === '/templates') {
+      return [{ label: 'Templates' }];
+    }
+
+    if (path === '/shortcuts') {
+      return [{ label: 'Shortcuts' }];
+    }
+
     return [{ label: 'Home' }];
   };
 
@@ -123,13 +147,22 @@ export const Header: React.FC = () => {
         </button>
 
         {/* Brand Link */}
-        <Link to="/" className="flex items-center gap-2.5 font-bold text-foreground group select-none">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 font-bold text-foreground group select-none"
+          title={`${APP_CONFIG.fullName}: ${APP_CONFIG.tagline}`}
+        >
           <div className="w-7 h-7 rounded-lg bg-accent text-zinc-950 flex items-center justify-center shadow-xs group-hover:bg-accent-hover transition-colors shrink-0 font-extrabold">
             <Table2 className="w-4 h-4" />
           </div>
-          <span className="font-extrabold tracking-tight text-base sm:text-lg hidden xs:inline">
-            {APP_CONFIG.name}
-          </span>
+          <div className="flex flex-col leading-none">
+            <span className="font-extrabold tracking-tight text-base sm:text-lg hidden xs:inline">
+              {APP_CONFIG.name}
+            </span>
+            <span className="text-[9px] font-medium tracking-wide text-foreground-subtle hidden sm:inline">
+              by {APP_CONFIG.brand}
+            </span>
+          </div>
           <span className="text-[10px] font-semibold tracking-wider px-1.5 py-0.2 rounded-md bg-accent/10 text-accent border border-accent/20 hidden sm:inline">
             Local
           </span>

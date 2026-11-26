@@ -21,6 +21,8 @@ import {
 import {
   DashboardWelcome,
   QuickActions,
+  GlobalSearchSection,
+  BeginnerQuickGuides,
   SortDropdown,
   WorkbookGrid,
   WorkbookList,
@@ -130,6 +132,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ viewModeOverride }
       {currentView === 'home' && (
         <div className="space-y-6">
           <DashboardWelcome />
+          <GlobalSearchSection />
           <QuickActions />
         </div>
       )}
@@ -395,6 +398,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ viewModeOverride }
               <WorkbookGrid workbooks={homeRecentWorkbooks} folders={folders} />
             </div>
           )}
+
+          {/* Beginner-friendly Quick Guides on Home */}
+          <BeginnerQuickGuides />
 
           {/* All Workbooks header and list/grid on Home */}
           <div className="space-y-4 pt-4 border-t border-border">

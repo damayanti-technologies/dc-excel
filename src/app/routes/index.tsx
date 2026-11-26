@@ -3,6 +3,12 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { SpreadsheetPage } from '@/features/spreadsheet/SpreadsheetPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { ToolsPage } from '@/features/tools/ToolsPage';
+import { FormulaCenterPage } from '@/features/formulas/FormulaCenterPage';
+import { DataCenterPage } from '@/features/data-tools/DataCenterPage';
+import { AcademyPage } from '@/features/academy/AcademyPage';
+import { TemplatesPage } from '@/features/templates/TemplatesPage';
+import { ShortcutsPage } from '@/features/shortcuts/ShortcutsPage';
 import { NotFoundPage } from '@/components/common/NotFoundPage';
 
 export const router = createHashRouter([
@@ -38,6 +44,30 @@ export const router = createHashRouter([
       {
         path: 'workbook/:workbookId',
         element: <SpreadsheetPage />
+      },
+      {
+        path: 'tools',
+        element: <ToolsPage />
+      },
+      {
+        path: 'formulas',
+        element: <FormulaCenterPage />
+      },
+      {
+        path: 'data-tools',
+        element: <DataCenterPage />
+      },
+      {
+        path: 'academy',
+        element: <AcademyPage />
+      },
+      {
+        path: 'templates',
+        element: <TemplatesPage />
+      },
+      {
+        path: 'shortcuts',
+        element: <ShortcutsPage />
       },
       {
         path: 'settings',

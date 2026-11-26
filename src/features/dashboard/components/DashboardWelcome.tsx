@@ -6,8 +6,7 @@ import {
   FolderArchive,
   HardDrive,
   ShieldAlert,
-  ArrowRight,
-  HelpCircle,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useWorkspaceStore } from '@/stores/workspace-store';
@@ -81,11 +80,11 @@ export const DashboardWelcome: React.FC = () => {
       {/* Modern Studio Command Strip (Zero AI-fluff, 100% Pro Utility) */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-surface-elevated/70 backdrop-blur-md p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div className="space-y-1 max-w-xl">
+          <div className="space-y-1.5 max-w-xl">
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent bg-accent/10 px-2 py-0.5 rounded-full border border-accent/20">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full border border-accent/20">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                Local Engine
+                Damayanti Crest
               </span>
               <span className="text-xs text-foreground-subtle">•</span>
               <span className="text-xs font-mono text-foreground-subtle">IndexedDB v3</span>
@@ -95,7 +94,7 @@ export const DashboardWelcome: React.FC = () => {
               Welcome to DC Excel
             </h1>
             <p className="text-xs sm:text-sm text-foreground-muted">
-              Fast, private, and local-first. Spreadsheets stay safely in your browser with zero remote telemetry.
+              Create. Calculate. Analyse. Professional local-first spreadsheet, calculation engine, and engineering platform.
             </p>
           </div>
 
@@ -137,16 +136,6 @@ export const DashboardWelcome: React.FC = () => {
               title="Storage Quota & Diagnostics"
             >
               Storage
-            </Button>
-
-            <Button
-              variant="outline"
-              size="md"
-              leftIcon={<HelpCircle className="w-4 h-4" />}
-              onClick={() => setIsHelpDialogOpen(true)}
-              title="Help & Shortcuts (F1)"
-            >
-              Shortcuts
             </Button>
           </div>
         </div>

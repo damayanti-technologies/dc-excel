@@ -1,5 +1,7 @@
 export * from './DashboardWelcome';
 export * from './QuickActions';
+export * from './GlobalSearchSection';
+export * from './BeginnerQuickGuides';
 export * from './SortDropdown';
 export * from './WorkbookCard';
 export * from './WorkbookListItem';

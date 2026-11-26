@@ -8,6 +8,11 @@ import {
   Folder,
   LayoutTemplate,
   Settings,
+  Calculator,
+  FunctionSquare,
+  Sparkles,
+  GraduationCap,
+  Keyboard,
   ChevronLeft,
   ChevronRight,
   X
@@ -59,12 +64,7 @@ export const Sidebar: React.FC = () => {
           label: 'Starred',
           path: '/starred',
           icon: <Star className="w-4 h-4 shrink-0" />
-        }
-      ]
-    },
-    {
-      title: 'FILES',
-      items: [
+        },
         {
           id: 'my-workbooks',
           label: 'My Workbooks',
@@ -80,14 +80,49 @@ export const Sidebar: React.FC = () => {
       ]
     },
     {
-      title: 'TOOLS',
+      title: 'HUBS & LABS',
       items: [
+        {
+          id: 'tools',
+          label: 'Tools Hub',
+          path: '/tools',
+          icon: <Calculator className="w-4 h-4 shrink-0" />
+        },
+        {
+          id: 'formulas',
+          label: 'Formula Center',
+          path: '/formulas',
+          icon: <FunctionSquare className="w-4 h-4 shrink-0" />
+        },
+        {
+          id: 'data-tools',
+          label: 'Data Center',
+          path: '/data-tools',
+          icon: <Sparkles className="w-4 h-4 shrink-0" />
+        },
+        {
+          id: 'academy',
+          label: 'DC Academy',
+          path: '/academy',
+          icon: <GraduationCap className="w-4 h-4 shrink-0" />
+        },
         {
           id: 'templates',
           label: 'Templates',
-          icon: <LayoutTemplate className="w-4 h-4 shrink-0" />,
-          isComingSoon: true
+          path: '/templates',
+          icon: <LayoutTemplate className="w-4 h-4 shrink-0" />
         },
+        {
+          id: 'shortcuts',
+          label: 'Shortcuts',
+          path: '/shortcuts',
+          icon: <Keyboard className="w-4 h-4 shrink-0" />
+        }
+      ]
+    },
+    {
+      title: 'SYSTEM',
+      items: [
         {
           id: 'settings',
           label: 'Settings',
