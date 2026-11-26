@@ -64,7 +64,10 @@ export default [
         __dirname: 'readonly',
         confirm: 'readonly',
         alert: 'readonly',
-        NodeJS: 'readonly'
+        NodeJS: 'readonly',
+        caches: 'readonly',
+        WheelEvent: 'readonly',
+        TouchEvent: 'readonly'
       }
     },
     plugins: {

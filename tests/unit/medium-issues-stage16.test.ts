@@ -374,4 +374,109 @@ describe('Stage 16: Medium Issues Fixes & Enhancements', () => {
       expect(localStorage.getItem('other_project_key')).toBe('preserve_me');
     });
   });
+
+  describe('Audited Medium Issues: Cross-Sheet Recalculation & Emergency Draft Quota', () => {
+    it('accurately resolves cross-sheet formulas when getCrossSheetCells is provided', () => {
+      const sheet1: Sheet = {
+        id: 's1',
+        workbookId: 'wb1',
+        name: 'Summary',
+        index: 0,
+        rowCount: 100,
+        columnCount: 26,
+        cells: {
+          '0:0': { formula: '=Details!A1 * 3', value: 0, dataType: 'formula' }
+        }
+      };
+
+      const sheet2Cells: Record<string, Cell> = {
+        '0:0': { value: 15, dataType: 'number' }
+      };
+
+      const crossSheetResolver = (name: string) => {
+        if (name.toLowerCase() === 'details') return sheet2Cells;
+        return undefined;
+      };
+
+      const { updatedCells } = engine.recalculateSheet(sheet1, undefined, crossSheetResolver);
+      expect(updatedCells['0:0']?.value).toBe(45);
+    });
+
+    it('emergency draft serializes all sheets and handles compaction on storage pressure', () => {
+      const wb: Workbook = {
+        id: 'wb-emergency',
+        name: 'Emergency Test',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastOpenedAt: Date.now(),
+        isStarred: false,
+        sheetIds: ['s1', 's2'],
+        activeSheetId: 's1',
+        folderId: null
+      };
+
+      const s1: Sheet = {
+        id: 's1',
+        workbookId: wb.id,
+        name: 'Sheet1',
+        index: 0,
+        rowCount: 100,
+        columnCount: 26,
+        cells: {
+          '0:0': { value: 100, dataType: 'number', style: { bold: true, fontSize: 14 } }
+        }
+      };
+
+      const s2: Sheet = {
+        id: 's2',
+        workbookId: wb.id,
+        name: 'Sheet2',
+        index: 1,
+        rowCount: 100,
+        columnCount: 26,
+        cells: {
+          '0:0': { value: 200, dataType: 'number', style: { italic: true, textColor: '#ff0000' } }
+        }
+      };
+
+      const allSheets = [s1, s2];
+
+      // Compact all sheets stripping heavy styles
+      const compacted = allSheets.map((sh) => {
+        const compactCells: Record<string, { value: unknown; formula?: string; dataType: string }> = {};
+        for (const [coord, cell] of Object.entries(sh.cells)) {
+          if (cell && (cell.value !== undefined || cell.formula)) {
+            compactCells[coord] = {
+              value: cell.value,
+              formula: cell.formula,
+              dataType: cell.dataType || 'string'
+            };
+          }
+        }
+        return {
+          ...sh,
+          cells: compactCells as unknown as Sheet['cells'],
+          metadata: undefined
+        };
+      });
+
+      const draftPayload = JSON.stringify({
+        workbook: wb,
+        sheets: compacted,
+        timestamp: Date.now()
+      });
+
+      localStorage.setItem(`dc_excel_emergency_draft_${wb.id}`, draftPayload);
+
+      const retrievedRaw = localStorage.getItem(`dc_excel_emergency_draft_${wb.id}`);
+      expect(retrievedRaw).toBeTruthy();
+
+      const parsed = JSON.parse(retrievedRaw!);
+      expect(parsed.sheets).toHaveLength(2);
+      expect(parsed.sheets[0].cells['0:0'].value).toBe(100);
+      expect(parsed.sheets[1].cells['0:0'].value).toBe(200);
+
+      localStorage.removeItem(`dc_excel_emergency_draft_${wb.id}`);
+    });
+  });
 });

@@ -55,6 +55,7 @@ import {
 import { trimWhitespace } from '@/engine/data-tools/trim';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { ConfirmationDialog } from '@/components/ui/ConfirmationDialog';
 import { SpreadsheetModals } from './components/SpreadsheetModals';
 import { useSpreadsheetPaletteCommands } from './hooks/useSpreadsheetPaletteCommands';
 import {
@@ -185,6 +186,7 @@ export const SpreadsheetPage: React.FC = () => {
   const [isBackupRestoreOpen, setIsBackupRestoreOpen] = useState(false);
   const [isStorageManagementOpen, setIsStorageManagementOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<MultiTabMessage | null>(null);
+  const [isConflictDismissWarningOpen, setIsConflictDismissWarningOpen] = useState(false);
   const [recoveryRecord, setRecoveryRecord] = useState<CrashRecoveryRecord | null>(null);
 
   // Stage 14 Productivity, Polish & Accessibility State
@@ -453,14 +455,18 @@ export const SpreadsheetPage: React.FC = () => {
       };
       const updatedCells = sortRange(activeSheet.cells, sortConfig);
       const updatedSheet = { ...activeSheet, cells: updatedCells };
-      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(
+        updatedSheet,
+        namedRangeResolver,
+        getCrossSheetCells
+      );
       setActiveSheet({ ...updatedSheet, cells: recalcedCells });
       toast.success(
         'Sorted',
         `Column ${colIndexToName(colToSort)} sorted ${direction === 'asc' ? 'A to Z' : 'Z to A'}.`
       );
     },
-    [activeSheet, activeCell, getDataRange, setActiveSheet]
+    [activeSheet, activeCell, getDataRange, setActiveSheet, namedRangeResolver, getCrossSheetCells]
   );
 
   // Data Tools: Custom Multi-Level Sort
@@ -469,11 +475,15 @@ export const SpreadsheetPage: React.FC = () => {
       if (!activeSheet) return;
       const updatedCells = sortRange(activeSheet.cells, config);
       const updatedSheet = { ...activeSheet, cells: updatedCells };
-      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      const { updatedCells: recalcedCells } = calculationEngine.recalculateSheet(
+        updatedSheet,
+        namedRangeResolver,
+        getCrossSheetCells
+      );
       setActiveSheet({ ...updatedSheet, cells: recalcedCells });
       toast.success('Sorted', 'Custom multi-level sort applied successfully.');
     },
-    [activeSheet, setActiveSheet]
+    [activeSheet, setActiveSheet, namedRangeResolver, getCrossSheetCells]
   );
 
   // Data Tools: Filter Toggle
@@ -658,10 +668,14 @@ export const SpreadsheetPage: React.FC = () => {
           [key]: newCell
         }
       };
-      const { updatedCells } = calculationEngine.recalculateSheet(updatedSheet);
+      const { updatedCells } = calculationEngine.recalculateSheet(
+        updatedSheet,
+        namedRangeResolver,
+        getCrossSheetCells
+      );
       setActiveSheet({ ...updatedSheet, cells: updatedCells });
     },
-    [activeSheet, setActiveSheet]
+    [activeSheet, setActiveSheet, namedRangeResolver, getCrossSheetCells]
   );
 
   // Data Tools: Find & Replace Navigation and Updates
@@ -993,7 +1007,15 @@ export const SpreadsheetPage: React.FC = () => {
         loadedSheets.find((s) => s.id === wb?.activeSheetId) || loadedSheets[0] || null;
 
       if (targetSheet) {
-        const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+        const loadGetCrossSheetCells = (sheetName: string) =>
+          loadedSheets.find((s) => s.name.toLowerCase() === sheetName.toLowerCase())?.cells;
+        const loadNamedRangeResolver = (name: string) =>
+          resolveNamedRange(name, targetSheet?.id || '', wb?.metadata?.namedRanges || []) || null;
+        const { updatedCells } = calculationEngine.recalculateSheet(
+          targetSheet,
+          loadNamedRangeResolver,
+          loadGetCrossSheetCells
+        );
         targetSheet = {
           ...targetSheet,
           cells: updatedCells
@@ -1015,13 +1037,40 @@ export const SpreadsheetPage: React.FC = () => {
     void loadWorkbookData();
   }, [loadWorkbookData]);
 
-  // Stage 13: Check for crash recovery on mount / workbook change
+  // Stage 13: Check for crash recovery or emergency drafts on mount / workbook change
   useEffect(() => {
     if (!workbookId) return;
     void (async () => {
+      // 1. Check IndexedDB crash recovery
       const rec = await recoveryService.checkRecovery(workbookId);
       if (rec) {
         setRecoveryRecord(rec);
+        return;
+      }
+
+      // 2. Check synchronous emergency draft from localStorage (e.g. from tab close)
+      try {
+        const draftRaw =
+          localStorage.getItem(`dc_excel_emergency_draft_${workbookId}`) ||
+          localStorage.getItem(`omnisheet_emergency_draft_${workbookId}`);
+        if (draftRaw) {
+          const draft = JSON.parse(draftRaw);
+          if (draft && draft.workbook) {
+            const draftSheets = draft.sheets || (draft.sheet ? [draft.sheet] : []);
+            setRecoveryRecord({
+              workbookId,
+              workbookName: draft.workbook.name || 'Workbook',
+              revision: draft.workbook.revision || 1,
+              timestamp: draft.timestamp || Date.now(),
+              pendingChangeCount: 1,
+              workbookSnapshot: draft.workbook,
+              sheetsSnapshot: draftSheets,
+              isDirty: true
+            });
+          }
+        }
+      } catch {
+        // Ignore JSON or storage errors
       }
     })();
   }, [workbookId]);
@@ -1054,18 +1103,95 @@ export const SpreadsheetPage: React.FC = () => {
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (saveQueue.currentStatus === 'dirty') {
-        if (workbook && activeSheet) {
+        if (workbook && (activeSheet || sheets.length > 0)) {
+          // Gather all sheets with the activeSheet latest state
+          const allCurrentSheets = sheets.map((s) => (s.id === activeSheet?.id ? activeSheet : s));
+          if (activeSheet && !allCurrentSheets.some((s) => s.id === activeSheet.id)) {
+            allCurrentSheets.push(activeSheet);
+          }
+
+          const draftKey = `dc_excel_emergency_draft_${workbook.id}`;
+          const legacyKey = `omnisheet_emergency_draft_${workbook.id}`;
+
+          // Tier 1: Try full workbook + all sheets payload
           try {
             localStorage.setItem(
-              `omnisheet_emergency_draft_${workbook.id}`,
+              draftKey,
               JSON.stringify({
                 workbook,
-                sheet: activeSheet,
+                sheets: allCurrentSheets,
                 timestamp: Date.now()
               })
             );
           } catch {
-            // Storage quota full or private browsing
+            // Tier 2: Quota exceeded. Clean old drafts from other workbooks and compact cells
+            try {
+              for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (
+                  k &&
+                  (k.startsWith('dc_excel_emergency_draft_') || k.startsWith('omnisheet_emergency_draft_')) &&
+                  k !== draftKey &&
+                  k !== legacyKey
+                ) {
+                  localStorage.removeItem(k);
+                }
+              }
+
+              // Compact all sheets: strip large style objects, retain value, formula, dataType
+              const compactedSheets = allCurrentSheets.map((sh) => {
+                const compactCells: Record<string, { value: unknown; formula?: string; dataType: string }> = {};
+                for (const [coord, cell] of Object.entries(sh.cells)) {
+                  if (cell && (cell.value !== undefined || cell.formula)) {
+                    compactCells[coord] = {
+                      value: cell.value,
+                      formula: cell.formula,
+                      dataType: cell.dataType || (typeof cell.value === 'number' ? 'number' : 'string')
+                    };
+                  }
+                }
+                return {
+                  ...sh,
+                  cells: compactCells as unknown as Sheet['cells'],
+                  metadata: undefined
+                };
+              });
+
+              localStorage.setItem(
+                draftKey,
+                JSON.stringify({
+                  workbook: { ...workbook, metadata: undefined },
+                  sheets: compactedSheets,
+                  timestamp: Date.now()
+                })
+              );
+            } catch {
+              // Tier 3: Extreme quota limit - save active sheet only with compact cells
+              try {
+                if (activeSheet) {
+                  const minimalCells: Record<string, { value: unknown; formula?: string; dataType: string }> = {};
+                  for (const [coord, cell] of Object.entries(activeSheet.cells)) {
+                    if (cell && (cell.value !== undefined || cell.formula)) {
+                      minimalCells[coord] = {
+                        value: cell.value,
+                        formula: cell.formula,
+                        dataType: cell.dataType || 'string'
+                      };
+                    }
+                  }
+                  localStorage.setItem(
+                    draftKey,
+                    JSON.stringify({
+                      workbook: { id: workbook.id, name: workbook.name },
+                      sheets: [{ ...activeSheet, cells: minimalCells as unknown as Sheet['cells'] }],
+                      timestamp: Date.now()
+                    })
+                  );
+                }
+              } catch {
+                // Ignore if storage is completely blocked
+              }
+            }
           }
         }
         void saveQueue.flush();
@@ -1075,13 +1201,14 @@ export const SpreadsheetPage: React.FC = () => {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [workbook, activeSheet]);
+  }, [workbook, activeSheet, sheets]);
 
   // Clear emergency draft when workbook is successfully persisted
   useEffect(() => {
     const unsubscribe = saveQueue.subscribe((state) => {
       if (state.status === 'saved' && workbook) {
         try {
+          localStorage.removeItem(`dc_excel_emergency_draft_${workbook.id}`);
           localStorage.removeItem(`omnisheet_emergency_draft_${workbook.id}`);
         } catch {
           // Ignore
@@ -1114,7 +1241,18 @@ export const SpreadsheetPage: React.FC = () => {
   const handleAcceptRecovery = async () => {
     if (!workbookId) return;
     try {
-      const restored = await recoveryService.restoreRecovery(workbookId);
+      let restored = await recoveryService.restoreRecovery(workbookId);
+
+      // If no IndexedDB checkpoint, check if we have the emergency draft snapshot in recoveryRecord
+      if (!restored && recoveryRecord) {
+        restored = {
+          workbook: recoveryRecord.workbookSnapshot,
+          sheets: recoveryRecord.sheetsSnapshot
+        };
+        saveQueue.enqueue(restored.workbook, restored.sheets, true);
+        await saveQueue.flush();
+      }
+
       if (restored) {
         setWorkbook(restored.workbook);
         setCurrentWorkbook(restored.workbook);
@@ -1122,10 +1260,24 @@ export const SpreadsheetPage: React.FC = () => {
         const targetSheet =
           restored.sheets.find((s) => s.id === restored.workbook.activeSheetId) || restored.sheets[0];
         if (targetSheet) {
-          const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+          const recGetCrossSheetCells = (sheetName: string) =>
+            restored.sheets.find((s) => s.name.toLowerCase() === sheetName.toLowerCase())?.cells;
+          const recNamedRangeResolver = (name: string) =>
+            resolveNamedRange(name, targetSheet?.id || '', restored.workbook.metadata?.namedRanges || []) || null;
+          const { updatedCells } = calculationEngine.recalculateSheet(
+            targetSheet,
+            recNamedRangeResolver,
+            recGetCrossSheetCells
+          );
           setActiveSheet({ ...targetSheet, cells: updatedCells });
         }
         setRecoveryRecord(null);
+        try {
+          localStorage.removeItem(`dc_excel_emergency_draft_${workbookId}`);
+          localStorage.removeItem(`omnisheet_emergency_draft_${workbookId}`);
+        } catch {
+          // Ignore
+        }
         toast.success('Recovered', 'Unsaved changes restored from backup checkpoint.');
       }
     } catch {
@@ -1136,6 +1288,12 @@ export const SpreadsheetPage: React.FC = () => {
   const handleDiscardRecovery = async () => {
     if (!workbookId) return;
     await recoveryService.discardRecovery(workbookId);
+    try {
+      localStorage.removeItem(`dc_excel_emergency_draft_${workbookId}`);
+      localStorage.removeItem(`omnisheet_emergency_draft_${workbookId}`);
+    } catch {
+      // Ignore
+    }
     setRecoveryRecord(null);
     toast.info('Discarded', 'Unsaved recovery checkpoint removed.');
   };
@@ -1218,7 +1376,11 @@ export const SpreadsheetPage: React.FC = () => {
         setCurrentWorkbook(updatedWb);
       }
 
-      const { updatedCells } = calculationEngine.recalculateSheet(duplicated);
+      const { updatedCells } = calculationEngine.recalculateSheet(
+        duplicated,
+        namedRangeResolver,
+        getCrossSheetCells
+      );
       const target = { ...duplicated, cells: updatedCells };
       setActiveSheet(target);
       setActiveCell({ row: 0, col: 0 });
@@ -1249,7 +1411,11 @@ export const SpreadsheetPage: React.FC = () => {
       if (activeSheet && activeSheet.id === sheetToDelete.id) {
         let next = remainingSheets.find((s) => s.id === nextActiveSheetId) || remainingSheets[0];
         if (next) {
-          const { updatedCells } = calculationEngine.recalculateSheet(next);
+          const { updatedCells } = calculationEngine.recalculateSheet(
+            next,
+            namedRangeResolver,
+            getCrossSheetCells
+          );
           next = { ...next, cells: updatedCells };
           setActiveSheet(next);
           setActiveCell({ row: 0, col: 0 });
@@ -1339,7 +1505,11 @@ export const SpreadsheetPage: React.FC = () => {
       if (activeSheet && activeSheet.id === sheetId) {
         let next = updatedSheets.find((s) => s.id === nextActiveSheetId);
         if (next) {
-          const { updatedCells } = calculationEngine.recalculateSheet(next);
+          const { updatedCells } = calculationEngine.recalculateSheet(
+            next,
+            namedRangeResolver,
+            getCrossSheetCells
+          );
           next = { ...next, cells: updatedCells };
           setActiveSheet(next);
           setActiveCell({ row: 0, col: 0 });
@@ -1366,7 +1536,11 @@ export const SpreadsheetPage: React.FC = () => {
         setCurrentWorkbook(updatedWb);
       }
 
-      const { updatedCells } = calculationEngine.recalculateSheet(unhidden);
+      const { updatedCells } = calculationEngine.recalculateSheet(
+        unhidden,
+        namedRangeResolver,
+        getCrossSheetCells
+      );
       const target = { ...unhidden, cells: updatedCells };
       setActiveSheet(target);
       setActiveCell({ row: 0, col: 0 });
@@ -1387,7 +1561,11 @@ export const SpreadsheetPage: React.FC = () => {
 
         let target = sheets.find((s) => s.id === sheetId);
         if (target) {
-          const { updatedCells } = calculationEngine.recalculateSheet(target);
+          const { updatedCells } = calculationEngine.recalculateSheet(
+            target,
+            namedRangeResolver,
+            getCrossSheetCells
+          );
           target = { ...target, cells: updatedCells };
           setActiveSheet(target);
           setActiveCell({ row: 0, col: 0 });
@@ -1408,7 +1586,7 @@ export const SpreadsheetPage: React.FC = () => {
         toast.error('Error', 'Could not switch sheet.');
       }
     },
-    [activeSheet, sheets, workbook, setActiveSheet, setActiveCell, setCurrentWorkbook]
+    [activeSheet, sheets, workbook, setActiveSheet, setActiveCell, setCurrentWorkbook, namedRangeResolver, getCrossSheetCells]
   );
 
   // 6. Cell Editing Commit & Recalculation Handler
@@ -1996,11 +2174,42 @@ export const SpreadsheetPage: React.FC = () => {
             window.location.reload();
           }}
           onDismiss={() => {
-            setConflictMessage(null);
-            saveQueue.resume();
+            setIsConflictDismissWarningOpen(true);
           }}
         />
       )}
+
+      {/* Confirmation Dialog before dismissing Multi-Tab conflict */}
+      <ConfirmationDialog
+        isOpen={isConflictDismissWarningOpen}
+        onClose={() => setIsConflictDismissWarningOpen(false)}
+        onConfirm={() => {
+          setConflictMessage(null);
+          saveQueue.resume();
+          setIsConflictDismissWarningOpen(false);
+          toast.warning(
+            'Autosave Resumed',
+            'Saving resumed in this tab. Previous edits from the other tab may be overwritten.'
+          );
+        }}
+        title="Overwrite Other Tab Changes?"
+        message={
+          <div className="space-y-2">
+            <p>
+              Another browser tab has saved modifications to this workbook (Revision #{conflictMessage?.revision}).
+            </p>
+            <p className="font-medium text-amber-600 dark:text-amber-400">
+              Dismissing this notice will resume autosaving in this tab, which may overwrite changes made in the other tab.
+            </p>
+            <p>
+              To inspect and preserve both, we recommend clicking &quot;Reload Latest&quot; instead.
+            </p>
+          </div>
+        }
+        confirmLabel="Dismiss & Overwrite"
+        cancelLabel="Keep Protected"
+        isDestructive={true}
+      />
 
       {/* Stage 13: Crash Recovery Notification Banner */}
       {recoveryRecord && (
@@ -2397,7 +2606,15 @@ export const SpreadsheetPage: React.FC = () => {
           const targetSheet =
             restoredSheets.find((s) => s.id === restoredWb.activeSheetId) || restoredSheets[0];
           if (targetSheet) {
-            const { updatedCells } = calculationEngine.recalculateSheet(targetSheet);
+            const vGetCrossSheetCells = (sheetName: string) =>
+              restoredSheets.find((s) => s.name.toLowerCase() === sheetName.toLowerCase())?.cells;
+            const vNamedRangeResolver = (name: string) =>
+              resolveNamedRange(name, targetSheet?.id || '', restoredWb.metadata?.namedRanges || []) || null;
+            const { updatedCells } = calculationEngine.recalculateSheet(
+              targetSheet,
+              vNamedRangeResolver,
+              vGetCrossSheetCells
+            );
             setActiveSheet({ ...targetSheet, cells: updatedCells });
           }
         }}

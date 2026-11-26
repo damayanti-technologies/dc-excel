@@ -287,11 +287,17 @@ export class ImportExportService {
       // Recalculate formula values if sheet contains formulas
       let sheetCells = srcSheet.cells;
       try {
-        const { updatedCells } = this.calculationEngine.recalculateSheet({
-          ...srcSheet,
-          id: newSheetId,
-          workbookId,
-        });
+        const getCrossSheetCells = (sheetName: string) =>
+          selectedSheets.find((s) => s.name?.toLowerCase() === sheetName.toLowerCase())?.cells;
+        const { updatedCells } = this.calculationEngine.recalculateSheet(
+          {
+            ...srcSheet,
+            id: newSheetId,
+            workbookId,
+          },
+          undefined,
+          getCrossSheetCells
+        );
         sheetCells = updatedCells;
       } catch {
         // Fallback to cells as extracted from file

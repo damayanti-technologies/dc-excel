@@ -13,6 +13,7 @@ export const FormulaError = {
 
 export type FormulaErrorType = (typeof FormulaError)[keyof typeof FormulaError];
 
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
 export interface BoxedLiteralString extends String {
   __isLiteralText?: boolean;
 }

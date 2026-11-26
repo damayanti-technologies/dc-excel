@@ -246,7 +246,7 @@ export const AcademyPage: React.FC = () => {
       const wb = await createWorkbook(`Academy Practice Sandbox - ${activeLesson.title}`);
       toast.success('Created Academy Sandbox Workbook!');
       navigate(`/workbook/${wb.id}`);
-    } catch (e: any) {
+    } catch {
       toast.error('Failed to launch sandbox');
     }
   };
