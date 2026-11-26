@@ -431,10 +431,27 @@ export const ToolsPage: React.FC = () => {
                     setSciInput(e.target.value);
                     evalScientific(e.target.value);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      evalScientific(sciInput);
+                    }
+                  }}
                   placeholder="e.g. sin(45) + sqrt(144) * log(100)"
                   className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-surface-secondary text-sm font-mono text-foreground focus:outline-none focus:border-accent"
                 />
-                <Button variant="secondary" onClick={() => setSciInput('')}>
+                <Button
+                  variant="primary"
+                  onClick={() => evalScientific(sciInput)}
+                >
+                  Calculate
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSciInput('');
+                    setSciResult('');
+                  }}
+                >
                   Clear
                 </Button>
               </div>
