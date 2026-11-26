@@ -88,8 +88,8 @@ export const useSheetStore = create<SheetState>((set) => ({
 
   setZoom: (zoom) =>
     set((state) => {
-      // Normalize: if passed as percentage > 10 (e.g. 75, 100, 150), convert to scale (0.75, 1.0, 1.5)
-      const normalized = zoom > 10 ? zoom / 100 : zoom;
+      // Normalize: if passed as percentage >= 10 (e.g. 75, 100, 150), convert to scale (0.75, 1.0, 1.5)
+      const normalized = zoom >= 10 ? zoom / 100 : zoom;
       const clamped = Math.max(0.25, Math.min(3.0, Math.round(normalized * 100) / 100));
       if (!state.activeSheet) return { zoom: clamped };
       return {
