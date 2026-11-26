@@ -184,6 +184,33 @@ export const SettingsPage: React.FC = () => {
 
             <div className="pt-3 border-t border-border flex items-center justify-between">
               <div className="space-y-0.5">
+                <div className="text-xs font-semibold text-foreground">App Cache & Service Worker</div>
+                <div className="text-[11px] text-foreground-muted">
+                  Purges browser cache storage and unregisters service workers to ensure fresh application updates.
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if ('serviceWorker' in navigator) {
+                    const regs = await navigator.serviceWorker.getRegistrations();
+                    for (const r of regs) await r.unregister();
+                  }
+                  if ('caches' in window) {
+                    const keys = await caches.keys();
+                    for (const k of keys) await caches.delete(k);
+                  }
+                  toast.success('Cache Cleared', 'Reloading with latest application build...');
+                  setTimeout(() => window.location.reload(), 300);
+                }}
+              >
+                Clear Cache & Reload
+              </Button>
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-between">
+              <div className="space-y-0.5">
                 <div className="text-xs font-semibold text-foreground">Reset Local Data</div>
                 <div className="text-[11px] text-foreground-muted">
                   Wipes IndexedDB and resets application preferences to default.
@@ -282,7 +309,7 @@ export const SettingsPage: React.FC = () => {
               const keysToRemove: string[] = [];
               for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key && (key.startsWith('omnisheet_') || key.startsWith('omnisheet:'))) {
+                if (key && (key.startsWith('omnisheet_') || key.startsWith('omnisheet:') || key.startsWith('dc_excel_'))) {
                   keysToRemove.push(key);
                 }
               }
@@ -290,7 +317,19 @@ export const SettingsPage: React.FC = () => {
                 localStorage.removeItem(k);
               }
             }
-            window.location.reload();
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then((regs) => {
+                for (const r of regs) void r.unregister();
+              });
+            }
+            if ('caches' in window) {
+              caches.keys().then((keys) => {
+                for (const k of keys) void caches.delete(k);
+              });
+            }
+            setTimeout(() => {
+              window.location.reload();
+            }, 300);
           }
         }}
         title="Confirm Local Database Wipe"
