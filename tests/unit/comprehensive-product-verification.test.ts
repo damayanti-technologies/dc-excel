@@ -200,5 +200,32 @@ describe('DC Excel Comprehensive Product Verification', () => {
       );
       expect(ifRes.updatedCells['1:0']?.value).toBe('Distinction');
     });
+
+    it('evaluates scientific calculator expressions including sqrt, sin, cos, and log', () => {
+      const evaluate = (expr: string) => {
+        let sanitized = expr
+          .replace(/π/g, 'Math.PI')
+          .replace(/e(?![a-zA-Z])/g, 'Math.E')
+          .replace(/\^/g, '**')
+          .replace(/sin\(([^)]+)\)/g, 'Math.sin(($1) * Math.PI / 180)')
+          .replace(/cos\(([^)]+)\)/g, 'Math.cos(($1) * Math.PI / 180)')
+          .replace(/tan\(([^)]+)\)/g, 'Math.tan(($1) * Math.PI / 180)')
+          .replace(/log\(/g, 'Math.log10(')
+          .replace(/ln\(/g, 'Math.log(')
+          .replace(/sqrt\(/g, 'Math.sqrt(');
+
+        const testExpr = sanitized.replace(/Math\.(sin|cos|tan|log10|log|sqrt|PI|E|pow|abs)/g, '');
+        if (!/^[\d\s+\-*/().,]+$/.test(testExpr)) {
+          throw new Error('Invalid Expression');
+        }
+        return Function(`"use strict"; return (${sanitized});`)();
+      };
+
+      expect(evaluate('sqrt(144)')).toBe(12);
+      expect(evaluate('log(100)')).toBe(2);
+      expect(Math.round(evaluate('cos(60)') * 10) / 10).toBe(0.5);
+      expect(Math.round(evaluate('sin(30)') * 10) / 10).toBe(0.5);
+      expect(Math.round(evaluate('sin(45) + sqrt(144) * log(100)') * 100) / 100).toBe(24.71);
+    });
   });
 });

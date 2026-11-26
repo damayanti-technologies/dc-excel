@@ -106,10 +106,15 @@ export const ToolsPage: React.FC = () => {
 
   const evalScientific = (expr: string) => {
     try {
+      if (!expr.trim()) {
+        setSciResult('');
+        return;
+      }
+
       // Safe evaluation of standard mathematical functions
       let sanitized = expr
         .replace(/π/g, 'Math.PI')
-        .replace(/e/g, 'Math.E')
+        .replace(/e(?![a-zA-Z])/g, 'Math.E')
         .replace(/\^/g, '**');
 
       if (sciAngleMode === 'deg') {
@@ -129,8 +134,9 @@ export const ToolsPage: React.FC = () => {
         .replace(/ln\(/g, 'Math.log(')
         .replace(/sqrt\(/g, 'Math.sqrt(');
 
-      // Verify sanitized string contains only safe math tokens
-      if (!/^[\d\s+\-*/().,MathPIE*]+$/.test(sanitized)) {
+      // Verify sanitized string contains ONLY numbers, operators, spaces, parentheses, decimal point, commas, and authorized Math properties/functions
+      const testExpr = sanitized.replace(/Math\.(sin|cos|tan|log10|log|sqrt|PI|E|pow|abs)/g, '');
+      if (!/^[\d\s+\-*/().,]+$/.test(testExpr)) {
         setSciResult('Error: Invalid Expression');
         return;
       }
@@ -143,7 +149,7 @@ export const ToolsPage: React.FC = () => {
         setSciResult('Error');
       }
     } catch {
-      setSciResult('Error');
+      setSciResult('Error: Invalid Expression');
     }
   };
 
