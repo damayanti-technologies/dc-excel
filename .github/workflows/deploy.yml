@@ -1,4 +1,4 @@
-name: Deploy OmniSheet to GitHub Pages
+name: Deploy DC Excel to GitHub Pages
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build OmniSheet production bundle
+      - name: Build DC Excel production bundle
         run: npm run build
 
       - name: Setup Pages

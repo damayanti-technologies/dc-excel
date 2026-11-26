@@ -6,8 +6,8 @@
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "any",
-  "scope": "/excel/",
-  "start_url": "/excel/",
+  "scope": "/dc-excel/",
+  "start_url": "/dc-excel/",
   "icons": [
     {
       "src": "icons/icon-192x192.svg",

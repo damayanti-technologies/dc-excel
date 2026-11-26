@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 export default defineConfig({
-  base: '/excel/',
+  base: '/dc-excel/',
   plugins: [
     react(),
     VitePWA({
@@ -18,8 +18,8 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'any',
-        scope: '/excel/',
-        start_url: '/excel/',
+        scope: '/dc-excel/',
+        start_url: '/dc-excel/',
         icons: [
           {
             src: 'icons/icon-192x192.svg',

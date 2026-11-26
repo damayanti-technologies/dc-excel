@@ -13,7 +13,7 @@ describe('PWA Web App Manifest Validity', () => {
     // Assert essential PWA fields
     expect(manifest.name).toBe('DC Excel - Local-First Spreadsheet');
     expect(manifest.short_name).toBe('DC Excel');
-    expect(['/', '/excel/']).toContain(manifest.start_url);
+    expect(['/', '/excel/', '/dc-excel/']).toContain(manifest.start_url);
     expect(manifest.display).toBe('standalone');
     expect(manifest.theme_color).toMatch(/^#[0-9a-fA-F]{6}$/);
     expect(manifest.background_color).toBeDefined();
