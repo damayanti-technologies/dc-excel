@@ -13,13 +13,6 @@
   </head>
   <body class="bg-background text-foreground antialiased min-h-screen">
     <div id="root"></div>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(function(reg) {
-          reg.update();
-        }).catch(function() {});
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

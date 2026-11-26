@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/Badge';
 interface SearchResultItem {
   id: string;
   title: string;
-  category: 'Workbook' | 'Formula' | 'Tool' | 'Shortcut' | 'Academy' | 'Action';
+  category: 'Workbook' | 'Formula' | 'Tool' | 'Template' | 'Shortcut' | 'Academy' | 'Action';
   description: string;
   icon: React.ReactNode;
   action: () => void;
@@ -45,7 +45,7 @@ export const GlobalSearchSection: React.FC = () => {
       title: 'Scientific Calculator',
       category: 'Tool',
       description: 'Evaluate trig, log, powers, roots, and constants',
-      icon: <Calculator className="w-4 h-4 text-cyan-400" />,
+      icon: <Calculator className="w-4 h-4 text-teal-400" />,
       action: () => navigate('/tools')
     },
     {
@@ -63,6 +63,31 @@ export const GlobalSearchSection: React.FC = () => {
       description: 'Convert length, mass, temperature, digital bytes, and pressure',
       icon: <Sparkles className="w-4 h-4 text-amber-400" />,
       action: () => navigate('/tools')
+    },
+    // Templates
+    {
+      id: 'tmpl-budget',
+      title: 'Monthly Personal Budget Planner',
+      category: 'Template',
+      description: 'Income, rent, groceries, and expense variance spreadsheet template',
+      icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />,
+      action: () => navigate('/templates')
+    },
+    {
+      id: 'tmpl-loan',
+      title: 'Loan Amortization & EMI Schedule',
+      category: 'Template',
+      description: 'Principal breakdown, interest curves, and loan payoff tracking template',
+      icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />,
+      action: () => navigate('/templates')
+    },
+    {
+      id: 'tmpl-project',
+      title: 'Project Milestone & Task Tracker',
+      category: 'Template',
+      description: 'Sprint planning, deliverables, and team task allocation template',
+      icon: <FileSpreadsheet className="w-4 h-4 text-teal-400" />,
+      action: () => navigate('/templates')
     },
     // Formulas
     {
@@ -95,7 +120,7 @@ export const GlobalSearchSection: React.FC = () => {
       title: 'Ctrl + K (or ⌘ + K)',
       category: 'Shortcut',
       description: 'Open the global command palette',
-      icon: <Keyboard className="w-4 h-4 text-indigo-400" />,
+      icon: <Keyboard className="w-4 h-4 text-emerald-400" />,
       action: () => navigate('/shortcuts')
     },
     {
@@ -103,7 +128,7 @@ export const GlobalSearchSection: React.FC = () => {
       title: 'F2 Key',
       category: 'Shortcut',
       description: 'Edit active cell in-place without overwriting',
-      icon: <Keyboard className="w-4 h-4 text-indigo-400" />,
+      icon: <Keyboard className="w-4 h-4 text-emerald-400" />,
       action: () => navigate('/shortcuts')
     },
     // Academy
@@ -112,7 +137,7 @@ export const GlobalSearchSection: React.FC = () => {
       title: 'Lesson 1: Spreadsheet Basics & Navigation',
       category: 'Academy',
       description: 'Learn grid coordinates, rows, columns, and formula bar',
-      icon: <GraduationCap className="w-4 h-4 text-blue-400" />,
+      icon: <GraduationCap className="w-4 h-4 text-amber-400" />,
       action: () => navigate('/academy')
     },
     {
@@ -120,7 +145,7 @@ export const GlobalSearchSection: React.FC = () => {
       title: 'Lesson 3: Relative vs Absolute ($A$1) References',
       category: 'Academy',
       description: 'Master formula locking and range expansion',
-      icon: <GraduationCap className="w-4 h-4 text-blue-400" />,
+      icon: <GraduationCap className="w-4 h-4 text-amber-400" />,
       action: () => navigate('/academy')
     }
   ];

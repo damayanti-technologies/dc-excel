@@ -43,7 +43,7 @@ export const QuickActions: React.FC = () => {
       desc: 'Scientific, finance & stats math',
       icon: <Calculator className="w-4 h-4" />,
       path: '/tools',
-      accentColor: 'text-cyan-400 bg-cyan-500/10 group-hover:bg-cyan-500 group-hover:text-zinc-950'
+      accentColor: 'text-teal-400 bg-teal-500/10 group-hover:bg-teal-500 group-hover:text-zinc-950'
     },
     {
       label: 'Formula Explorer',
@@ -85,7 +85,7 @@ export const QuickActions: React.FC = () => {
       desc: '19 interactive courses & sandbox',
       icon: <GraduationCap className="w-4 h-4" />,
       path: '/academy',
-      accentColor: 'text-blue-400 bg-blue-500/10 group-hover:bg-blue-500 group-hover:text-zinc-950'
+      accentColor: 'text-emerald-400 bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-zinc-950'
     }
   ];
 
