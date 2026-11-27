@@ -421,7 +421,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
   }, [activeCell, scrollToCell]);
 
   // Keyboard navigation & editing trigger handler
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!activeCell) return;
 
     // Do not intercept if editing cell is already open
@@ -515,7 +515,70 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
         onExpandGrid?.(expandRows, expandCols);
       }
     }
-  };
+  }, [
+    activeCell,
+    editingCell,
+    sheet,
+    onStartEditing,
+    onClearCell,
+    anchorCell,
+    selectedRange,
+    onSelectCell,
+    scrollToCell,
+    onExpandGrid
+  ]);
+
+  // Focus grid scroll container on mount or when editing closes to ensure arrow keys always work
+  useEffect(() => {
+    if (!editingCell && scrollContainerRef.current) {
+      scrollContainerRef.current.focus({ preventScroll: true });
+    }
+  }, [editingCell, activeCell?.row, activeCell?.col]);
+
+  // Global window keydown listener so arrow keys ALWAYS navigate the grid,
+  // even if focus was on document.body or lost after cell editor unmounted!
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
+      // Do not navigate if user is in an active modal or dialog
+      if (document.querySelector('[role="dialog"]') || document.querySelector('[role="alertdialog"]')) {
+        return;
+      }
+
+      // Do not intercept if focus is inside an input, textarea, or select outside the grid
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (activeEl && activeEl !== scrollContainerRef.current && activeEl !== document.body) {
+        const tag = activeEl.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select' || activeEl.isContentEditable) {
+          return;
+        }
+      }
+
+      if (editingCell) return;
+
+      const navKeys = [
+        'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+        'Tab', 'Enter', 'Home', 'End', 'PageUp', 'PageDown',
+        'F2', 'Delete', 'Backspace'
+      ];
+
+      const isPrintable = (
+        e.key.length === 1 &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        e.key !== 'Escape'
+      );
+
+      if (navKeys.includes(e.key) || isPrintable) {
+        handleKeyDown(e as unknown as React.KeyboardEvent);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [editingCell, handleKeyDown]);
 
   const {
     suggestions,
@@ -545,9 +608,30 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     } else if (e.key === 'Escape') {
       e.preventDefault();
       onCancelEditing();
-    } else if (e.key.startsWith('Arrow')) {
-      // Allow natural cursor navigation inside the input text
-      e.stopPropagation();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      onCommitEditing('down');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      onCommitEditing('up');
+    } else if (e.key === 'ArrowRight') {
+      const input = e.currentTarget;
+      const isAtEnd = !input || input.selectionEnd === input.value.length;
+      if (isAtEnd) {
+        e.preventDefault();
+        onCommitEditing('right');
+      } else {
+        e.stopPropagation();
+      }
+    } else if (e.key === 'ArrowLeft') {
+      const input = e.currentTarget;
+      const isAtStart = !input || (input.selectionStart === 0 && input.selectionEnd === 0);
+      if (isAtStart) {
+        e.preventDefault();
+        onCommitEditing('left');
+      } else {
+        e.stopPropagation();
+      }
     }
   };
 

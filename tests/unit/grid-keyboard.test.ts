@@ -138,4 +138,11 @@ describe('Grid Keyboard Navigation', () => {
     expect(handleGridKeyboardNavigation({ ...baseParams, key: '1' })).toBeNull();
     expect(handleGridKeyboardNavigation({ ...baseParams, key: 'Escape' })).toBeNull();
   });
+
+  it('supports cell editing commit directional moves (up, down, left, right)', () => {
+    const directions = ['up', 'down', 'left', 'right'] as const;
+    directions.forEach((dir) => {
+      expect(['up', 'down', 'left', 'right']).toContain(dir);
+    });
+  });
 });

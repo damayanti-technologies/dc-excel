@@ -142,6 +142,14 @@ export const FormulaBar: React.FC<FormulaBarProps> = ({
       e.preventDefault();
       onCancelEditing();
       currentRef.current?.blur();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      onCommitEditing('down');
+      currentRef.current?.blur();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      onCommitEditing('up');
+      currentRef.current?.blur();
     }
   };
 
