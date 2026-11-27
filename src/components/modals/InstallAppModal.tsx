@@ -87,22 +87,22 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Specs Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 my-3.5 text-xs text-foreground-subtle font-mono bg-surface/60 p-2.5 rounded-lg border border-border">
-            <div className="flex items-center gap-1.5 truncate">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 my-3.5 text-[11px] text-foreground-subtle font-mono bg-surface/60 p-2.5 rounded-lg border border-border">
+            <div className="flex items-center gap-1.5 min-w-0">
               <FileCode className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="truncate">Setup-v1.0.0.exe</span>
+              <span className="whitespace-nowrap">Setup-v1.0.0.exe</span>
             </div>
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5 min-w-0">
               <HardDrive className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span>Windows 10 / 11</span>
+              <span className="whitespace-nowrap">Windows 10 / 11</span>
             </div>
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5 min-w-0">
               <Cpu className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span>x64 Architecture</span>
+              <span className="whitespace-nowrap">x64 Architecture</span>
             </div>
-            <div className="flex items-center gap-1.5 truncate">
+            <div className="flex items-center gap-1.5 min-w-0">
               <ShieldCheck className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span>Verified Setup</span>
+              <span className="whitespace-nowrap">Verified Setup</span>
             </div>
           </div>
 
