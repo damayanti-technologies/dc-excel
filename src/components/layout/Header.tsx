@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Table2,
@@ -18,17 +18,17 @@ import { useAppStore } from '@/stores/app-store';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useWorkbookStore } from '@/stores/workbook-store';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { APP_CONFIG } from '@/app/config/constants';
 import { Dropdown, DropdownItem } from '@/components/ui/Dropdown';
 import { Breadcrumb, BreadcrumbItem } from '@/components/ui/Breadcrumb';
+import { InstallAppModal } from '@/components/modals/InstallAppModal';
 
 export const Header: React.FC = () => {
   const location = useLocation();
   const theme = useUIPreferencesStore((state) => state.theme);
   const setTheme = useUIPreferencesStore((state) => state.setTheme);
   const isOnline = useNetworkStatus();
-  const { isInstallable, triggerInstall } = usePWAInstall();
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu);
   const openCreateWorkbook = useWorkspaceStore((state) => state.openCreateWorkbook);
   const folders = useWorkspaceStore((state) => state.folders);
@@ -216,18 +216,16 @@ export const Header: React.FC = () => {
           <span>IndexedDB</span>
         </div>
 
-        {/* PWA Install Button */}
-        {isInstallable && (
-          <button
-            type="button"
-            onClick={() => void triggerInstall()}
-            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-surface-secondary border border-border text-foreground hover:bg-surface-elevated transition-colors shadow-xs"
-            title="Install DC Excel as desktop or mobile PWA"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Install App</span>
-          </button>
-        )}
+        {/* Desktop & PWA Install Button */}
+        <button
+          type="button"
+          onClick={() => setIsInstallModalOpen(true)}
+          className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-surface-secondary border border-border text-foreground hover:bg-surface-elevated transition-colors shadow-xs cursor-pointer active:scale-95"
+          title="Install DC Excel Setup Installer or Web App"
+        >
+          <Download className="w-3.5 h-3.5 text-accent" />
+          <span className="hidden md:inline">Install App</span>
+        </button>
 
         {/* Theme Dropdown */}
         <Dropdown
@@ -260,6 +258,12 @@ export const Header: React.FC = () => {
           <Settings className="w-4 h-4" />
         </Link>
       </div>
+
+      {/* Desktop & PWA Setup Modal */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
     </header>
   );
 };

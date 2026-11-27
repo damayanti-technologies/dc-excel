@@ -6,7 +6,8 @@ import {
   FolderArchive,
   HardDrive,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useWorkspaceStore } from '@/stores/workspace-store';
@@ -15,6 +16,7 @@ import { BackupRestoreDialog } from '@/features/spreadsheet/components/BackupRes
 import { StorageManagementDialog } from '@/features/spreadsheet/components/StorageManagementDialog';
 import { WelcomeTourModal } from '@/features/spreadsheet/components/WelcomeTourModal';
 import { HelpShortcutsDialog } from '@/features/spreadsheet/components/HelpShortcutsDialog';
+import { InstallAppModal } from '@/components/modals/InstallAppModal';
 import { recoveryService } from '@/services/recovery-service';
 import { CrashRecoveryRecord } from '@/types/persistence';
 import { ImportResult } from '@/types/io';
@@ -29,6 +31,7 @@ export const DashboardWelcome: React.FC = () => {
   const [isStorageDialogOpen, setIsStorageDialogOpen] = useState(false);
   const [isTourDialogOpen, setIsTourDialogOpen] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [pendingRecoveries, setPendingRecoveries] = useState<CrashRecoveryRecord[]>([]);
 
   useEffect(() => {
@@ -137,8 +140,24 @@ export const DashboardWelcome: React.FC = () => {
             >
               Storage
             </Button>
+
+            <Button
+              variant="outline"
+              size="md"
+              leftIcon={<Download className="w-4 h-4 text-accent" />}
+              onClick={() => setIsInstallModalOpen(true)}
+              title="Download Windows Setup Installer (.exe)"
+            >
+              Install Desktop App
+            </Button>
           </div>
         </div>
+
+        {/* Install Desktop App Modal */}
+        <InstallAppModal
+          isOpen={isInstallModalOpen}
+          onClose={() => setIsInstallModalOpen(false)}
+        />
 
         {/* Import Spreadsheet Modal */}
         <ImportDialog

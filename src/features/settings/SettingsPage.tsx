@@ -12,7 +12,8 @@ import {
   RotateCcw,
   Info,
   CheckCircle2,
-  Database
+  Database,
+  Download
 } from 'lucide-react';
 import { APP_CONFIG } from '@/app/config/constants';
 import { Tabs, TabOption } from '@/components/ui/Tabs';
@@ -293,6 +294,36 @@ export const SettingsPage: React.FC = () => {
             <div className="p-3.5 rounded-xl bg-surface-secondary border border-border text-xs text-foreground-muted space-y-1">
               <div>License: Permissive MIT / Apache-2.0</div>
               <div>Milestone: Production Release • Offline-First Engine</div>
+            </div>
+          </div>
+
+          {/* Desktop Setup Installer Card */}
+          <div className="bg-surface border-2 border-accent/40 rounded-2xl p-6 space-y-4 shadow-xs relative overflow-hidden bg-accent/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="p-2.5 rounded-xl bg-accent text-zinc-950 shrink-0">
+                  <Laptop className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-foreground">
+                      DC Excel for Windows (Setup File)
+                    </h3>
+                    <Badge variant="success" size="sm">Official .exe</Badge>
+                  </div>
+                  <p className="text-xs text-foreground-muted mt-0.5">
+                    Download the official Windows setup file (DC-Excel-Setup-v1.0.0.exe) with desktop shortcut and 100% offline standalone window mode.
+                  </p>
+                </div>
+              </div>
+              <a
+                href="/DC-Excel-Setup-v1.0.0.exe"
+                download="DC-Excel-Setup-v1.0.0.exe"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent text-zinc-950 font-bold text-xs hover:bg-accent-hover transition-all shadow-xs shrink-0 cursor-pointer active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                Download Setup (.exe)
+              </a>
             </div>
           </div>
         </div>
