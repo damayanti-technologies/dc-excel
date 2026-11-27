@@ -2,7 +2,7 @@ import { Cell, CellCoordinates, CellRange, CellValue } from '@/types/cell';
 import { Sheet } from '@/types/sheet';
 import { ASTNode, EvaluationContext } from './types';
 import { parseFormula } from './parser';
-import { evaluateAST } from './evaluator';
+import { evaluateAST, evaluateRootAST } from './evaluator';
 import { DependencyGraph, extractReferencesFromAST } from './dependency-graph';
 import { FormulaError, isFormulaError, BoxedLiteralString, isBoxedLiteral } from './errors';
 import { coordToKey, keyToCoord } from '@/utils/coordinates';
@@ -27,13 +27,35 @@ export function createEvaluationContext(
     return cells;
   };
 
+  const colStoreCache = new Map<string, Map<number, (Cell | undefined)[]>>();
+
+  const getColStore = (target: Record<string, Cell>, sheetTag: string): Map<number, (Cell | undefined)[]> => {
+    let colStore = colStoreCache.get(sheetTag);
+    if (!colStore) {
+      colStore = new Map();
+      colStoreCache.set(sheetTag, colStore);
+      for (const [key, cell] of Object.entries(target)) {
+        const colonIdx = key.indexOf(':');
+        if (colonIdx === -1) continue;
+        const r = Number.parseInt(key.slice(0, colonIdx), 10);
+        const c = Number.parseInt(key.slice(colonIdx + 1), 10);
+        let arr = colStore.get(c);
+        if (!arr) {
+          arr = [];
+          colStore.set(c, arr);
+        }
+        arr[r] = cell;
+      }
+    }
+    return colStore;
+  };
+
   return {
     currentSheetName,
     currentCoord,
     getCellValue: (coord: CellCoordinates, sheetName?: string) => {
       const target = getTargetCells(sheetName);
-      const key = coordToKey(coord.row, coord.col);
-      const cell = target[key];
+      const cell = target[coordToKey(coord.row, coord.col)];
       if (!cell) return null;
       if (cell.dataType === 'string' && typeof cell.value === 'string' && isFormulaError(cell.value)) {
         const boxed: BoxedLiteralString = new String(cell.value);
@@ -44,12 +66,13 @@ export function createEvaluationContext(
     },
     getCellRawOrFormula: (coord: CellCoordinates, sheetName?: string) => {
       const target = getTargetCells(sheetName);
-      const key = coordToKey(coord.row, coord.col);
-      const cell = target[key];
+      const cell = target[coordToKey(coord.row, coord.col)];
       return cell?.formula ?? (cell?.value !== null && cell?.value !== undefined ? String(cell.value) : undefined);
     },
     getRangeValues: (range: CellRange, sheetName?: string) => {
       const target = getTargetCells(sheetName);
+      const sheetTag = sheetName?.toLowerCase() || currentSheetName?.toLowerCase() || '__current__';
+      const colStore = getColStore(target, sheetTag);
 
       // Determine bounding box of populated cells so full columns/rows (e.g. A:A) don't iterate 100k+ times.
       // Bounded ranges (e.g. A1:A3, B2:D10) must inspect all requested cells including sparse/empty cells!
@@ -59,10 +82,9 @@ export function createEvaluationContext(
       const isUnboundedCol = range.endCol >= 10000;
 
       if (isUnboundedRow || isUnboundedCol) {
-        for (const k of Object.keys(target)) {
-          const c = keyToCoord(k);
-          if (c.row > maxPopulatedRow) maxPopulatedRow = c.row;
-          if (c.col > maxPopulatedCol) maxPopulatedCol = c.col;
+        for (const [c, arr] of colStore.entries()) {
+          if (arr.length - 1 > maxPopulatedRow) maxPopulatedRow = arr.length - 1;
+          if (c > maxPopulatedCol) maxPopulatedCol = c;
         }
       }
 
@@ -73,12 +95,29 @@ export function createEvaluationContext(
         ? Math.min(range.endCol, Math.max(maxPopulatedCol, range.startCol))
         : range.endCol;
 
+      // Fast path for 1D column vector range (e.g. A1:Ak)
+      if (range.startCol === effectiveEndCol) {
+        const colArr = colStore.get(range.startCol);
+        const result: CellValue[][] = [];
+        for (let r = range.startRow; r <= effectiveEndRow; r++) {
+          const cell = colArr ? colArr[r] : undefined;
+          let val = cell?.value ?? null;
+          if (cell?.dataType === 'string' && typeof val === 'string' && isFormulaError(val)) {
+            const boxed: BoxedLiteralString = new String(val);
+            boxed.__isLiteralText = true;
+            val = boxed as unknown as CellValue;
+          }
+          result.push([val]);
+        }
+        return result.length > 0 ? result : [[null]];
+      }
+
       const result: CellValue[][] = [];
       for (let r = range.startRow; r <= effectiveEndRow; r++) {
         const rowVals: CellValue[] = [];
         for (let c = range.startCol; c <= effectiveEndCol; c++) {
-          const key = coordToKey(r, c);
-          const cell = target[key];
+          const colArr = colStore.get(c);
+          const cell = colArr ? colArr[r] : undefined;
           let val = cell?.value ?? null;
           if (cell?.dataType === 'string' && typeof val === 'string' && isFormulaError(val)) {
             const boxed: BoxedLiteralString = new String(val);
@@ -90,6 +129,56 @@ export function createEvaluationContext(
         result.push(rowVals);
       }
       return result.length > 0 ? result : [[null]];
+    },
+    iterateRangeValues: (range: CellRange, sheetName: string | undefined, callback: (val: CellValue) => boolean | void) => {
+      const target = getTargetCells(sheetName);
+      const sheetTag = sheetName?.toLowerCase() || currentSheetName?.toLowerCase() || '__current__';
+      const colStore = getColStore(target, sheetTag);
+
+      let maxPopulatedRow = 0;
+      let maxPopulatedCol = 0;
+      const isUnboundedRow = range.endRow >= 100000;
+      const isUnboundedCol = range.endCol >= 10000;
+
+      if (isUnboundedRow || isUnboundedCol) {
+        for (const [c, arr] of colStore.entries()) {
+          if (arr.length - 1 > maxPopulatedRow) maxPopulatedRow = arr.length - 1;
+          if (c > maxPopulatedCol) maxPopulatedCol = c;
+        }
+      }
+
+      const effectiveEndRow = isUnboundedRow
+        ? Math.min(range.endRow, Math.max(maxPopulatedRow, range.startRow))
+        : range.endRow;
+      const effectiveEndCol = isUnboundedCol
+        ? Math.min(range.endCol, Math.max(maxPopulatedCol, range.startCol))
+        : range.endCol;
+
+      for (let c = range.startCol; c <= effectiveEndCol; c++) {
+        const colArr = colStore.get(c);
+        for (let r = range.startRow; r <= effectiveEndRow; r++) {
+          const cell = colArr ? colArr[r] : undefined;
+          let val = cell?.value ?? null;
+          if (cell?.dataType === 'string' && typeof val === 'string' && isFormulaError(val)) {
+            const boxed: BoxedLiteralString = new String(val);
+            boxed.__isLiteralText = true;
+            val = boxed as unknown as CellValue;
+          }
+          if (callback(val) === false) return;
+        }
+      }
+    },
+    syncCell: (coord: CellCoordinates, cell: Cell, sheetName?: string) => {
+      const sheetTag = sheetName?.toLowerCase() || currentSheetName?.toLowerCase() || '__current__';
+      const store = colStoreCache.get(sheetTag);
+      if (store) {
+        let arr = store.get(coord.col);
+        if (!arr) {
+          arr = [];
+          store.set(coord.col, arr);
+        }
+        arr[coord.row] = cell;
+      }
     },
     resolveNamedRange: namedRangeResolver
   };
@@ -215,6 +304,87 @@ export function parseRawCellValue(input: string): {
 export class CalculationEngine {
   private dependencyGraph = new DependencyGraph();
   private astCache = new Map<string, ASTNode>();
+  private spillTracking = new Map<string, Set<string>>();
+
+  private clearSpillChildren(cells: Record<string, Cell>, anchorKey: string): void {
+    const children = this.spillTracking.get(anchorKey);
+    if (children) {
+      for (const childKey of children) {
+        if (cells[childKey]?.spillParent === anchorKey) {
+          delete cells[childKey];
+        }
+      }
+      this.spillTracking.delete(anchorKey);
+    }
+  }
+
+  private applySpill(
+    cells: Record<string, Cell>,
+    anchorKey: string,
+    result: unknown
+  ): { anchorValue: CellValue; isSpillError: boolean } {
+    if (
+      !Array.isArray(result) ||
+      (result.length <= 1 && (!result[0] || !Array.isArray(result[0]) || result[0].length <= 1))
+    ) {
+      const singleVal = Array.isArray(result)
+        ? (Array.isArray(result[0]) ? (result[0][0] ?? null) : (result[0] ?? null))
+        : (result as CellValue);
+      this.clearSpillChildren(cells, anchorKey);
+      return { anchorValue: singleVal, isSpillError: false };
+    }
+
+    const grid = result as CellValue[][];
+    const anchorCoord = keyToCoord(anchorKey);
+    const rows = grid.length;
+    const prevChildren = this.spillTracking.get(anchorKey) || new Set<string>();
+
+    // 1. Check for collision/blockage
+    for (let r = 0; r < rows; r++) {
+      const rowLen = grid[r]?.length || 0;
+      for (let c = 0; c < rowLen; c++) {
+        if (r === 0 && c === 0) continue;
+        const targetKey = coordToKey(anchorCoord.row + r, anchorCoord.col + c);
+        const existing = cells[targetKey];
+        if (existing) {
+          const hasContent = existing.formula || (existing.value !== null && existing.value !== undefined && existing.value !== '');
+          if (hasContent && existing.spillParent !== anchorKey) {
+            this.clearSpillChildren(cells, anchorKey);
+            return { anchorValue: FormulaError.SPILL, isSpillError: true };
+          }
+        }
+      }
+    }
+
+    // 2. Populate spilled cells
+    const newChildren = new Set<string>();
+    for (let r = 0; r < rows; r++) {
+      const rowLen = grid[r]?.length || 0;
+      for (let c = 0; c < rowLen; c++) {
+        if (r === 0 && c === 0) continue;
+        const childKey = coordToKey(anchorCoord.row + r, anchorCoord.col + c);
+        newChildren.add(childKey);
+        const val = grid[r]![c] ?? null;
+        const isErr = isFormulaError(val);
+        cells[childKey] = {
+          value: val,
+          dataType: isErr ? 'error' : typeof val === 'number' ? 'number' : typeof val === 'boolean' ? 'boolean' : 'string',
+          spillParent: anchorKey
+        };
+      }
+    }
+
+    // Clear old children outside new bounds
+    for (const oldChild of prevChildren) {
+      if (!newChildren.has(oldChild) && cells[oldChild]?.spillParent === anchorKey) {
+        delete cells[oldChild];
+      }
+    }
+    this.spillTracking.set(anchorKey, newChildren);
+
+    const anchorVal = grid[0]?.[0] ?? null;
+    return { anchorValue: anchorVal, isSpillError: false };
+  }
 
   /**
    * Evaluates a standalone formula string in the context of given cells.
@@ -230,6 +400,11 @@ export class CalculationEngine {
     const ast = parseFormula(formula);
     const context = createEvaluationContext(cells, namedRangeResolver, getCrossSheetCells, currentSheetName, currentCoord);
     const evalResult = evaluateAST(ast, context);
+    if (Array.isArray(evalResult)) {
+      const firstRow = evalResult[0];
+      const scalar = Array.isArray(firstRow) ? firstRow[0] : firstRow;
+      return scalar instanceof String ? scalar.valueOf() : (scalar ?? null);
+    }
     return evalResult instanceof String ? evalResult.valueOf() : evalResult;
   }
 
@@ -247,6 +422,7 @@ export class CalculationEngine {
   } {
     this.dependencyGraph.clear();
     this.astCache.clear();
+    this.spillTracking.clear();
 
     const cellsCopy = { ...sheet.cells };
     const formulaCells = new Map<string, { formula: string; ast: ASTNode }>();
@@ -286,10 +462,11 @@ export class CalculationEngine {
       if (!fInfo) continue;
 
       context.currentCoord = keyToCoord(key);
-      const evalResult = evaluateAST(fInfo.ast, context);
-      const isLiteral = isBoxedLiteral(evalResult);
-      const unwrappedResult = evalResult instanceof String ? evalResult.valueOf() : evalResult;
-      const isErr = !isLiteral && isFormulaError(unwrappedResult);
+      const evalResult = evaluateRootAST(fInfo.ast, context);
+      const { anchorValue, isSpillError } = this.applySpill(cellsCopy, key, evalResult);
+      const isLiteral = isBoxedLiteral(anchorValue);
+      const unwrappedResult = anchorValue instanceof String ? anchorValue.valueOf() : anchorValue;
+      const isErr = isSpillError || (!isLiteral && isFormulaError(unwrappedResult));
 
       cellsCopy[key] = {
         ...cellsCopy[key]!,
@@ -297,6 +474,10 @@ export class CalculationEngine {
         formula: fInfo.formula,
         dataType: isErr ? 'error' : 'formula'
       };
+      const coord = keyToCoord(key);
+      if (coord) {
+        context.syncCell?.(coord, cellsCopy[key]!, sheet.name);
+      }
     }
 
     return { updatedCells: cellsCopy, cycles: Array.from(cycleCells) };
@@ -324,6 +505,7 @@ export class CalculationEngine {
 
     // 1. Process target cell
     if (parsed.dataType === 'empty') {
+      this.clearSpillChildren(updatedCells, key);
       this.dependencyGraph.removeCell(key);
       this.astCache.delete(key);
       delete updatedCells[key];
@@ -336,6 +518,7 @@ export class CalculationEngine {
 
       // Check if self or newly formed dependency is circular
       if (this.dependencyGraph.hasCircularDependency(key)) {
+        this.clearSpillChildren(updatedCells, key);
         updatedCells[key] = {
           value: FormulaError.CYCLE,
           formula: parsed.formula,
@@ -343,10 +526,11 @@ export class CalculationEngine {
         };
       } else {
         const context = createEvaluationContext(updatedCells, namedRangeResolver, getCrossSheetCells, currentSheetName, keyToCoord(key));
-        const evalResult = evaluateAST(ast, context);
-        const isLiteral = isBoxedLiteral(evalResult);
-        const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
-        const isErr = !isLiteral && isFormulaError(unwrapped);
+        const evalResult = evaluateRootAST(ast, context);
+        const { anchorValue, isSpillError } = this.applySpill(updatedCells, key, evalResult);
+        const isLiteral = isBoxedLiteral(anchorValue);
+        const unwrapped = anchorValue instanceof String ? anchorValue.valueOf() : anchorValue;
+        const isErr = isSpillError || (!isLiteral && isFormulaError(unwrapped));
         updatedCells[key] = {
           ...(updatedCells[key] || {}),
           value: unwrapped,
@@ -356,6 +540,7 @@ export class CalculationEngine {
       }
     } else {
       // Cell contains literal value
+      this.clearSpillChildren(updatedCells, key);
       this.dependencyGraph.removeCell(key);
       this.astCache.delete(key);
       const existingCell = updatedCells[key];
@@ -403,15 +588,20 @@ export class CalculationEngine {
       }
 
       context.currentCoord = keyToCoord(depKey);
-      const evalResult = evaluateAST(ast, context);
-      const isLiteral = isBoxedLiteral(evalResult);
-      const unwrapped = evalResult instanceof String ? evalResult.valueOf() : evalResult;
-      const isErr = !isLiteral && isFormulaError(unwrapped);
+      const evalResult = evaluateRootAST(ast, context);
+      const { anchorValue, isSpillError } = this.applySpill(updatedCells, depKey, evalResult);
+      const isLiteral = isBoxedLiteral(anchorValue);
+      const unwrapped = anchorValue instanceof String ? anchorValue.valueOf() : anchorValue;
+      const isErr = isSpillError || (!isLiteral && isFormulaError(unwrapped));
       updatedCells[depKey] = {
         ...cell,
         value: unwrapped,
         dataType: isErr ? 'error' : 'formula'
       };
+      const coord = keyToCoord(depKey);
+      if (coord) {
+        context.syncCell?.(coord, updatedCells[depKey]!, currentSheetName);
+      }
       count++;
     }
 
@@ -424,6 +614,7 @@ export class CalculationEngine {
   public clear(): void {
     this.dependencyGraph.clear();
     this.astCache.clear();
+    this.spillTracking.clear();
   }
 
   /**

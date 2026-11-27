@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, ReactNode, KeyboardEvent, CSSProperties } from 'react';
+import React, { useState, useRef, useEffect, useCallback, ReactNode, KeyboardEvent, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/utils/cn';
 
@@ -40,7 +40,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const menuWidth = 180;
@@ -52,7 +52,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
       const top = rect.bottom + 4;
       setCoords({ top, left });
     }
-  };
+  }, [align]);
 
   useEffect(() => {
     if (isOpen) {
@@ -65,7 +65,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         window.removeEventListener('scroll', handleScrollOrResize, true);
       };
     }
-  }, [isOpen, align]);
+  }, [isOpen, updatePosition]);
 
   // Close on outside click
   useEffect(() => {

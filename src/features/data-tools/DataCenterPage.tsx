@@ -90,7 +90,7 @@ export const DataCenterPage: React.FC = () => {
           <button
             key={t.id}
             type="button"
-            onClick={() => setActiveTab(t.id as any)}
+            onClick={() => setActiveTab(t.id as 'cleaner' | 'split')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeTab === t.id
                 ? 'bg-accent text-zinc-950 shadow-xs'

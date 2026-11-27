@@ -13,6 +13,7 @@ import { Sheet, SheetMetadata } from '@/types/sheet';
 import { Workbook } from '@/types/workbook';
 import {
   Cell,
+  CellValue,
   CellStyle,
   CellBorders,
   CellBorder,
@@ -96,7 +97,11 @@ export async function parseExcelWorkbook(
 }> {
   const ExcelJS = await getExcelJS();
   const excelWorkbook = new ExcelJS.Workbook();
-  await excelWorkbook.xlsx.load(data as any);
+  const buffer: ArrayBuffer =
+    data instanceof Uint8Array
+      ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      : data;
+  await excelWorkbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
 
   const sheetNames: string[] = [];
   const sheetDimensions: Record<string, { rowCount: number; columnCount: number; cellCount: number }> = {};
@@ -141,17 +146,18 @@ export async function parseExcelWorkbook(
         if (c > maxCol) maxCol = c;
 
         // Parse cell value and formula
-        let val: any = cell.value;
+        let val: unknown = cell.value;
         let formula: string | undefined = undefined;
 
         if (val && typeof val === 'object') {
-          if ('formula' in val) {
-            formula = val.formula;
-            val = val.result !== undefined ? val.result : null;
-          } else if ('richText' in val && Array.isArray(val.richText)) {
-            val = val.richText.map((t: any) => t.text).join('');
-          } else if ('text' in val) {
-            val = val.text;
+          const valObj = val as Record<string, unknown>;
+          if ('formula' in valObj && typeof valObj.formula === 'string') {
+            formula = valObj.formula;
+            val = valObj.result !== undefined ? valObj.result : null;
+          } else if ('richText' in valObj && Array.isArray(valObj.richText)) {
+            val = (valObj.richText as Array<{ text?: string }>).map((t) => t.text || '').join('');
+          } else if ('text' in valObj && typeof valObj.text === 'string') {
+            val = valObj.text;
           }
         }
 
@@ -195,10 +201,10 @@ export async function parseExcelWorkbook(
 
         if (cell.alignment) {
           if (cell.alignment.horizontal) {
-            style.horizontalAlignment = cell.alignment.horizontal as any;
+            style.horizontalAlignment = cell.alignment.horizontal as CellStyle['horizontalAlignment'];
           }
           if (cell.alignment.vertical) {
-            style.verticalAlignment = cell.alignment.vertical === 'middle' ? 'middle' : (cell.alignment.vertical as any);
+            style.verticalAlignment = cell.alignment.vertical === 'middle' ? 'middle' : (cell.alignment.vertical as CellStyle['verticalAlignment']);
           }
           if (cell.alignment.wrapText) {
             style.wrapText = true;
@@ -220,15 +226,16 @@ export async function parseExcelWorkbook(
           style.numberFormat = cell.numFmt;
         }
 
+        const finalVal: CellValue = val as CellValue;
         cells[coordToKey(r, c)] = {
-          value: val,
+          value: finalVal,
           dataType,
           formula: formula ? (formula.startsWith('=') ? formula : `=${formula}`) : undefined,
           style: Object.keys(style).length > 0 ? style : undefined,
         };
 
         if (samplePreview.length < 10 && c < 10) {
-          previewRow[c] = val;
+          previewRow[c] = finalVal as (string | number | boolean | null);
         }
       });
 
@@ -268,10 +275,10 @@ export async function parseExcelWorkbook(
 
     // Parse Merged Ranges
     const mergedRanges: CellRange[] = [];
-    if ((worksheet as any)._merges) {
-      const merges = (worksheet as any)._merges;
-      for (const key of Object.keys(merges)) {
-        const m = merges[key];
+    const mergesObj = (worksheet as unknown as { _merges?: Record<string, { model?: { top: number; left: number; bottom: number; right: number } }> })._merges;
+    if (mergesObj) {
+      for (const key of Object.keys(mergesObj)) {
+        const m = mergesObj[key];
         if (m && m.model) {
           mergedRanges.push({
             startRow: m.model.top - 1,
@@ -425,10 +432,10 @@ export async function generateExcelWorkbook(
         const cleanFormula = cell.formula.startsWith('=') ? cell.formula.substring(1) : cell.formula;
         excelCell.value = {
           formula: cleanFormula,
-          result: cell.value != null ? (cell.value as any) : undefined,
+          result: cell.value != null ? (cell.value as unknown as number | string | boolean | Date) : undefined,
         };
       } else {
-        excelCell.value = cell.value != null ? (cell.value as any) : '';
+        excelCell.value = cell.value != null ? (cell.value as unknown as ExcelJS.CellValue) : '';
       }
 
       // Write cell formatting styles
@@ -460,8 +467,8 @@ export async function generateExcelWorkbook(
         // Alignment
         if (s.horizontalAlignment || s.verticalAlignment || s.wrapText) {
           excelCell.alignment = {
-            horizontal: s.horizontalAlignment as any,
-            vertical: s.verticalAlignment as any,
+            horizontal: s.horizontalAlignment,
+            vertical: s.verticalAlignment,
             wrapText: Boolean(s.wrapText),
           };
         }

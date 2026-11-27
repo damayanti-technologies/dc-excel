@@ -805,7 +805,7 @@ export const lookupFunctions: FunctionDefinition[] = [
       }
 
       if (resultRows.length === 0) return FormulaError.NA;
-      return resultRows[0]?.[0] ?? null;
+      return resultRows;
     }
   },
 
@@ -892,7 +892,7 @@ export const lookupFunctions: FunctionDefinition[] = [
         return FormulaError.NA;
       }
 
-      return matchedRows[0]?.[0] ?? null;
+      return matchedRows;
     }
   },
 
@@ -952,7 +952,7 @@ export const lookupFunctions: FunctionDefinition[] = [
         return ascending ? cmp : -cmp;
       });
 
-      return rowsCopy[0]?.[0] ?? null;
+      return rowsCopy;
     }
   }
 ];

@@ -93,6 +93,7 @@ export interface Cell {
   dataType: CellDataType;
   style?: CellStyle;
   metadata?: CellMetadata;
+  spillParent?: string;
 }
 
 /**

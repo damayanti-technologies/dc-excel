@@ -411,7 +411,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
     } else if (cellRect.y + cellRect.height > visibleBottom) {
       el.scrollTop = cellRect.y + cellRect.height - el.clientHeight + 16;
     }
-  }, [virtualizer, zoom]);
+  }, [virtualizer, zoom, sheet.rowCount]);
 
   // Ensure active cell scrolls into view
   useEffect(() => {

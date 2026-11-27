@@ -720,7 +720,7 @@ export const textFunctions: FunctionDefinition[] = [
         }
       }
 
-      return grid[0]?.[0] ?? '';
+      return grid;
     }
   }
 ];

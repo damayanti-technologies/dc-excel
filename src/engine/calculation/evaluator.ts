@@ -332,10 +332,30 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
       if (!handler) {
         return FormulaError.NAME;
       }
-      return handler(node.args, context, evaluateAST);
+      const res = handler(node.args, context, evaluateAST);
+      if (Array.isArray(res)) {
+        const firstRow = res[0];
+        const scalar = Array.isArray(firstRow) ? firstRow[0] : firstRow;
+        return (scalar instanceof String ? scalar.valueOf() : (scalar ?? null)) as CellValue;
+      }
+      return res;
     }
 
     default:
       return FormulaError.VALUE;
   }
+}
+
+/**
+ * Evaluates the root AST node of a formula cell, allowing array-valued function handlers
+ * (such as TEXTSPLIT, UNIQUE, SORT, FILTER) to return 2D matrices for spilling.
+ */
+export function evaluateRootAST(node: ASTNode, context: EvaluationContext): CellValue | CellValue[][] {
+  if (node.type === 'FunctionCall') {
+    const handler = functionRegistry.get(node.name);
+    if (handler) {
+      return handler(node.args, context, evaluateAST);
+    }
+  }
+  return evaluateAST(node, context);
 }

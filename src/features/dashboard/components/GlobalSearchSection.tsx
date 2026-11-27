@@ -29,7 +29,7 @@ export const GlobalSearchSection: React.FC = () => {
   const workbooks = useWorkspaceStore((state) => state.workbooks);
   const openCreateWorkbook = useWorkspaceStore((state) => state.openCreateWorkbook);
 
-  const staticSearchCatalog: SearchResultItem[] = [
+  const staticSearchCatalog: SearchResultItem[] = useMemo(() => [
     // Actions
     {
       id: 'act-new-wb',
@@ -148,7 +148,7 @@ export const GlobalSearchSection: React.FC = () => {
       icon: <GraduationCap className="w-4 h-4 text-amber-400" />,
       action: () => navigate('/academy')
     }
-  ];
+  ], [openCreateWorkbook, navigate]);
 
   const searchResults = useMemo(() => {
     if (!query.trim()) return [];
@@ -175,7 +175,7 @@ export const GlobalSearchSection: React.FC = () => {
     );
 
     return [...wbResults, ...catResults].slice(0, 8);
-  }, [query, workbooks, navigate]);
+  }, [query, workbooks, navigate, staticSearchCatalog]);
 
   return (
     <div className="relative">

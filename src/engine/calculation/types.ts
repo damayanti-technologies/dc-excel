@@ -1,5 +1,5 @@
 import { FormulaErrorType } from './errors';
-import { CellCoordinates, CellRange, CellValue } from '@/types/cell';
+import { Cell, CellCoordinates, CellRange, CellValue } from '@/types/cell';
 
 /**
  * Token types emitted by the Formula Tokenizer.
@@ -144,10 +144,12 @@ export interface EvaluationContext {
   getCellValue: (coord: CellCoordinates, sheetName?: string) => CellValue;
   getCellRawOrFormula?: (coord: CellCoordinates, sheetName?: string) => string | undefined;
   getRangeValues: (range: CellRange, sheetName?: string) => CellValue[][];
+  iterateRangeValues?: (range: CellRange, sheetName: string | undefined, callback: (val: CellValue) => boolean | void) => void;
   resolveNamedRange?: (name: string) => { range: CellRange; sheetId?: string } | null;
   currentSheetName?: string;
   currentCoord?: CellCoordinates;
   scopedVariables?: Record<string, CellValue>;
+  syncCell?: (coord: CellCoordinates, cell: Cell, sheetName?: string) => void;
 }
 
 /**
@@ -157,7 +159,7 @@ export type FormulaFunctionHandler = (
   args: ASTNode[],
   context: EvaluationContext,
   evaluate: (node: ASTNode, context: EvaluationContext) => CellValue
-) => CellValue;
+) => CellValue | CellValue[][];
 
 /**
  * Categories of spreadsheet functions.

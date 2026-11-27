@@ -1675,7 +1675,7 @@ export const SpreadsheetPage: React.FC = () => {
         });
       }
     },
-    [activeSheet, editingCell, editingValue, setAllCells, stopEditing, setActiveCell, namedRangeResolver, getCrossSheetCells]
+    [activeSheet, editingCell, editingValue, setAllCells, stopEditing, setActiveCell, setGridDimensions, namedRangeResolver, getCrossSheetCells]
   );
 
   // 7. Clear Cell Contents (Delete / Backspace)

@@ -8,7 +8,8 @@ export const FormulaError = {
   NAME: '#NAME?',
   NUM: '#NUM!',
   NA: '#N/A',
-  CYCLE: '#CYCLE!'
+  CYCLE: '#CYCLE!',
+  SPILL: '#SPILL!'
 } as const;
 
 export type FormulaErrorType = (typeof FormulaError)[keyof typeof FormulaError];

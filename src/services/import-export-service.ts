@@ -11,6 +11,7 @@ import {
 } from '@/types/io';
 import { Workbook } from '@/types/workbook';
 import { Sheet } from '@/types/sheet';
+import { Cell } from '@/types/cell';
 import { workbookRepository } from '@/storage/repositories/workbook-repository';
 import { sheetRepository } from '@/storage/repositories/sheet-repository';
 import { parseExcelWorkbook, generateExcelWorkbook } from '@/engine/io/excel-adapter';
@@ -278,6 +279,15 @@ export class ImportExportService {
     const finalSheets: Sheet[] = [];
     let totalCellCount = 0;
 
+    // Cross-sheet map to resolve formulas referencing any sheet in the imported workbook
+    const sheetMap = new Map<string, Record<string, Cell>>();
+    for (const s of selectedSheets) {
+      if (s?.name) {
+        sheetMap.set(s.name.toLowerCase(), s.cells);
+      }
+    }
+    const getCrossSheetCells = (sheetName: string) => sheetMap.get(sheetName.toLowerCase());
+
     for (let i = 0; i < selectedSheets.length; i++) {
       const srcSheet = selectedSheets[i];
       if (!srcSheet) continue;
@@ -287,8 +297,6 @@ export class ImportExportService {
       // Recalculate formula values if sheet contains formulas
       let sheetCells = srcSheet.cells;
       try {
-        const getCrossSheetCells = (sheetName: string) =>
-          selectedSheets.find((s) => s.name?.toLowerCase() === sheetName.toLowerCase())?.cells;
         const { updatedCells } = this.calculationEngine.recalculateSheet(
           {
             ...srcSheet,
@@ -299,6 +307,9 @@ export class ImportExportService {
           getCrossSheetCells
         );
         sheetCells = updatedCells;
+        if (srcSheet.name) {
+          sheetMap.set(srcSheet.name.toLowerCase(), updatedCells);
+        }
       } catch {
         // Fallback to cells as extracted from file
       }
@@ -313,6 +324,23 @@ export class ImportExportService {
         index: i,
         cells: sheetCells,
       });
+    }
+
+    // Second pass to resolve forward cross-sheet references across all imported sheets
+    for (const sheet of finalSheets) {
+      try {
+        const { updatedCells } = this.calculationEngine.recalculateSheet(
+          sheet,
+          undefined,
+          getCrossSheetCells
+        );
+        sheet.cells = updatedCells;
+        if (sheet.name) {
+          sheetMap.set(sheet.name.toLowerCase(), updatedCells);
+        }
+      } catch {
+        // Keep cells
+      }
     }
 
     const workbook: Workbook = {

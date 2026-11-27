@@ -44,7 +44,17 @@ export const mathFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let total = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
+        if (arg.type === 'RangeRef' && context.iterateRangeValues) {
+          let err: CellValue | null = null;
+          context.iterateRangeValues(arg.range, arg.sheetName, (val) => {
+            if (isFormulaError(val)) {
+              err = val;
+              return false;
+            }
+            if (typeof val === 'number') total += val;
+          });
+          if (err) return err;
+        } else if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {

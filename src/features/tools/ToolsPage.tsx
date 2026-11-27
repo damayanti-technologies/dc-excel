@@ -25,6 +25,42 @@ type ToolTab =
   | 'converter'
   | 'number_systems';
 
+const UNIT_UNITS: Record<string, { label: string; toBase: (v: number) => number; fromBase: (v: number) => number }[]> = {
+  length: [
+    { label: 'Meters (m)', toBase: (v) => v, fromBase: (v) => v },
+    { label: 'Kilometers (km)', toBase: (v) => v * 1000, fromBase: (v) => v / 1000 },
+    { label: 'Centimeters (cm)', toBase: (v) => v * 0.01, fromBase: (v) => v / 0.01 },
+    { label: 'Millimeters (mm)', toBase: (v) => v * 0.001, fromBase: (v) => v / 0.001 },
+    { label: 'Inches (in)', toBase: (v) => v * 0.0254, fromBase: (v) => v / 0.0254 },
+    { label: 'Feet (ft)', toBase: (v) => v * 0.3048, fromBase: (v) => v / 0.3048 },
+    { label: 'Miles (mi)', toBase: (v) => v * 1609.344, fromBase: (v) => v / 1609.344 }
+  ],
+  mass: [
+    { label: 'Kilograms (kg)', toBase: (v) => v, fromBase: (v) => v },
+    { label: 'Grams (g)', toBase: (v) => v * 0.001, fromBase: (v) => v * 1000 },
+    { label: 'Pounds (lb)', toBase: (v) => v * 0.45359237, fromBase: (v) => v / 0.45359237 },
+    { label: 'Ounces (oz)', toBase: (v) => v * 0.028349523, fromBase: (v) => v / 0.028349523 }
+  ],
+  temperature: [
+    { label: 'Celsius (°C)', toBase: (v) => v, fromBase: (v) => v },
+    { label: 'Fahrenheit (°F)', toBase: (v) => ((v - 32) * 5) / 9, fromBase: (v) => (v * 9) / 5 + 32 },
+    { label: 'Kelvin (K)', toBase: (v) => v - 273.15, fromBase: (v) => v + 273.15 }
+  ],
+  digital: [
+    { label: 'Bytes (B)', toBase: (v) => v, fromBase: (v) => v },
+    { label: 'Kilobytes (KB)', toBase: (v) => v * 1024, fromBase: (v) => v / 1024 },
+    { label: 'Megabytes (MB)', toBase: (v) => v * 1024 * 1024, fromBase: (v) => v / (1024 * 1024) },
+    { label: 'Gigabytes (GB)', toBase: (v) => v * 1024 * 1024 * 1024, fromBase: (v) => v / (1024 * 1024 * 1024) },
+    { label: 'Terabytes (TB)', toBase: (v) => v * 1024 ** 4, fromBase: (v) => v / 1024 ** 4 }
+  ],
+  pressure: [
+    { label: 'Pascals (Pa)', toBase: (v) => v, fromBase: (v) => v },
+    { label: 'Bar', toBase: (v) => v * 100000, fromBase: (v) => v / 100000 },
+    { label: 'PSI', toBase: (v) => v * 6894.76, fromBase: (v) => v / 6894.76 },
+    { label: 'Atmosphere (atm)', toBase: (v) => v * 101325, fromBase: (v) => v / 101325 }
+  ]
+};
+
 export const ToolsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ToolTab>('scientific');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -141,7 +177,6 @@ export const ToolsPage: React.FC = () => {
         return;
       }
 
-      // eslint-disable-next-line no-new-func
       const val = Function(`"use strict"; return (${sanitized});`)();
       if (typeof val === 'number' && !isNaN(val) && isFinite(val)) {
         setSciResult(String(Math.round(val * 1e10) / 1e10));
@@ -273,44 +308,8 @@ export const ToolsPage: React.FC = () => {
   const [convFrom, setConvFrom] = useState('m');
   const [convTo, setConvTo] = useState('ft');
 
-  const unitUnits: Record<string, { label: string; toBase: (v: number) => number; fromBase: (v: number) => number }[]> = {
-    length: [
-      { label: 'Meters (m)', toBase: (v) => v, fromBase: (v) => v },
-      { label: 'Kilometers (km)', toBase: (v) => v * 1000, fromBase: (v) => v / 1000 },
-      { label: 'Centimeters (cm)', toBase: (v) => v * 0.01, fromBase: (v) => v / 0.01 },
-      { label: 'Millimeters (mm)', toBase: (v) => v * 0.001, fromBase: (v) => v / 0.001 },
-      { label: 'Inches (in)', toBase: (v) => v * 0.0254, fromBase: (v) => v / 0.0254 },
-      { label: 'Feet (ft)', toBase: (v) => v * 0.3048, fromBase: (v) => v / 0.3048 },
-      { label: 'Miles (mi)', toBase: (v) => v * 1609.344, fromBase: (v) => v / 1609.344 }
-    ],
-    mass: [
-      { label: 'Kilograms (kg)', toBase: (v) => v, fromBase: (v) => v },
-      { label: 'Grams (g)', toBase: (v) => v * 0.001, fromBase: (v) => v * 1000 },
-      { label: 'Pounds (lb)', toBase: (v) => v * 0.45359237, fromBase: (v) => v / 0.45359237 },
-      { label: 'Ounces (oz)', toBase: (v) => v * 0.028349523, fromBase: (v) => v / 0.028349523 }
-    ],
-    temperature: [
-      { label: 'Celsius (°C)', toBase: (v) => v, fromBase: (v) => v },
-      { label: 'Fahrenheit (°F)', toBase: (v) => ((v - 32) * 5) / 9, fromBase: (v) => (v * 9) / 5 + 32 },
-      { label: 'Kelvin (K)', toBase: (v) => v - 273.15, fromBase: (v) => v + 273.15 }
-    ],
-    digital: [
-      { label: 'Bytes (B)', toBase: (v) => v, fromBase: (v) => v },
-      { label: 'Kilobytes (KB)', toBase: (v) => v * 1024, fromBase: (v) => v / 1024 },
-      { label: 'Megabytes (MB)', toBase: (v) => v * 1024 * 1024, fromBase: (v) => v / (1024 * 1024) },
-      { label: 'Gigabytes (GB)', toBase: (v) => v * 1024 * 1024 * 1024, fromBase: (v) => v / (1024 * 1024 * 1024) },
-      { label: 'Terabytes (TB)', toBase: (v) => v * 1024 ** 4, fromBase: (v) => v / 1024 ** 4 }
-    ],
-    pressure: [
-      { label: 'Pascals (Pa)', toBase: (v) => v, fromBase: (v) => v },
-      { label: 'Bar', toBase: (v) => v * 100000, fromBase: (v) => v / 100000 },
-      { label: 'PSI', toBase: (v) => v * 6894.76, fromBase: (v) => v / 6894.76 },
-      { label: 'Atmosphere (atm)', toBase: (v) => v * 101325, fromBase: (v) => v / 101325 }
-    ]
-  };
-
   const convertedResult = useMemo(() => {
-    const catList = unitUnits[convCategory] || unitUnits['length'] || [];
+    const catList = UNIT_UNITS[convCategory] || UNIT_UNITS['length'] || [];
     if (!catList || catList.length === 0) return 0;
     const fallbackUnit = catList[0] || { label: '', toBase: (v: number) => v, fromBase: (v: number) => v };
     const fromUnit = catList.find((u) => u.label.includes(convFrom)) || fallbackUnit;
@@ -953,7 +952,7 @@ export const ToolsPage: React.FC = () => {
                 onChange={(e) => setConvFrom(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-xs font-semibold"
               >
-                {(unitUnits[convCategory] || []).map((u) => (
+                {(UNIT_UNITS[convCategory] || []).map((u) => (
                   <option key={u.label} value={u.label}>
                     {u.label}
                   </option>
@@ -974,7 +973,7 @@ export const ToolsPage: React.FC = () => {
                 onChange={(e) => setConvTo(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-xs font-semibold"
               >
-                {(unitUnits[convCategory] || []).map((u) => (
+                {(UNIT_UNITS[convCategory] || []).map((u) => (
                   <option key={u.label} value={u.label}>
                     {u.label}
                   </option>

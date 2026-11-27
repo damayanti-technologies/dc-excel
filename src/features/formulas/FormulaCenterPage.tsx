@@ -198,8 +198,8 @@ export const FormulaCenterPage: React.FC = () => {
       };
       const result = calculationEngine.evaluateFormula(formula, mockCells);
       setSandboxOutput(String(result));
-    } catch (e: any) {
-      setSandboxOutput(`Error: ${e.message}`);
+    } catch (e: unknown) {
+      setSandboxOutput(`Error: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -255,7 +255,7 @@ export const FormulaCenterPage: React.FC = () => {
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as 'explorer' | 'builder' | 'sandbox')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
               activeTab === tab.id
                 ? 'bg-accent text-zinc-950 shadow-xs'

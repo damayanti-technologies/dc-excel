@@ -162,9 +162,14 @@ export function resolveTo2DArray(
     );
   }
 
-  const val = evaluate(node, context);
+  const val = evaluate(node, context) as unknown as CellValue | CellValue[][];
   if (isFormulaError(val)) return val;
-  return [[val]];
+  if (Array.isArray(val)) {
+    if (val.length === 0) return [[null]];
+    if (Array.isArray(val[0])) return val as CellValue[][];
+    return [val as unknown as CellValue[]] as CellValue[][];
+  }
+  return [[val as CellValue]];
 }
 
 /**

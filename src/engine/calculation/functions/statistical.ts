@@ -11,7 +11,19 @@ function extractNumericValues(
   const numbers: number[] = [];
 
   for (const arg of args) {
-    if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
+    if (arg.type === 'RangeRef' && context.iterateRangeValues) {
+      let err: string | undefined;
+      context.iterateRangeValues(arg.range, arg.sheetName, (val) => {
+        if (isFormulaError(val)) {
+          err = val;
+          return false;
+        }
+        if (typeof val === 'number') {
+          numbers.push(val);
+        }
+      });
+      if (err) return { numbers: [], error: err };
+    } else if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
       const grid = resolveTo2DArray(arg, context, evaluate);
       if (typeof grid === 'string') return { numbers: [], error: grid };
       for (const row of grid) {
@@ -73,7 +85,17 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
+        if (arg.type === 'RangeRef' && context.iterateRangeValues) {
+          let err: string | undefined;
+          context.iterateRangeValues(arg.range, arg.sheetName, (val) => {
+            if (isFormulaError(val)) {
+              err = val;
+              return false;
+            }
+            if (typeof val === 'number') count++;
+          });
+          if (err) return err;
+        } else if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {
@@ -317,7 +339,19 @@ export const statisticalFunctions: FunctionDefinition[] = [
     handler: (args, context, evaluate) => {
       let count = 0;
       for (const arg of args) {
-        if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
+        if (arg.type === 'RangeRef' && context.iterateRangeValues) {
+          let err: string | undefined;
+          context.iterateRangeValues(arg.range, arg.sheetName, (val) => {
+            if (isFormulaError(val)) {
+              err = val;
+              return false;
+            }
+            if (val !== null && val !== undefined && val !== '') {
+              count++;
+            }
+          });
+          if (err) return err;
+        } else if (arg.type === 'RangeRef' || arg.type === 'NamedRangeRef' || arg.type === 'ArrayLiteral') {
           const grid = resolveTo2DArray(arg, context, evaluate);
           if (typeof grid === 'string') return grid;
           for (const row of grid) {
