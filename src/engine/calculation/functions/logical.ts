@@ -1,5 +1,6 @@
-import { FunctionDefinition } from '../types';
+import { FunctionDefinition, EvaluationContext } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
+import { CellValue } from '@/types/cell';
 import { coerceBoolean, coerceNumber, resolveTo1DArray } from './helpers';
 
 export const logicalFunctions: FunctionDefinition[] = [
@@ -317,6 +318,59 @@ export const logicalFunctions: FunctionDefinition[] = [
       }
 
       return evaluate(args[index]!, context);
+    }
+  },
+
+  // 12. LET
+  {
+    name: 'LET',
+    category: 'Logical',
+    description: 'Assigns names to calculation results, enabling intermediate calculations or values inside a formula.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'any',
+    args: [
+      { name: 'name1', description: 'The first variable name.', type: 'any' },
+      { name: 'name_value1', description: 'The value assigned to name1.', type: 'any' },
+      { name: 'calculation_or_name2', description: 'The calculation to run or another variable name.', type: 'any' }
+    ],
+    examples: ['=LET(x, 5, x * 2)', '=LET(width, 10, height, 20, width * height)'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 3 || args.length % 2 === 0) {
+        return FormulaError.VALUE;
+      }
+
+      const scopedVariables: Record<string, CellValue> = { ...(context.scopedVariables || {}) };
+      const currentContext: EvaluationContext = {
+        ...context,
+        scopedVariables
+      };
+
+      for (let i = 0; i < args.length - 1; i += 2) {
+        const nameNode = args[i]!;
+        let varName = '';
+        if (nameNode.type === 'NamedRangeRef') {
+          varName = nameNode.name.toUpperCase();
+        } else if (nameNode.type === 'StringLiteral') {
+          varName = nameNode.value.toUpperCase();
+        } else {
+          const evalName = evaluate(nameNode, currentContext);
+          if (isFormulaError(evalName)) return evalName;
+          varName = String(evalName).toUpperCase();
+        }
+
+        if (!varName || /^[A-Z]+\d+$/.test(varName)) {
+          return FormulaError.NAME;
+        }
+
+        const valNode = args[i + 1]!;
+        const val = evaluate(valNode, currentContext);
+        if (isFormulaError(val)) return val;
+        scopedVariables[varName] = val;
+      }
+
+      const calcNode = args[args.length - 1]!;
+      return evaluate(calcNode, currentContext);
     }
   }
 ];

@@ -577,9 +577,9 @@ export const lookupFunctions: FunctionDefinition[] = [
       { name: 'reference', description: 'The cell or range of cells for which you want the row number.', type: 'any', optional: true }
     ],
     examples: ['=ROW(C5)', '=ROW()'],
-    handler: (args) => {
+    handler: (args, context) => {
       if (!args[0] || args[0].type === 'Empty') {
-        return 1;
+        return context?.currentCoord ? context.currentCoord.row + 1 : 1;
       }
       const arg = args[0];
       if (arg.type === 'CellRef') {
@@ -604,9 +604,9 @@ export const lookupFunctions: FunctionDefinition[] = [
       { name: 'reference', description: 'The cell or range of cells for which you want the column number.', type: 'any', optional: true }
     ],
     examples: ['=COLUMN(C5)', '=COLUMN()'],
-    handler: (args) => {
+    handler: (args, context) => {
       if (!args[0] || args[0].type === 'Empty') {
-        return 1;
+        return context?.currentCoord ? context.currentCoord.col + 1 : 1;
       }
       const arg = args[0];
       if (arg.type === 'CellRef') {

@@ -1,5 +1,6 @@
-import { FunctionDefinition } from '../types';
+import { ASTNode, FunctionDefinition } from '../types';
 import { FormulaError, isFormulaError } from '../errors';
+import { CellValue } from '@/types/cell';
 import {
   coerceBoolean,
   coerceNumber,
@@ -611,6 +612,115 @@ export const textFunctions: FunctionDefinition[] = [
         return FormulaError.VALUE;
       }
       return num;
+    }
+  },
+
+  // 21. TEXTSPLIT
+  {
+    name: 'TEXTSPLIT',
+    category: 'Text',
+    description: 'Splits text strings by using column and row delimiters.',
+    minArgs: 1,
+    maxArgs: 6,
+    returnType: 'any',
+    args: [
+      { name: 'text', description: 'The text you want to split.', type: 'string' },
+      { name: 'col_delimiter', description: 'The text that marks the point where to spill text across columns.', type: 'any', optional: true },
+      { name: 'row_delimiter', description: 'The text that marks the point where to spill text down rows.', type: 'any', optional: true },
+      { name: 'ignore_empty', description: 'Specify TRUE to ignore consecutive delimiters. Defaults to FALSE.', type: 'boolean', optional: true, defaultValue: 'FALSE' },
+      { name: 'match_mode', description: 'Specify 1 to perform a case-insensitive match. Defaults to 0 for case-sensitive.', type: 'number', optional: true, defaultValue: '0' },
+      { name: 'pad_with', description: 'The value with which to pad the result. Defaults to #N/A.', type: 'any', optional: true, defaultValue: '#N/A' }
+    ],
+    examples: ['=TEXTSPLIT("A,B,C", ",")', '=TEXTSPLIT(A1, " ", ";")'],
+    handler: (args, context, evaluate) => {
+      const textEval = evaluate(args[0]!, context);
+      if (isFormulaError(textEval)) return textEval;
+      const text = coerceString(textEval);
+
+      function extractDelimiters(argNode?: ASTNode): string[] {
+        if (!argNode || argNode.type === 'Empty') return [];
+        const flat = resolveTo1DArray(argNode, context, evaluate);
+        if (typeof flat === 'string') return [flat];
+        return flat
+          .filter((v): v is CellValue => v !== null && v !== undefined && !isFormulaError(v))
+          .map((v) => coerceString(v))
+          .filter((s) => s.length > 0);
+      }
+
+      const colDelims = args.length >= 2 ? extractDelimiters(args[1]) : [];
+      const rowDelims = args.length >= 3 ? extractDelimiters(args[2]) : [];
+
+      if (colDelims.length === 0 && rowDelims.length === 0) {
+        return FormulaError.VALUE;
+      }
+
+      let ignoreEmpty = false;
+      if (args.length >= 4 && args[3]!.type !== 'Empty') {
+        const ignEval = evaluate(args[3]!, context);
+        if (isFormulaError(ignEval)) return ignEval;
+        ignoreEmpty = coerceBoolean(ignEval);
+      }
+
+      let matchMode = 0;
+      if (args.length >= 5 && args[4]!.type !== 'Empty') {
+        const mmEval = evaluate(args[4]!, context);
+        if (isFormulaError(mmEval)) return mmEval;
+        const { num } = coerceNumber(mmEval);
+        matchMode = Math.trunc(num);
+      }
+
+      let padWith: CellValue = FormulaError.NA;
+      if (args.length >= 6 && args[5]!.type !== 'Empty') {
+        padWith = evaluate(args[5]!, context);
+      }
+
+      function buildSplitRegex(delims: string[]): RegExp {
+        const escaped = delims
+          .map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+          .sort((a, b) => b.length - a.length);
+        return new RegExp(escaped.join('|'), matchMode === 1 ? 'i' : '');
+      }
+
+      // 1. Split into rows
+      let rows: string[] = [text];
+      if (rowDelims.length > 0) {
+        const rowRegex = buildSplitRegex(rowDelims);
+        rows = text.split(rowRegex);
+        if (ignoreEmpty) {
+          rows = rows.filter((r) => r !== '');
+        }
+      }
+
+      // 2. Split each row into columns
+      const grid: string[][] = [];
+      if (colDelims.length > 0) {
+        const colRegex = buildSplitRegex(colDelims);
+        for (const row of rows) {
+          let cols = row.split(colRegex);
+          if (ignoreEmpty) {
+            cols = cols.filter((c) => c !== '');
+          }
+          grid.push(cols);
+        }
+      } else {
+        for (const r of rows) {
+          grid.push([r]);
+        }
+      }
+
+      if (grid.length === 0 || grid.every((r) => r.length === 0)) {
+        return FormulaError.NA;
+      }
+
+      // Pad jagged rows
+      const maxCols = Math.max(...grid.map((r) => r.length));
+      for (const row of grid) {
+        while (row.length < maxCols) {
+          row.push(String(padWith));
+        }
+      }
+
+      return grid[0]?.[0] ?? '';
     }
   }
 ];

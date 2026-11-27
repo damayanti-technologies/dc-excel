@@ -3,30 +3,33 @@ import fs from 'fs';
 import path from 'path';
 
 describe('PWA Web App Manifest Validity', () => {
-  it('contains a valid, well-formed web app manifest', () => {
-    const manifestPath = path.resolve(__dirname, '../../public/manifest.json');
-    expect(fs.existsSync(manifestPath)).toBe(true);
+  it('confirms leftover public/manifest.json is removed in favor of VitePWA manifest generation', () => {
+    const legacyPath = path.resolve(__dirname, '../../public/manifest.json');
+    expect(fs.existsSync(legacyPath)).toBe(false);
+  });
 
-    const content = fs.readFileSync(manifestPath, 'utf-8');
-    const manifest = JSON.parse(content);
+  it('contains a valid, well-formed web app manifest in Vite config and generated webmanifest', () => {
+    const viteConfigPath = path.resolve(__dirname, '../../vite.config.ts');
+    expect(fs.existsSync(viteConfigPath)).toBe(true);
 
-    // Assert essential PWA fields
-    expect(manifest.name).toBe('DC Excel - Local-First Spreadsheet');
-    expect(manifest.short_name).toBe('DC Excel');
-    expect(['/', '/excel/', '/dc-excel/']).toContain(manifest.start_url);
-    expect(manifest.display).toBe('standalone');
-    expect(manifest.theme_color).toMatch(/^#[0-9a-fA-F]{6}$/);
-    expect(manifest.background_color).toBeDefined();
+    const viteConfigContent = fs.readFileSync(viteConfigPath, 'utf-8');
+    expect(viteConfigContent).toContain('DC Excel - Local-First Spreadsheet');
+    expect(viteConfigContent).toContain('DC Excel');
+    expect(viteConfigContent).toContain('standalone');
+    expect(viteConfigContent).toContain('icons/icon-192x192.svg');
+    expect(viteConfigContent).toContain('icons/icon-512x512.svg');
 
-    // Icons check
-    expect(Array.isArray(manifest.icons)).toBe(true);
-    expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
-
-    const icon192 = manifest.icons.find((icon: { sizes: string }) => icon.sizes === '192x192');
-    const icon512 = manifest.icons.find((icon: { sizes: string }) => icon.sizes === '512x512');
-
-    expect(icon192).toBeDefined();
-    expect(icon512).toBeDefined();
+    // If dist was built, also assert generated webmanifest
+    const distManifest = path.resolve(__dirname, '../../dist/manifest.webmanifest');
+    if (fs.existsSync(distManifest)) {
+      const manifest = JSON.parse(fs.readFileSync(distManifest, 'utf-8'));
+      expect(manifest.name).toBe('DC Excel - Local-First Spreadsheet');
+      expect(manifest.short_name).toBe('DC Excel');
+      expect(manifest.display).toBe('standalone');
+      expect(manifest.theme_color).toMatch(/^#[0-9a-fA-F]{6}$/);
+      expect(Array.isArray(manifest.icons)).toBe(true);
+      expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
+    }
   });
 
   it('verifies that referenced icon files actually exist on disk', () => {

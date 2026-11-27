@@ -116,6 +116,9 @@ export function evaluateAST(node: ASTNode, context: EvaluationContext): CellValu
     }
 
     case 'NamedRangeRef': {
+      if (context.scopedVariables && Object.prototype.hasOwnProperty.call(context.scopedVariables, node.name.toUpperCase())) {
+        return context.scopedVariables[node.name.toUpperCase()]!;
+      }
       if (!context.resolveNamedRange) {
         return FormulaError.NAME;
       }

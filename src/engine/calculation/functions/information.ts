@@ -141,5 +141,63 @@ export const informationFunctions: FunctionDefinition[] = [
       if (Array.isArray(val)) return 64;
       return 1;
     }
+  },
+
+  // 9. ISEVEN
+  {
+    name: 'ISEVEN',
+    category: 'Information',
+    description: 'Returns TRUE if the number is even; otherwise FALSE.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'boolean',
+    args: [{ name: 'value', description: 'The value to test.', type: 'number' }],
+    examples: ['=ISEVEN(4)', '=ISEVEN(3)', '=ISEVEN(-2.5)'],
+    handler: (args, context, evaluate) => {
+      const val = evaluate(args[0]!, context);
+      if (isFormulaError(val)) return val;
+      if (typeof val === 'boolean') return FormulaError.VALUE;
+      let num: number | null = null;
+      if (typeof val === 'number') {
+        num = val;
+      } else if (typeof val === 'string' && val.trim() !== '') {
+        const parsed = Number(val);
+        if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+          num = parsed;
+        }
+      }
+      if (num === null) return FormulaError.VALUE;
+      const truncated = Math.trunc(num);
+      return Math.abs(truncated % 2) === 0;
+    }
+  },
+
+  // 10. ISODD
+  {
+    name: 'ISODD',
+    category: 'Information',
+    description: 'Returns TRUE if the number is odd; otherwise FALSE.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'boolean',
+    args: [{ name: 'value', description: 'The value to test.', type: 'number' }],
+    examples: ['=ISODD(3)', '=ISODD(4)', '=ISODD(-3.5)'],
+    handler: (args, context, evaluate) => {
+      const val = evaluate(args[0]!, context);
+      if (isFormulaError(val)) return val;
+      if (typeof val === 'boolean') return FormulaError.VALUE;
+      let num: number | null = null;
+      if (typeof val === 'number') {
+        num = val;
+      } else if (typeof val === 'string' && val.trim() !== '') {
+        const parsed = Number(val);
+        if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
+          num = parsed;
+        }
+      }
+      if (num === null) return FormulaError.VALUE;
+      const truncated = Math.trunc(num);
+      return Math.abs(truncated % 2) === 1;
+    }
   }
 ];

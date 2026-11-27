@@ -16,7 +16,9 @@ export const AppLayout: React.FC = () => {
     return (
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground transition-colors">
         <main className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0 bg-background relative focus:outline-none">
-          <Outlet />
+          <React.Suspense fallback={<div className="flex-1 flex items-center justify-center p-8 text-foreground-muted text-xs animate-pulse">Loading DC Excel workspace...</div>}>
+            <Outlet />
+          </React.Suspense>
         </main>
         <CreateWorkbookDialog />
         <ToastContainer />
@@ -34,7 +36,9 @@ export const AppLayout: React.FC = () => {
         <Sidebar />
 
         <main className="flex-1 flex flex-col overflow-y-auto min-w-0 bg-background relative focus:outline-none">
-          <Outlet />
+          <React.Suspense fallback={<div className="flex-1 flex items-center justify-center p-8 text-foreground-muted text-xs animate-pulse">Loading DC Excel module...</div>}>
+            <Outlet />
+          </React.Suspense>
         </main>
       </div>
 

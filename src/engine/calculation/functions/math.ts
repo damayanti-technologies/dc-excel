@@ -827,5 +827,81 @@ export const mathFunctions: FunctionDefinition[] = [
           return numbers.reduce((a, b) => a + b, 0);
       }
     }
+  },
+
+  // 24. SIN
+  {
+    name: 'SIN',
+    category: 'Mathematical',
+    description: 'Returns the sine of the given angle in radians.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'number',
+    args: [
+      { name: 'number', description: 'The angle in radians for which you want the sine.', type: 'number' }
+    ],
+    examples: ['=SIN(PI()/2)', '=SIN(0)'],
+    handler: (args, context, evaluate) => {
+      const val = evaluate(args[0]!, context);
+      if (isFormulaError(val)) return val;
+      const { num, error } = coerceNumber(val);
+      if (error) return FormulaError.VALUE;
+      return Math.sin(num);
+    }
+  },
+
+  // 25. COS
+  {
+    name: 'COS',
+    category: 'Mathematical',
+    description: 'Returns the cosine of the given angle in radians.',
+    minArgs: 1,
+    maxArgs: 1,
+    returnType: 'number',
+    args: [
+      { name: 'number', description: 'The angle in radians for which you want the cosine.', type: 'number' }
+    ],
+    examples: ['=COS(0)', '=COS(PI())'],
+    handler: (args, context, evaluate) => {
+      const val = evaluate(args[0]!, context);
+      if (isFormulaError(val)) return val;
+      const { num, error } = coerceNumber(val);
+      if (error) return FormulaError.VALUE;
+      return Math.cos(num);
+    }
+  },
+
+  // 26. SUMSQ
+  {
+    name: 'SUMSQ',
+    category: 'Mathematical',
+    description: 'Returns the sum of the squares of the arguments.',
+    minArgs: 1,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'number1', description: 'The first number, cell reference, or range.', type: 'any' },
+      { name: 'number2', description: 'Additional numbers or ranges to sum squares of.', type: 'any', optional: true, repeating: true }
+    ],
+    examples: ['=SUMSQ(3, 4)', '=SUMSQ(A1:A5)'],
+    handler: (args, context, evaluate) => {
+      let sum = 0;
+      for (const arg of args) {
+        const flat = resolveTo1DArray(arg, context, evaluate);
+        if (typeof flat === 'string') return flat;
+        for (const val of flat) {
+          if (val === null || val === undefined || val === '') continue;
+          if (isFormulaError(val)) return val;
+          if (typeof val === 'number') {
+            sum += val * val;
+          } else {
+            const { num, error } = coerceNumber(val);
+            if (error) return FormulaError.VALUE;
+            sum += num * num;
+          }
+        }
+      }
+      return sum;
+    }
   }
 ];

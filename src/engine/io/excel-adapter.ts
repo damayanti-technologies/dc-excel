@@ -1,4 +1,9 @@
-import ExcelJS from 'exceljs';
+import type ExcelJS from 'exceljs';
+
+async function getExcelJS(): Promise<typeof ExcelJS> {
+  const mod = await import('exceljs');
+  return (mod.default || mod) as typeof ExcelJS;
+}
 import {
   FilePreviewSummary,
   FeatureCompatibilityReport,
@@ -89,6 +94,7 @@ export async function parseExcelWorkbook(
   workbook: Workbook;
   sheets: Sheet[];
 }> {
+  const ExcelJS = await getExcelJS();
   const excelWorkbook = new ExcelJS.Workbook();
   await excelWorkbook.xlsx.load(data as any);
 
@@ -343,6 +349,7 @@ export async function generateExcelWorkbook(
   sheets: Sheet[],
   config: ExcelExportConfig = { fileName: `${workbook.name}.xlsx` }
 ): Promise<{ buffer: ArrayBuffer; warnings: string[] }> {
+  const ExcelJS = await getExcelJS();
   const excelWorkbook = new ExcelJS.Workbook();
   excelWorkbook.creator = 'DC Excel Spreadsheet Engine';
   excelWorkbook.created = new Date(workbook.createdAt || Date.now());

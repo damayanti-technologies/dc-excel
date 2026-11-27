@@ -85,11 +85,29 @@ export function extractReferencesFromAST(
         walk(n.right);
         break;
 
-      case 'FunctionCall':
+      case 'FunctionCall': {
+        const fnName = n.name.toUpperCase();
+        // In Excel, COLUMN/ROW/COLUMNS/ROWS only inspect coordinate metadata,
+        // and do not depend on the cell's calculated value. They must not create dependency cycles.
+        if (fnName === 'COLUMN' || fnName === 'ROW' || fnName === 'COLUMNS' || fnName === 'ROWS') {
+          break;
+        }
+        if (fnName === 'LET') {
+          for (let i = 0; i < n.args.length - 1; i += 2) {
+            if (i + 1 < n.args.length) {
+              walk(n.args[i + 1]!);
+            }
+          }
+          if (n.args.length % 2 === 1) {
+            walk(n.args[n.args.length - 1]!);
+          }
+          break;
+        }
         for (const arg of n.args) {
           walk(arg);
         }
         break;
+      }
 
       case 'ArrayLiteral':
         for (const row of n.elements) {

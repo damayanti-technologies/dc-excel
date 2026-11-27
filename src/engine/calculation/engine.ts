@@ -51,17 +51,27 @@ export function createEvaluationContext(
     getRangeValues: (range: CellRange, sheetName?: string) => {
       const target = getTargetCells(sheetName);
 
-      // Determine bounding box of populated cells so full columns/rows (e.g. A:A) don't iterate 100k+ times
+      // Determine bounding box of populated cells so full columns/rows (e.g. A:A) don't iterate 100k+ times.
+      // Bounded ranges (e.g. A1:A3, B2:D10) must inspect all requested cells including sparse/empty cells!
       let maxPopulatedRow = 0;
       let maxPopulatedCol = 0;
-      for (const k of Object.keys(target)) {
-        const c = keyToCoord(k);
-        if (c.row > maxPopulatedRow) maxPopulatedRow = c.row;
-        if (c.col > maxPopulatedCol) maxPopulatedCol = c.col;
+      const isUnboundedRow = range.endRow >= 100000;
+      const isUnboundedCol = range.endCol >= 10000;
+
+      if (isUnboundedRow || isUnboundedCol) {
+        for (const k of Object.keys(target)) {
+          const c = keyToCoord(k);
+          if (c.row > maxPopulatedRow) maxPopulatedRow = c.row;
+          if (c.col > maxPopulatedCol) maxPopulatedCol = c.col;
+        }
       }
 
-      const effectiveEndRow = Math.min(range.endRow, Math.max(maxPopulatedRow, range.startRow));
-      const effectiveEndCol = Math.min(range.endCol, Math.max(maxPopulatedCol, range.startCol));
+      const effectiveEndRow = isUnboundedRow
+        ? Math.min(range.endRow, Math.max(maxPopulatedRow, range.startRow))
+        : range.endRow;
+      const effectiveEndCol = isUnboundedCol
+        ? Math.min(range.endCol, Math.max(maxPopulatedCol, range.startCol))
+        : range.endCol;
 
       const result: CellValue[][] = [];
       for (let r = range.startRow; r <= effectiveEndRow; r++) {
@@ -132,7 +142,28 @@ export function parseRawCellValue(input: string): {
     }
   }
 
-  // 5. Standard integer, float, scientific notation (e.g. 1E5, 1e3, 2.5e-3, +5, -42)
+  // 5. Currency e.g. $5, $5.00, $ 1,000, -$50, ($100), €50, £10, ₹500, ¥1000
+  const currencyMatch =
+    trimmed.match(/^([+-])?\s*([$€£¥₹])\s*([0-9]{1,3}(,[0-9]{3})*(\.[0-9]+)?|[0-9]+(\.[0-9]+)?)$/) ||
+    trimmed.match(/^\(([0-9]{1,3}(,[0-9]{3})*(\.[0-9]+)?|[0-9]+(\.[0-9]+)?)\s*([$€£¥₹])\)$/) ||
+    trimmed.match(/^\(\s*([$€£¥₹])\s*([0-9]{1,3}(,[0-9]{3})*(\.[0-9]+)?|[0-9]+(\.[0-9]+)?)\)$/);
+  if (currencyMatch) {
+    const isNegative = trimmed.startsWith('-') || trimmed.startsWith('(');
+    const cleanNum = trimmed.replace(/[$€£¥₹(),+\-\s]/g, '');
+    const num = Number(cleanNum);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+      const finalVal = isNegative ? -num : num;
+      const hasDecimals = cleanNum.includes('.');
+      const symbol = trimmed.match(/[$€£¥₹]/)?.[0] || '$';
+      return {
+        value: finalVal,
+        dataType: 'number',
+        format: hasDecimals ? `"${symbol}"#,##0.00` : `"${symbol}"#,##0`
+      };
+    }
+  }
+
+  // 6. Standard integer, float, scientific notation (e.g. 1E5, 1e3, 2.5e-3, +5, -42)
   if (
     /^[+-]?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(trimmed) ||
     /^[+-]?\.[0-9]+([eE][+-]?[0-9]+)?$/.test(trimmed)

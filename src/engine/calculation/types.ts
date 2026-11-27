@@ -147,6 +147,7 @@ export interface EvaluationContext {
   resolveNamedRange?: (name: string) => { range: CellRange; sheetId?: string } | null;
   currentSheetName?: string;
   currentCoord?: CellCoordinates;
+  scopedVariables?: Record<string, CellValue>;
 }
 
 /**

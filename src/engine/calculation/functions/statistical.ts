@@ -742,5 +742,166 @@ export const statisticalFunctions: FunctionDefinition[] = [
       if (count === 0) return FormulaError.DIV_ZERO;
       return total / count;
     }
+  },
+
+  // 19. MAXIFS
+  {
+    name: 'MAXIFS',
+    category: 'Statistical',
+    description: 'Returns the maximum value among cells specified by a given set of conditions or criteria.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'max_range', description: 'The range of cells to find the maximum in.', type: 'range' },
+      { name: 'criteria_range1', description: 'The first range to evaluate.', type: 'range' },
+      { name: 'criteria1', description: 'The condition to meet.', type: 'any' }
+    ],
+    examples: ['=MAXIFS(A1:A10, B1:B10, ">0")'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 3 || args.length % 2 === 0) {
+        return FormulaError.VALUE;
+      }
+
+      const maxGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof maxGrid === 'string') return maxGrid;
+
+      const pairs: { grid: CellValue[][]; crit: CellValue }[] = [];
+      for (let i = 1; i < args.length; i += 2) {
+        const grid = resolveTo2DArray(args[i]!, context, evaluate);
+        if (typeof grid === 'string') return grid;
+        const crit = evaluate(args[i + 1]!, context);
+        if (isFormulaError(crit)) return crit;
+        pairs.push({ grid, crit });
+      }
+
+      let max = -Infinity;
+      let matchFound = false;
+
+      for (let r = 0; r < maxGrid.length; r++) {
+        const row = maxGrid[r] || [];
+        for (let c = 0; c < row.length; c++) {
+          let matchesAll = true;
+          for (const pair of pairs) {
+            const val = pair.grid[r]?.[c] ?? null;
+            if (isFormulaError(val)) return val;
+            if (!matchesCriteria(val, pair.crit)) {
+              matchesAll = false;
+              break;
+            }
+          }
+          if (matchesAll) {
+            const cellVal = row[c] ?? null;
+            if (typeof cellVal === 'number') {
+              if (cellVal > max) max = cellVal;
+              matchFound = true;
+            }
+          }
+        }
+      }
+
+      return matchFound ? max : 0;
+    }
+  },
+
+  // 20. MINIFS
+  {
+    name: 'MINIFS',
+    category: 'Statistical',
+    description: 'Returns the minimum value among cells specified by a given set of conditions or criteria.',
+    minArgs: 3,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'min_range', description: 'The range of cells to find the minimum in.', type: 'range' },
+      { name: 'criteria_range1', description: 'The first range to evaluate.', type: 'range' },
+      { name: 'criteria1', description: 'The condition to meet.', type: 'any' }
+    ],
+    examples: ['=MINIFS(A1:A10, B1:B10, ">0")'],
+    handler: (args, context, evaluate) => {
+      if (args.length < 3 || args.length % 2 === 0) {
+        return FormulaError.VALUE;
+      }
+
+      const minGrid = resolveTo2DArray(args[0]!, context, evaluate);
+      if (typeof minGrid === 'string') return minGrid;
+
+      const pairs: { grid: CellValue[][]; crit: CellValue }[] = [];
+      for (let i = 1; i < args.length; i += 2) {
+        const grid = resolveTo2DArray(args[i]!, context, evaluate);
+        if (typeof grid === 'string') return grid;
+        const crit = evaluate(args[i + 1]!, context);
+        if (isFormulaError(crit)) return crit;
+        pairs.push({ grid, crit });
+      }
+
+      let min = Infinity;
+      let matchFound = false;
+
+      for (let r = 0; r < minGrid.length; r++) {
+        const row = minGrid[r] || [];
+        for (let c = 0; c < row.length; c++) {
+          let matchesAll = true;
+          for (const pair of pairs) {
+            const val = pair.grid[r]?.[c] ?? null;
+            if (isFormulaError(val)) return val;
+            if (!matchesCriteria(val, pair.crit)) {
+              matchesAll = false;
+              break;
+            }
+          }
+          if (matchesAll) {
+            const cellVal = row[c] ?? null;
+            if (typeof cellVal === 'number') {
+              if (cellVal < min) min = cellVal;
+              matchFound = true;
+            }
+          }
+        }
+      }
+
+      return matchFound ? min : 0;
+    }
+  },
+
+  // 21. AVERAGEA
+  {
+    name: 'AVERAGEA',
+    category: 'Statistical',
+    description: 'Calculates the average (arithmetic mean) of arguments, counting TRUE as 1, FALSE as 0, and text as 0.',
+    minArgs: 1,
+    maxArgs: 255,
+    returnType: 'number',
+    args: [
+      { name: 'value1', description: 'First argument, cell reference, or range.', type: 'any' },
+      { name: 'value2', description: 'Additional arguments or ranges.', type: 'any', optional: true, repeating: true }
+    ],
+    examples: ['=AVERAGEA(A1:A5)', '=AVERAGEA(10, TRUE, "abc")'],
+    handler: (args, context, evaluate) => {
+      let sum = 0;
+      let count = 0;
+
+      for (const arg of args) {
+        const flat = resolveTo1DArray(arg, context, evaluate);
+        if (typeof flat === 'string') return flat;
+        for (const val of flat) {
+          if (val === null || val === undefined) continue;
+          if (isFormulaError(val)) return val;
+          if (typeof val === 'number') {
+            sum += val;
+            count++;
+          } else if (typeof val === 'boolean') {
+            sum += val ? 1 : 0;
+            count++;
+          } else if (typeof val === 'string') {
+            sum += 0;
+            count++;
+          }
+        }
+      }
+
+      if (count === 0) return FormulaError.DIV_ZERO;
+      return sum / count;
+    }
   }
 ];
