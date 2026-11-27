@@ -169,9 +169,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
                         </span>
                       </div>
                       {item.shortcut && (
-                        <kbd className="text-[10px] font-mono text-foreground-muted px-1.5 py-0.5 rounded bg-surface-secondary border border-border">
-                          {item.shortcut}
-                        </kbd>
+                        item.shortcut === '✓' ? (
+                          <span className="text-xs text-primary font-bold ml-auto shrink-0 pl-2">✓</span>
+                        ) : (
+                          <kbd className="text-[10px] font-mono text-foreground-muted px-1.5 py-0.5 rounded bg-surface-secondary border border-border">
+                            {item.shortcut}
+                          </kbd>
+                        )
                       )}
                     </button>
                   );

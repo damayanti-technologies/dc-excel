@@ -1093,7 +1093,7 @@ export const SpreadsheetGrid: React.FC<SpreadsheetGridProps> = ({
                 )}
 
                 {/* Content with optional Icon */}
-                <div className="flex items-center w-full z-10 relative">
+                <div className="flex items-center w-full h-full z-10 relative">
                   {cf?.icon && (
                     <span
                       className="inline-flex items-center shrink-0 mr-1.5"

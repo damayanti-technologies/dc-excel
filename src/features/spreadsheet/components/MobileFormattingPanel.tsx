@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { CellStyle } from '@/types/cell';
-import { FONT_FAMILIES, FONT_SIZES, NUMBER_FORMAT_PRESETS, COLOR_PALETTE } from '@/engine/formatting/constants';
+import {
+  FONT_FAMILIES,
+  FONT_SIZES,
+  NUMBER_FORMAT_PRESETS,
+  COLOR_PALETTE,
+  matchFontFamily
+} from '@/engine/formatting/constants';
 import {
   X,
   Bold,
@@ -40,6 +46,7 @@ export const MobileFormattingPanel: React.FC<MobileFormattingPanelProps> = ({
   if (!isOpen) return null;
 
   const currentFontFamily = activeStyle.fontFamily || activeStyle.font || 'Calibri, sans-serif';
+  const matchedFont = matchFontFamily(currentFontFamily);
   const currentFontSize = activeStyle.fontSize || 11;
   const isBold = !!activeStyle.bold;
   const isItalic = !!activeStyle.italic;
@@ -146,15 +153,38 @@ export const MobileFormattingPanel: React.FC<MobileFormattingPanelProps> = ({
               <div>
                 <label className="block text-foreground-muted mb-1 text-[11px]">Font Family</label>
                 <select
-                  value={currentFontFamily}
+                  value={matchedFont?.value || currentFontFamily}
                   onChange={(e) => onApplyStyle({ fontFamily: e.target.value })}
-                  className="w-full p-2 bg-surface-secondary border border-border rounded-lg text-foreground"
+                  className="w-full p-2 bg-surface-secondary border border-border rounded-lg text-foreground text-xs"
                 >
-                  {FONT_FAMILIES.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
+                  <optgroup label="Modern Sans-Serif">
+                    {FONT_FAMILIES.filter((f) => f.category === 'sans-serif').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Classic & Editorial Serif">
+                    {FONT_FAMILIES.filter((f) => f.category === 'serif').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Monospace & Code">
+                    {FONT_FAMILIES.filter((f) => f.category === 'monospace').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Display & Expressive">
+                    {FONT_FAMILIES.filter((f) => f.category === 'display').map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 

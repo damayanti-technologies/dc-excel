@@ -1,18 +1,73 @@
 import { CellStylePreset, NumberFormatPreset } from '@/types/formatting';
 
-export const FONT_FAMILIES = [
-  { label: 'Calibri', value: 'Calibri, sans-serif' },
-  { label: 'Arial', value: 'Arial, sans-serif' },
-  { label: 'Segoe UI', value: '"Segoe UI", sans-serif' },
-  { label: 'Roboto', value: 'Roboto, sans-serif' },
-  { label: 'Times New Roman', value: '"Times New Roman", serif' },
-  { label: 'Georgia', value: 'Georgia, serif' },
-  { label: 'Courier New', value: '"Courier New", monospace' },
-  { label: 'Consolas', value: 'Consolas, monospace' },
-  { label: 'Trebuchet MS', value: '"Trebuchet MS", sans-serif' },
-  { label: 'Verdana', value: 'Verdana, sans-serif' },
-  { label: 'Comic Sans MS', value: '"Comic Sans MS", cursive' }
+export interface FontFamilyOption {
+  label: string;
+  value: string;
+  category: 'sans-serif' | 'serif' | 'monospace' | 'display';
+}
+
+export const FONT_FAMILIES: FontFamilyOption[] = [
+  // --- Modern Sans-Serif ---
+  { label: 'Calibri', value: 'Calibri, "Segoe UI", sans-serif', category: 'sans-serif' },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif', category: 'sans-serif' },
+  { label: 'Inter', value: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif', category: 'sans-serif' },
+  { label: 'Roboto', value: 'Roboto, sans-serif', category: 'sans-serif' },
+  { label: 'Segoe UI', value: '"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif', category: 'sans-serif' },
+  { label: 'Montserrat', value: 'Montserrat, sans-serif', category: 'sans-serif' },
+  { label: 'Poppins', value: 'Poppins, sans-serif', category: 'sans-serif' },
+  { label: 'Lato', value: 'Lato, sans-serif', category: 'sans-serif' },
+  { label: 'Open Sans', value: '"Open Sans", sans-serif', category: 'sans-serif' },
+  { label: 'Trebuchet MS', value: '"Trebuchet MS", sans-serif', category: 'sans-serif' },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif', category: 'sans-serif' },
+
+  // --- Classic & Editorial Serif ---
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif', category: 'serif' },
+  { label: 'Georgia', value: 'Georgia, serif', category: 'serif' },
+  { label: 'Playfair Display', value: '"Playfair Display", Georgia, serif', category: 'serif' },
+  { label: 'Merriweather', value: 'Merriweather, Georgia, serif', category: 'serif' },
+  { label: 'Lora', value: 'Lora, "Times New Roman", serif', category: 'serif' },
+  { label: 'Cinzel', value: 'Cinzel, Georgia, serif', category: 'serif' },
+
+  // --- Monospace & Code / Financial ---
+  { label: 'JetBrains Mono', value: '"JetBrains Mono", Consolas, monospace', category: 'monospace' },
+  { label: 'Fira Code', value: '"Fira Code", Consolas, monospace', category: 'monospace' },
+  { label: 'Consolas', value: 'Consolas, monospace', category: 'monospace' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace', category: 'monospace' },
+
+  // --- Display & Expressive ---
+  { label: 'Oswald', value: 'Oswald, sans-serif', category: 'display' },
+  { label: 'Impact', value: 'Impact, Haettenschweiler, sans-serif', category: 'display' },
+  { label: 'Comic Sans MS', value: '"Comic Sans MS", cursive, sans-serif', category: 'display' }
 ];
+
+/**
+ * Robustly matches an applied font family string to an entry in FONT_FAMILIES.
+ * Handles unquoted, quoted, comma-separated fallbacks, and case variations.
+ */
+export function matchFontFamily(fontFamilyValueOrLabel?: string): FontFamilyOption | undefined {
+  if (!fontFamilyValueOrLabel) return undefined;
+  const clean = fontFamilyValueOrLabel.replace(/['"]/g, '').toLowerCase().trim();
+
+  // 1. Direct label match
+  const byLabel = FONT_FAMILIES.find((f) => f.label.toLowerCase() === clean);
+  if (byLabel) return byLabel;
+
+  // 2. Direct value match (stripped quotes)
+  const byValue = FONT_FAMILIES.find((f) => f.value.replace(/['"]/g, '').toLowerCase() === clean);
+  if (byValue) return byValue;
+
+  // 3. Fallback stack contains font name
+  const parts = clean.split(',').map((p) => p.trim());
+  const byPart = FONT_FAMILIES.find((f) => parts.includes(f.label.toLowerCase()));
+  if (byPart) return byPart;
+
+  // 4. Starts with font label
+  const byPrefix = FONT_FAMILIES.find((f) => clean.startsWith(f.label.toLowerCase()));
+  if (byPrefix) return byPrefix;
+
+  // 5. Fallback substring search
+  return FONT_FAMILIES.find((f) => clean.includes(f.label.toLowerCase()));
+}
 
 export const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
 

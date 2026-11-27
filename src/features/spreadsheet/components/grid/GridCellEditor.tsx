@@ -87,12 +87,12 @@ export const GridCellEditor: React.FC<GridCellEditorProps> = ({
           width,
           height,
           fontSize: `${Math.round((cellStyle?.fontSize || 12) * zoom)}px`,
-          fontFamily: cellStyle?.fontFamily || cellStyle?.font || undefined,
+          fontFamily: cellStyle?.fontFamily || cellStyle?.font || 'inherit',
           fontWeight: cellStyle?.bold ? 'bold' : 'normal',
           fontStyle: cellStyle?.italic ? 'italic' : 'normal',
           color: cellStyle?.textColor || undefined,
         }}
-        className="px-2 font-mono bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
+        className="px-2 bg-background text-foreground border-2 border-accent ring-1 ring-accent outline-none shadow-md"
         aria-label="Direct Cell Editor"
       />
 

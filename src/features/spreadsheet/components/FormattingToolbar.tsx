@@ -28,7 +28,8 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import {
   FONT_FAMILIES,
   FONT_SIZES,
-  NUMBER_FORMAT_PRESETS
+  NUMBER_FORMAT_PRESETS,
+  matchFontFamily
 } from '@/engine/formatting/constants';
 import { CellStyle } from '@/types/cell';
 import { BorderPosition, BorderStyleType } from '@/types/formatting';
@@ -86,14 +87,33 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
     ? 'Currency (¥)'
     : currentNumFormat || 'General';
 
-  // Font family items
-  const fontFamilyItems: (DropdownItem | 'divider')[] = FONT_FAMILIES.map((f) => ({
-    id: f.value,
-    label: f.label,
-    style: { fontFamily: f.value },
-    shortcut: currentFontFamily.includes(f.label) ? '✓' : undefined,
-    onClick: () => onApplyStyle({ fontFamily: f.value })
-  }));
+  const matchedFont = matchFontFamily(currentFontFamily);
+
+  // Font family items grouped by category with dividers for clean selection
+  const fontFamilyCategories: { key: 'sans-serif' | 'serif' | 'monospace' | 'display'; title: string }[] = [
+    { key: 'sans-serif', title: 'Sans-Serif' },
+    { key: 'serif', title: 'Serif' },
+    { key: 'monospace', title: 'Monospace' },
+    { key: 'display', title: 'Display & Script' }
+  ];
+
+  const fontFamilyItems: (DropdownItem | 'divider')[] = [];
+  fontFamilyCategories.forEach((cat, catIdx) => {
+    const fontsInCat = FONT_FAMILIES.filter((f) => f.category === cat.key);
+    if (catIdx > 0 && fontsInCat.length > 0) {
+      fontFamilyItems.push('divider');
+    }
+    fontsInCat.forEach((f) => {
+      const isSelected = matchedFont?.value === f.value || matchedFont?.label === f.label;
+      fontFamilyItems.push({
+        id: f.value,
+        label: f.label,
+        style: { fontFamily: f.value, fontSize: '13px' },
+        shortcut: isSelected ? '✓' : undefined,
+        onClick: () => onApplyStyle({ fontFamily: f.value })
+      });
+    });
+  });
 
   // Font size items
   const fontSizeItems: (DropdownItem | 'divider')[] = FONT_SIZES.map((size) => ({
@@ -200,14 +220,15 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
         {/* 3. Font Family Dropdown */}
         <Dropdown
           align="left"
+          menuClassName="min-w-[210px] max-h-[380px]"
           trigger={
             <button
               type="button"
-              className="h-7 px-2 rounded hover:bg-surface-secondary text-foreground text-xs font-medium transition-colors flex items-center gap-1 border border-border/40 max-w-[120px]"
+              className="h-7 px-2 rounded hover:bg-surface-secondary text-foreground text-xs font-medium transition-colors flex items-center justify-between gap-1 border border-border/40 min-w-[125px] max-w-[160px]"
               title="Font Family"
             >
-              <span className="truncate">
-                {FONT_FAMILIES.find((f) => currentFontFamily.includes(f.label))?.label || 'Calibri'}
+              <span className="truncate" style={{ fontFamily: matchedFont?.value || currentFontFamily }}>
+                {matchedFont?.label || 'Calibri'}
               </span>
               <ChevronDown className="w-3 h-3 text-foreground-muted shrink-0" />
             </button>
