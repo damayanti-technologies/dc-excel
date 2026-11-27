@@ -56,7 +56,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
       onClose={onClose}
       title="Install DC Excel"
       description="Damayanti Crest • Create. Calculate. Analyse."
-      size="lg"
+      size="xl"
       className="p-0 overflow-hidden"
     >
       {/* Modal Body */}
@@ -87,22 +87,22 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           </div>
 
           {/* Specs Pills */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 my-3.5 text-[11px] text-foreground-subtle font-mono bg-surface/60 p-2.5 rounded-lg border border-border">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <FileCode className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="whitespace-nowrap">Setup-v1.0.0.exe</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-3.5 text-xs text-foreground-subtle bg-surface/60 p-3 rounded-lg border border-border">
+            <div className="flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-accent shrink-0" />
+              <span className="font-mono text-foreground font-medium">Setup-v1.0.0.exe</span>
             </div>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <HardDrive className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="whitespace-nowrap">Windows 10 / 11</span>
+            <div className="flex items-center gap-2">
+              <HardDrive className="w-4 h-4 text-accent shrink-0" />
+              <span>Windows 10 / 11 (64-bit)</span>
             </div>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Cpu className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="whitespace-nowrap">x64 Architecture</span>
+            <div className="flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-accent shrink-0" />
+              <span>Native Standalone Window</span>
             </div>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <ShieldCheck className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="whitespace-nowrap">Verified Setup</span>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-accent shrink-0" />
+              <span>Offline Verified Setup</span>
             </div>
           </div>
 
