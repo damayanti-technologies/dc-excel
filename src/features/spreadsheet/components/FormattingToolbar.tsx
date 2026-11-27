@@ -71,6 +71,21 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   const isWrap = !!activeStyle.wrapText;
   const currentNumFormat = activeStyle.numberFormat || 'General';
 
+  const currentFormatPreset = NUMBER_FORMAT_PRESETS.find((p) => p.pattern === currentNumFormat);
+  const formatDisplayLabel = currentFormatPreset
+    ? currentFormatPreset.label.replace(/\s*\([^)]+\)/, '')
+    : currentNumFormat?.startsWith('$')
+    ? 'Currency ($)'
+    : currentNumFormat?.startsWith('€')
+    ? 'Currency (€)'
+    : currentNumFormat?.startsWith('£')
+    ? 'Currency (£)'
+    : currentNumFormat?.startsWith('₹')
+    ? 'Currency (₹)'
+    : currentNumFormat?.startsWith('¥')
+    ? 'Currency (¥)'
+    : currentNumFormat || 'General';
+
   // Font family items
   const fontFamilyItems: (DropdownItem | 'divider')[] = FONT_FAMILIES.map((f) => ({
     id: f.value,
@@ -564,7 +579,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
                 title="Number Format"
               >
                 <span className="truncate">
-                  {NUMBER_FORMAT_PRESETS.find((p) => p.pattern === currentNumFormat)?.label || 'General'}
+                  {formatDisplayLabel}
                 </span>
                 <ChevronDown className="w-3 h-3 text-foreground-muted shrink-0" />
               </button>
