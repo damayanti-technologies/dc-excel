@@ -1,18 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link rel="icon" type="image/svg+xml" href="icons/icon-192x192.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192x192.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f766e" />
+    <meta name="theme-color" content="#09090b" />
     <meta name="description" content="DC Excel - Local-first spreadsheet application built for privacy, performance, and offline capability." />
     <title>DC Excel - Local-First Spreadsheet</title>
     <meta name="application-name" content="DC Excel" />
     <meta name="apple-mobile-web-app-title" content="DC Excel" />
+    <script>
+      // Auto-reload on stale Vite chunk load failures (common after new deployments)
+      window.addEventListener('vite:preloadError', function(event) {
+        console.warn('Vite preload error detected, reloading to fetch latest bundle chunks...', event);
+        window.location.reload();
+      });
+    </script>
   </head>
-  <body class="bg-background text-foreground antialiased min-h-screen">
-    <div id="root"></div>
+  <body class="bg-background text-foreground antialiased min-h-screen" style="background-color: #09090b; color: #f4f4f5; margin: 0; padding: 0;">
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #09090b; color: #f4f4f5; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: #059669; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: #09090b; letter-spacing: -0.03em;">DC</div>
+          <div style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em;">DC Excel</div>
+        </div>
+        <div style="font-size: 12px; color: #71717a; margin-bottom: 20px;">Damayanti Crest • Create. Calculate. Analyse.</div>
+        <div style="width: 22px; height: 22px; border: 2.5px solid #27272a; border-top-color: #059669; border-radius: 50%; animation: dc-spin 0.8s linear infinite;"></div>
+        <style>@keyframes dc-spin { to { transform: rotate(360deg); } }</style>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

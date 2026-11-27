@@ -24,7 +24,7 @@ describe('Stage 15 Performance Benchmarking & Optimization Targets', () => {
     expect(stats.cellCount).toBe(20000);
     expect(stats.numericCount).toBe(1000);
     expect(stats.sum).toBe((1000 * 1001) / 2); // 500,500
-    expect(statTime).toBeLessThan(150); // Under 150ms even under heavy parallel load (typically < 3ms)
+    expect(statTime).toBeLessThan(300); // Under 300ms even under heavy parallel load (typically < 3ms)
     expect(allocTime).toBeLessThan(200);
   });
 

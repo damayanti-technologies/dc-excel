@@ -54,34 +54,11 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title=""
+      title="Install DC Excel"
+      description="Damayanti Crest • Create. Calculate. Analyse."
       size="lg"
       className="p-0 overflow-hidden"
     >
-      {/* Custom Modal Header */}
-      <div className="bg-gradient-to-b from-surface-elevated to-surface-secondary border-b border-border p-6 pb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-accent text-zinc-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
-              DC
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold tracking-tight text-foreground">
-                  Install DC Excel
-                </h2>
-                <Badge variant="success" size="sm">
-                  Official Setup
-                </Badge>
-              </div>
-              <p className="text-xs text-foreground-muted mt-0.5">
-                Damayanti Crest • Create. Calculate. Analyse.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Modal Body */}
       <div className="p-6 space-y-5">
         {/* Primary Option: Windows Setup File (.exe) */}
@@ -98,9 +75,9 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                   <h3 className="font-bold text-foreground text-base">
                     Windows Setup Installer (.exe)
                   </h3>
-                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-accent text-zinc-950 tracking-wider">
+                  <Badge variant="success" size="sm">
                     Recommended
-                  </span>
+                  </Badge>
                 </div>
                 <p className="text-xs text-foreground-muted mt-0.5">
                   Full desktop installer with Desktop shortcut, Start menu integration & offline launcher.

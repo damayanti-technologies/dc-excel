@@ -1,11 +1,12 @@
 import React, { useEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
@@ -42,6 +43,7 @@ export const Modal: React.FC<ModalProps> = ({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+  if (typeof document === 'undefined') return null;
 
   const sizeClasses: Record<string, string> = {
     sm: 'max-w-sm',
@@ -50,17 +52,17 @@ export const Modal: React.FC<ModalProps> = ({
     xl: 'max-w-2xl'
   };
 
-  return (
+  const modalNode = (
     <div
       role="dialog"
       aria-modal="true"
-      aria-labelledby="modal-title"
+      aria-labelledby={title ? 'modal-title' : undefined}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
     >
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-in fade-in"
       />
 
       {/* Modal Dialog Content */}
@@ -73,29 +75,40 @@ export const Modal: React.FC<ModalProps> = ({
         )}
       >
         {/* Header */}
-        <div className="px-6 pt-5 pb-4 border-b border-border flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h3 id="modal-title" className="text-base font-bold text-foreground">
-              {title}
-            </h3>
-            {description && (
-              <p className="text-xs text-foreground-muted leading-relaxed">
-                {description}
-              </p>
-            )}
+        {title ? (
+          <div className="px-6 pt-5 pb-4 border-b border-border flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <h3 id="modal-title" className="text-base font-bold text-foreground">
+                {title}
+              </h3>
+              {description && (
+                <p className="text-xs text-foreground-muted leading-relaxed">
+                  {description}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close dialog"
+              className="p-1 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
+        ) : (
           <button
             type="button"
             onClick={onClose}
             aria-label="Close dialog"
-            className="p-1 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors"
+            className="absolute top-4 right-4 z-20 p-1.5 rounded-lg text-foreground-muted hover:text-foreground hover:bg-surface-secondary transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
-        </div>
+        )}
 
         {/* Body */}
-        <div className="px-6 py-4 text-sm text-foreground max-h-[70vh] overflow-y-auto">
+        <div className="px-6 py-4 text-sm text-foreground max-h-[75vh] overflow-y-auto">
           {children}
         </div>
 
@@ -108,4 +121,6 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalNode, document.body);
 };
