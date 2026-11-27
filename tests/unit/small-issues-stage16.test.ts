@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CalculationEngine, parseRawCellValue } from '@/engine/calculation/engine';
+import { numberFormatter } from '@/engine/formatting/number-formatter';
 import { Cell } from '@/types/cell';
 import { Sheet } from '@/types/sheet';
 import { coordToKey } from '@/utils/coordinates';
@@ -184,28 +185,42 @@ describe('Small Issues & New Formulas Verification (Stage 16)', () => {
   });
 
   describe('8. Currency Typing into Cell ($5 -> Number 5 with Currency Format)', () => {
-    it('parses $5 into numeric 5 with format "$#,##0"', () => {
+    it('parses $5 into numeric 5 with format "$#,##0" and formats to "$5"', () => {
       const parsed = parseRawCellValue('$5');
       expect(parsed.value).toBe(5);
       expect(parsed.dataType).toBe('number');
-      expect(parsed.format).toBe('"$"#,##0');
+      expect(parsed.format).toBe('$#,##0');
+      expect(numberFormatter.format(parsed.value, parsed.format)).toBe('$5');
     });
 
-    it('parses $5.00 into numeric 5 with format "$#,##0.00"', () => {
+    it('parses $5.00 into numeric 5 with format "$#,##0.00" and formats to "$5.00"', () => {
       const parsed = parseRawCellValue('$5.00');
       expect(parsed.value).toBe(5);
       expect(parsed.dataType).toBe('number');
-      expect(parsed.format).toBe('"$"#,##0.00');
+      expect(parsed.format).toBe('$#,##0.00');
+      expect(numberFormatter.format(parsed.value, parsed.format)).toBe('$5.00');
     });
 
-    it('parses -$1,250.75 and ($1,250.75)', () => {
+    it('parses -$1,250.75 and ($1,250.75) and formats correctly', () => {
       const parsedNegative = parseRawCellValue('-$1,250.75');
       expect(parsedNegative.value).toBe(-1250.75);
       expect(parsedNegative.dataType).toBe('number');
+      expect(numberFormatter.format(parsedNegative.value, parsedNegative.format)).toBe('-$1,250.75');
 
       const parsedParen = parseRawCellValue('($1,250.75)');
       expect(parsedParen.value).toBe(-1250.75);
       expect(parsedParen.dataType).toBe('number');
+      expect(numberFormatter.format(parsedParen.value, parsedParen.format)).toBe('-$1,250.75');
+    });
+
+    it('applies currency format to cell style when typed through updateCellInput', () => {
+      const { updatedCells } = engine.updateCellInput({}, { row: 0, col: 0 }, '$5');
+      const cell = updatedCells['0:0'];
+      expect(cell).toBeDefined();
+      expect(cell?.value).toBe(5);
+      expect(cell?.dataType).toBe('number');
+      expect(cell?.style?.numberFormat).toBe('$#,##0');
+      expect(numberFormatter.format(cell?.value ?? null, cell?.style?.numberFormat)).toBe('$5');
     });
   });
 

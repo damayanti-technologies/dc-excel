@@ -158,7 +158,7 @@ export function parseRawCellValue(input: string): {
       return {
         value: finalVal,
         dataType: 'number',
-        format: hasDecimals ? `"${symbol}"#,##0.00` : `"${symbol}"#,##0`
+        format: hasDecimals ? `${symbol}#,##0.00` : `${symbol}#,##0`
       };
     }
   }

@@ -161,11 +161,11 @@ export class NumberFormatter {
       return `${percentVal.toFixed(decimals)}%`;
     }
 
-    // Currency formats (e.g. "$#,##0.00", "€#,##0.00", "£#,##0.00", "₹#,##0.00", "¥#,##0")
-    const currencyMatch = fmt.match(/^([$€£₹¥])(.*)$/);
-    if (currencyMatch && currencyMatch[1] && currencyMatch[2]) {
+    // Currency formats (e.g. "$#,##0.00", "$#,##0", "€#,##0.00", "£#,##0.00", "₹#,##0.00", "¥#,##0")
+    const currencyMatch = fmt.match(/^"?([$€£₹¥])"?(.*)$/);
+    if (currencyMatch && currencyMatch[1] && currencyMatch[2] !== undefined) {
       const symbol = currencyMatch[1];
-      const rest = currencyMatch[2];
+      const rest = currencyMatch[2].replace(/"/g, '');
       const num = typeof value === 'number' ? value : Number(value);
       if (Number.isNaN(num)) return String(value);
 
