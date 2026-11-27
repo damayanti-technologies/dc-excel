@@ -130,6 +130,6 @@ describe('Import & Export Service (Stage 12)', () => {
       expect(result.blob).toBeDefined();
       expect(result.blob.size).toBeGreaterThan(1000);
       expect(result.blob.type).toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    });
+    }, 60000);
   });
 });

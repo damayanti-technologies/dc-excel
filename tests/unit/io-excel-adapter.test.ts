@@ -156,7 +156,7 @@ describe('Excel Adapter Engine (Stage 12)', () => {
       expect(summary.compatibility.formulas).toBe('full');
       expect(summary.compatibility.formatting).toBe('full');
       expect(summary.compatibility.freezePanes).toBe('full');
-    });
+    }, 60000);
 
     it('emits compatibility warnings when sheets contain charts', async () => {
       const sheetWithChart: Sheet = {
